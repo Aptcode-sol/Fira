@@ -82,4 +82,49 @@ router.post('/payouts', async (req, res) => {
     }
 });
 
+// ============= REFUND ROUTES =============
+
+const refundService = require('../services/refundService');
+
+// GET /api/payments/refunds - Get all refunds (admin)
+router.get('/refunds', async (req, res) => {
+    try {
+        const refunds = await refundService.getAllRefunds(req.query);
+        res.json(refunds);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/payments/refunds/user/:userId - Get user's refunds
+router.get('/refunds/user/:userId', async (req, res) => {
+    try {
+        const refunds = await refundService.getRefundsByUser(req.params.userId);
+        res.json(refunds);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/payments/refunds/:id - Get refund details
+router.get('/refunds/:id', async (req, res) => {
+    try {
+        const refund = await refundService.getRefundById(req.params.id);
+        res.json(refund);
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+});
+
+// POST /api/payments/refunds/:id/process - Admin: Process pending refund
+router.post('/refunds/:id/process', async (req, res) => {
+    try {
+        const { adminId, action, notes } = req.body;
+        const refund = await refundService.processRefundRequest(req.params.id, adminId, action, notes);
+        res.json(refund);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;

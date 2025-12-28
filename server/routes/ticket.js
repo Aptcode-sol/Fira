@@ -104,11 +104,25 @@ router.get('/event/:eventId/stats', async (req, res) => {
     }
 });
 
-// POST /api/tickets/:id/cancel - Cancel ticket
+// GET /api/tickets/:id/refund-eligibility - Check refund eligibility
+router.get('/:id/refund-eligibility', async (req, res) => {
+    try {
+        const eligibility = await ticketService.checkRefundEligibility(req.params.id);
+        res.json(eligibility);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/tickets/:id/cancel - Cancel ticket with refund
 router.post('/:id/cancel', async (req, res) => {
     try {
-        const ticket = await ticketService.cancelTicket(req.params.id);
-        res.json(ticket);
+        const { userId, reason } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'userId is required' });
+        }
+        const result = await ticketService.cancelTicket(req.params.id, userId, reason);
+        res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

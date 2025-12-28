@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from './ui';
+import { useToast } from './ui/Toast';
 
 interface BrandCardProps {
     brand: {
@@ -26,6 +27,7 @@ interface BrandCardProps {
 
 export default function BrandCard({ brand, onFollow }: BrandCardProps) {
     const [isFollowing, setIsFollowing] = useState(false); // Todo: Init based on actual follow status
+    const { showToast } = useToast();
 
     const handleFollow = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -38,6 +40,12 @@ export default function BrandCard({ brand, onFollow }: BrandCardProps) {
         if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
         if (count >= 1000) return (count / 1000).toFixed(1) + 'K';
         return count.toString();
+    };
+
+    const handleEnquiry = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast('Visit the brand page to view contact details', 'info');
     };
 
     return (
@@ -110,14 +118,24 @@ export default function BrandCard({ brand, onFollow }: BrandCardProps) {
                                 <span>{brand.stats.events} Events</span>
                             </div>
 
-                            <Button
-                                size="sm"
-                                variant={isFollowing ? "secondary" : "primary"}
-                                className={`h-8 px-4 text-xs ${isFollowing ? 'bg-transparent border border-white/10 text-white hover:bg-neutral-800' : ''}`}
-                                onClick={handleFollow}
-                            >
-                                {isFollowing ? 'Following' : 'Follow'}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-8 px-3 text-xs bg-transparent border border-white/10 text-white hover:bg-neutral-800"
+                                    onClick={handleEnquiry}
+                                >
+                                    Enquiry
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant={isFollowing ? "secondary" : "primary"}
+                                    className={`h-8 px-3 text-xs ${isFollowing ? 'bg-transparent border border-white/10 text-white hover:bg-neutral-800' : ''}`}
+                                    onClick={handleFollow}
+                                >
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

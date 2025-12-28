@@ -240,28 +240,20 @@ const ticketService = {
         };
     },
 
-    // Cancel ticket
-    async cancelTicket(ticketId) {
-        const ticket = await Ticket.findById(ticketId);
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
+    // Cancel ticket with refund processing
+    async cancelTicket(ticketId, userId, reason = 'User requested cancellation') {
+        const refundService = require('./refundService');
+        
+        // Use refund service for complete cancellation flow
+        const result = await refundService.initiateTicketRefund(ticketId, userId, reason);
+        
+        return result;
+    },
 
-        if (ticket.isUsed) {
-            throw new Error('Cannot cancel used ticket');
-        }
-
-        ticket.status = 'cancelled';
-        await ticket.save();
-
-        // Decrease attendee count
-        await Event.findByIdAndUpdate(ticket.event, {
-            $inc: { currentAttendees: -ticket.quantity }
-        });
-
-        // TODO: Process refund
-
-        return ticket;
+    // Check refund eligibility for a ticket
+    async checkRefundEligibility(ticketId) {
+        const refundService = require('./refundService');
+        return await refundService.checkTicketRefundEligibility(ticketId);
     }
 };
 

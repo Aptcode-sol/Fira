@@ -72,11 +72,15 @@ router.put('/:id/status', async (req, res) => {
     }
 });
 
-// POST /api/bookings/:id/cancel - Cancel booking
+// POST /api/bookings/:id/cancel - Cancel booking with refund
 router.post('/:id/cancel', async (req, res) => {
     try {
-        const booking = await bookingService.cancelBooking(req.params.id, req.body.reason);
-        res.json(booking);
+        const { userId, reason } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'userId is required' });
+        }
+        const result = await bookingService.cancelBooking(req.params.id, userId, reason);
+        res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

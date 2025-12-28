@@ -466,6 +466,199 @@ const emailTemplates = {
 </body>
 </html>
     `.trim();
+  },
+
+  /**
+   * Event Cancellation Email Template
+   * @param {string} userName - User's name
+   * @param {string} eventName - Event name
+   * @param {number} refundAmount - Refund amount
+   * @param {string} refundStatus - Refund status
+   * @returns {string} - HTML email template
+   */
+  eventCancellation(userName, eventName, refundAmount, refundStatus) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Cancelled - FIRA</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
+  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">FIRA</h1>
+      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Important Update</p>
+    </div>
+    <div style="padding: 30px;">
+      <h2 style="margin: 0 0 20px; font-size: 24px; text-align: center; color: #ef4444;">Event Cancelled 😔</h2>
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${userName}, we're sorry to inform you that the following event has been cancelled:
+      </p>
+      
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <h3 style="margin: 0 0 10px; font-size: 20px; color: #fff;">${eventName}</h3>
+      </div>
+
+      ${refundAmount > 0 ? `
+      <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <div style="font-size: 14px; color: #22c55e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Refund Amount</div>
+        <div style="font-size: 32px; font-weight: bold; color: #22c55e;">₹${refundAmount}</div>
+        <div style="font-size: 14px; color: #a0a0a0; margin-top: 10px;">Status: ${refundStatus}</div>
+        <p style="font-size: 13px; color: #888; margin-top: 15px;">
+          Your refund will be processed within 5-7 business days.
+        </p>
+      </div>
+      ` : `
+      <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <p style="color: #ef4444; margin: 0;">This was a free event, so no refund is applicable.</p>
+      </div>
+      `}
+
+      <p style="text-align: center; color: #666; font-size: 13px;">
+        We apologize for any inconvenience caused. Check out other amazing events on FIRA!
+      </p>
+
+      <div style="text-align: center; margin-top: 30px;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/events" 
+           style="display: inline-block; background: #8b5cf6; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+           Browse Events
+        </a>
+      </div>
+    </div>
+    <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
+      <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  },
+
+  /**
+   * Ticket Cancellation Email Template
+   * @param {string} userName - User's name
+   * @param {string} eventName - Event name
+   * @param {number} refundAmount - Refund amount
+   * @param {string} policy - Refund policy applied
+   * @returns {string} - HTML email template
+   */
+  ticketCancellation(userName, eventName, refundAmount, policy) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Cancelled - FIRA</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
+  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">FIRA</h1>
+      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Ticket Update</p>
+    </div>
+    <div style="padding: 30px;">
+      <h2 style="margin: 0 0 20px; font-size: 24px; text-align: center;">Ticket Cancelled</h2>
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${userName}, your ticket for the following event has been cancelled:
+      </p>
+      
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <h3 style="margin: 0 0 10px; font-size: 20px; color: #fff;">${eventName}</h3>
+      </div>
+
+      ${refundAmount > 0 ? `
+      <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <div style="font-size: 14px; color: #22c55e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Refund Amount</div>
+        <div style="font-size: 32px; font-weight: bold; color: #22c55e;">₹${refundAmount}</div>
+        <p style="font-size: 13px; color: #888; margin-top: 15px;">
+          ${policy}
+        </p>
+      </div>
+      ` : `
+      <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <p style="color: #ef4444; margin: 0 0 10px;">${policy}</p>
+        <p style="color: #888; font-size: 13px; margin: 0;">Unfortunately, no refund is applicable for this cancellation.</p>
+      </div>
+      `}
+
+      <div style="text-align: center; margin-top: 30px;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard" 
+           style="display: inline-block; background: #8b5cf6; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+           View Dashboard
+        </a>
+      </div>
+    </div>
+    <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
+      <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  },
+
+  /**
+   * Refund Processed Email Template
+   * @param {string} userName - User's name
+   * @param {number} amount - Refund amount
+   * @param {string} transactionId - Gateway transaction ID
+   * @returns {string} - HTML email template
+   */
+  refundProcessed(userName, amount, transactionId) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refund Processed - FIRA</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
+  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">FIRA</h1>
+      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Refund Confirmation</p>
+    </div>
+    <div style="padding: 30px;">
+      <h2 style="margin: 0 0 20px; font-size: 24px; text-align: center; color: #22c55e;">Refund Successful! ✓</h2>
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${userName}, great news! Your refund has been processed successfully.
+      </p>
+      
+      <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 25px; margin-bottom: 30px; text-align: center;">
+        <div style="font-size: 14px; color: #22c55e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Amount Refunded</div>
+        <div style="font-size: 40px; font-weight: bold; color: #22c55e;">₹${amount}</div>
+        ${transactionId ? `
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(34, 197, 94, 0.3);">
+          <div style="font-size: 12px; color: #888;">Transaction ID</div>
+          <div style="font-family: monospace; font-size: 14px; color: #fff; margin-top: 5px;">${transactionId}</div>
+        </div>
+        ` : ''}
+      </div>
+
+      <div style="background: #1a1a1a; border-radius: 8px; padding: 15px; margin-bottom: 30px;">
+        <p style="color: #888; font-size: 13px; margin: 0; text-align: center;">
+          💡 The refund amount will be credited to your original payment method within 5-7 business days.
+        </p>
+      </div>
+
+      <div style="text-align: center; margin-top: 30px;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard" 
+           style="display: inline-block; background: #8b5cf6; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+           View Dashboard
+        </a>
+      </div>
+    </div>
+    <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
+      <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
   }
 };
 

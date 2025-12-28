@@ -62,11 +62,12 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// POST /api/events/:id/cancel - Cancel event
+// POST /api/events/:id/cancel - Cancel event with automatic refunds
 router.post('/:id/cancel', async (req, res) => {
     try {
-        const event = await eventService.cancelEvent(req.params.id);
-        res.json(event);
+        const { reason } = req.body;
+        const result = await eventService.cancelEvent(req.params.id, reason);
+        res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

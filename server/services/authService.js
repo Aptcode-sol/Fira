@@ -16,7 +16,7 @@ const authService = {
     /**
      * Register new user and send OTP
      */
-    async register({ email, password, name, role = 'user' }) {
+    async register({ email, password, name, role = 'user', city = null }) {
         // Validate password strength
         const passwordCheck = passwordValidator.validate(password);
         if (!passwordCheck.isValid) {
@@ -46,6 +46,7 @@ const authService = {
             password: hashedPassword,
             name,
             role,
+            city,
             emailVerified: false
         });
 

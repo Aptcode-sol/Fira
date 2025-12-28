@@ -134,21 +134,14 @@ const bookingService = {
         return booking;
     },
 
-    // Cancel booking
-    async cancelBooking(id, reason) {
-        const booking = await Booking.findByIdAndUpdate(
-            id,
-            { $set: { status: 'cancelled', rejectionReason: reason } },
-            { new: true }
-        );
-
-        if (!booking) {
-            throw new Error('Booking not found');
-        }
-
-        // TODO: Process refund if already paid
-
-        return booking;
+    // Cancel booking with refund processing
+    async cancelBooking(id, userId, reason = 'User requested cancellation') {
+        const refundService = require('./refundService');
+        
+        // Use refund service for complete cancellation flow
+        const result = await refundService.initiateBookingRefund(id, userId, reason);
+        
+        return result;
     },
 
     // Initiate payment for an accepted booking

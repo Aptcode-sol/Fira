@@ -25,6 +25,8 @@ export default function EventDetailPage() {
     const [privateCode, setPrivateCode] = useState('');
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [purchasedTicket, setPurchasedTicket] = useState<any>(null);
+    const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+    const [isTermsExpanded, setIsTermsExpanded] = useState(false);
 
     useEffect(() => {
         if (params.id) {
@@ -113,7 +115,7 @@ export default function EventDetailPage() {
                                 gatewayOrderId: response.razorpay_order_id,
                                 gatewayPaymentId: response.razorpay_payment_id,
                                 gatewaySignature: response.razorpay_signature
-                            });
+                            }) as { success: boolean; payment?: any };
 
                             if (verifyResult.success) {
                                 showToast('Payment successful!', 'success');
@@ -301,23 +303,26 @@ export default function EventDetailPage() {
                                 )}
                             </div>
 
-                            {/* Description */}
-                            <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-                                <h2 className="text-xl font-semibold text-white mb-4">About this event</h2>
-                                <p className="text-gray-400 leading-relaxed whitespace-pre-line">{event.description}</p>
+                            {/* Description - Collapsible */}
+                            <div
+                                className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6 cursor-pointer hover:border-white/10 transition-colors"
+                                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-semibold text-white">About this event</h2>
+                                    <span className="text-gray-500 text-sm flex items-center gap-1">
+                                        {isDescriptionExpanded ? 'Tap to close' : 'Tap to open'}
+                                        <svg className={`w-4 h-4 transition-transform ${isDescriptionExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </span>
+                                </div>
+                                {isDescriptionExpanded && (
+                                    <p className="text-gray-400 leading-relaxed whitespace-pre-line mt-4">{event.description}</p>
+                                )}
                             </div>
 
-                            {/* Terms and Conditions */}
-                            {(event as Event & { termsAndConditions?: string }).termsAndConditions && (
-                                <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-                                    <h2 className="text-xl font-semibold text-white mb-4">Terms & Conditions</h2>
-                                    <p className="text-gray-400 leading-relaxed whitespace-pre-line text-sm">
-                                        {(event as Event & { termsAndConditions?: string }).termsAndConditions}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Venue Info */}
+                            {/* Venue Info - Moved up */}
                             {venue && typeof venue === 'object' && (
                                 <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                                     <h2 className="text-xl font-semibold text-white mb-4">Venue</h2>
@@ -332,6 +337,29 @@ export default function EventDetailPage() {
                                             <p className="text-gray-400 text-sm">{venue.address?.city}, {venue.address?.state}</p>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Terms and Conditions - Collapsible, Moved down */}
+                            {(event as Event & { termsAndConditions?: string }).termsAndConditions && (
+                                <div
+                                    className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6 cursor-pointer hover:border-white/10 transition-colors"
+                                    onClick={() => setIsTermsExpanded(!isTermsExpanded)}
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <h2 className="text-xl font-semibold text-white">Terms & Conditions</h2>
+                                        <span className="text-gray-500 text-sm flex items-center gap-1">
+                                            {isTermsExpanded ? 'Tap to close' : 'Tap to open'}
+                                            <svg className={`w-4 h-4 transition-transform ${isTermsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </span>
+                                    </div>
+                                    {isTermsExpanded && (
+                                        <p className="text-gray-400 leading-relaxed whitespace-pre-line text-sm mt-4">
+                                            {(event as Event & { termsAndConditions?: string }).termsAndConditions}
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

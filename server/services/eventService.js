@@ -98,18 +98,37 @@ const eventService = {
         return { message: 'Event deleted successfully' };
     },
 
-    // Cancel event
-    async cancelEvent(id) {
-        const event = await Event.findByIdAndUpdate(
-            id,
-            { $set: { status: 'cancelled' } },
-            { new: true }
-        );
+    // Cancel event with automatic refunds
+    async cancelEvent(id, reason = 'Event cancelled by organizer') {
+        const refundService = require('./refundService');
+        const notificationService = require('./notificationService');
+        
+        const event = await Event.findById(id);
         if (!event) {
             throw new Error('Event not found');
         }
-        // TODO: Trigger refunds and notifications
-        return event;
+
+        if (event.status === 'cancelled') {
+            throw new Error('Event is already cancelled');
+        }
+
+        // Update event status
+        event.status = 'cancelled';
+        await event.save();
+
+        // Process refunds for all ticket holders
+        let refundResults = null;
+        try {
+            refundResults = await refundService.initiateEventCancellationRefunds(id, reason);
+            console.log(`✅ Event cancellation refunds: ${refundResults.successCount}/${refundResults.totalRefunds} processed`);
+        } catch (error) {
+            console.error('❌ Error processing event cancellation refunds:', error.message);
+        }
+
+        return {
+            event,
+            refundResults
+        };
     },
 
     // Request private event access
