@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { Venue } from '@/lib/types';
+import { motion } from 'framer-motion';
 
 interface VenueCardProps {
     venue: Venue;
+    index?: number;
 }
 
-export default function VenueCard({ venue }: VenueCardProps) {
+export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -16,7 +18,18 @@ export default function VenueCard({ venue }: VenueCardProps) {
 
     return (
         <Link href={`/venues/${venue._id}`}>
-            <div className="group bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-white/10 hover:-translate-y-1">
+            <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.1 }}
+                transition={{
+                    duration: 0.4,
+                    delay: index * 0.05,
+                    ease: [0.25, 0.1, 0.25, 1]
+                }}
+                className="group bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-white/20 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/10 h-full"
+            >
+
                 {/* Image */}
                 <div className="relative h-48 overflow-hidden">
                     {venue.images && venue.images.length > 0 ? (
@@ -98,7 +111,7 @@ export default function VenueCard({ venue }: VenueCardProps) {
                         </p>
                     )}
                 </div>
-            </div>
+            </motion.div>
         </Link>
     );
 }

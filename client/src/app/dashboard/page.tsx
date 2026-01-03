@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { dashboardApi, DashboardOverview } from '@/lib/api';
+import { FadeIn, SlideUp } from '@/components/animations';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -169,12 +170,14 @@ export default function DashboardPage() {
         <DashboardLayout>
             <div className="p-6 lg:p-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2">
-                        Welcome back, {user?.name?.split(' ')[0]}! 👋
-                    </h1>
-                    <p className="text-gray-400">Here&apos;s what&apos;s happening with your account.</p>
-                </div>
+                <SlideUp>
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold text-white mb-2">
+                            Welcome back, {user?.name?.split(' ')[0]}! 👋
+                        </h1>
+                        <p className="text-gray-400">Here&apos;s what&apos;s happening with your account.</p>
+                    </div>
+                </SlideUp>
 
                 {/* Error State */}
                 {error && (
@@ -184,263 +187,276 @@ export default function DashboardPage() {
                 )}
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    {quickStats.map((stat) => (
-                        <Link key={stat.label} href={stat.href}>
-                            <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer">
-                                <div className={`w-12 h-12 rounded-xl ${colorClasses[stat.color]} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
-                                    {getIcon(stat.icon)}
+                <FadeIn delay={0.1}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        {quickStats.map((stat) => (
+                            <Link key={stat.label} href={stat.href}>
+                                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer h-full">
+                                    <div className={`w-12 h-12 rounded-xl ${colorClasses[stat.color]} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
+                                        {getIcon(stat.icon)}
+                                    </div>
+                                    <div className="text-2xl font-bold text-white mb-1">
+                                        {loading ? (
+                                            <div className="w-12 h-7 bg-white/10 rounded animate-pulse" />
+                                        ) : (
+                                            stat.value.toLocaleString()
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-gray-400">{stat.label}</div>
+                                    {/* Always render this row to maintain consistent height */}
+                                    <div className="text-xs text-gray-500 mt-1 min-h-[1rem]">
+                                        {!loading && stat.subValue ? stat.subValue : '\u00A0'}
+                                    </div>
                                 </div>
-                                <div className="text-2xl font-bold text-white mb-1">
-                                    {loading ? (
-                                        <div className="w-12 h-7 bg-white/10 rounded animate-pulse" />
-                                    ) : (
-                                        stat.value.toLocaleString()
-                                    )}
-                                </div>
-                                <div className="text-sm text-gray-400">{stat.label}</div>
-                                {!loading && stat.subValue && (
-                                    <div className="text-xs text-gray-500 mt-1">{stat.subValue}</div>
-                                )}
-                            </div>
-                        </Link>
-                    ))}
-                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </FadeIn>
 
                 {/* Quick Actions */}
-                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 mb-8">
-                    <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-                    <div className="flex flex-wrap gap-3">
-                        <Link href="/create/event">
-                            <Button variant="secondary">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Create Event
-                            </Button>
-                        </Link>
-                        <Link href="/venues">
-                            <Button variant="secondary">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                Browse Venues
-                            </Button>
-                        </Link>
-                        <Link href="/events">
-                            <Button variant="secondary">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                Find Events
-                            </Button>
-                        </Link>
-                        <Link href="/create/venue">
-                            <Button variant="secondary">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                List Venue
-                            </Button>
-                        </Link>
+                <FadeIn delay={0.2}>
+                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 mb-8">
+                        <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+                        <div className="flex flex-wrap gap-3">
+                            <Link href="/create/event">
+                                <Button variant="secondary">
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Create Event
+                                </Button>
+                            </Link>
+                            <Link href="/venues">
+                                <Button variant="secondary">
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    Browse Venues
+                                </Button>
+                            </Link>
+                            <Link href="/events">
+                                <Button variant="secondary">
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Find Events
+                                </Button>
+                            </Link>
+                            <Link href="/create/venue">
+                                <Button variant="secondary">
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    List Venue
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
-                </div>
+                </FadeIn>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Your Organized Events */}
-                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Your Organized Events</h2>
-                        <div className="space-y-4">
-                            {loading ? (
-                                [...Array(3)].map((_, i) => (
-                                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                                        <div className="w-14 h-14 rounded-xl bg-white/10 animate-pulse" />
-                                        <div className="flex-1">
-                                            <div className="w-3/4 h-4 bg-white/10 rounded animate-pulse mb-2" />
-                                            <div className="w-1/2 h-3 bg-white/10 rounded animate-pulse" />
-                                        </div>
-                                    </div>
-                                ))
-                            ) : dashboardData?.organizedEvents && dashboardData.organizedEvents.length > 0 ? (
-                                dashboardData.organizedEvents.map((event) => {
-                                    const { month, day } = formatEventDate(event.date);
-                                    const attendeePercent = Math.round((event.currentAttendees / event.maxAttendees) * 100);
-                                    return (
-                                        <Link key={event._id} href={`/events/${event._id}`}>
-                                            <div className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors cursor-pointer">
-                                                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 flex items-center justify-center flex-shrink-0">
-                                                    <div className="text-center">
-                                                        <div className="text-xs text-gray-400">{month}</div>
-                                                        <div className="text-lg font-bold text-white">{day}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-white truncate">{event.name}</p>
-                                                    <p className="text-xs text-gray-400">
-                                                        {event.startTime} • {event.venue?.name || 'TBA'}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-violet-500 rounded-full transition-all"
-                                                                style={{ width: `${Math.min(attendeePercent, 100)}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-xs text-gray-500">
-                                                            {event.currentAttendees}/{event.maxAttendees}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                {event.isFeatured && (
-                                                    <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 text-xs">Featured</span>
-                                                )}
+                    <FadeIn delay={0.1}>
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 h-full flex flex-col">
+                            <h2 className="text-lg font-semibold text-white mb-4">Your Organized Events</h2>
+                            <div className="space-y-4 flex-1">
+                                {loading ? (
+                                    [...Array(3)].map((_, i) => (
+                                        <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                                            <div className="w-14 h-14 rounded-xl bg-white/10 animate-pulse" />
+                                            <div className="flex-1">
+                                                <div className="w-3/4 h-4 bg-white/10 rounded animate-pulse mb-2" />
+                                                <div className="w-1/2 h-3 bg-white/10 rounded animate-pulse" />
                                             </div>
+                                        </div>
+                                    ))
+                                ) : dashboardData?.organizedEvents && dashboardData.organizedEvents.length > 0 ? (
+                                    dashboardData.organizedEvents.map((event) => {
+                                        const { month, day } = formatEventDate(event.date);
+                                        const attendeePercent = Math.round((event.currentAttendees / event.maxAttendees) * 100);
+                                        return (
+                                            <Link key={event._id} href={`/events/${event._id}`}>
+                                                <div className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors cursor-pointer">
+                                                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 flex items-center justify-center flex-shrink-0">
+                                                        <div className="text-center">
+                                                            <div className="text-xs text-gray-400">{month}</div>
+                                                            <div className="text-lg font-bold text-white">{day}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-white truncate">{event.name}</p>
+                                                        <p className="text-xs text-gray-400">
+                                                            {event.startTime} • {event.venue?.name || 'TBA'}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-violet-500 rounded-full transition-all"
+                                                                    style={{ width: `${Math.min(attendeePercent, 100)}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-xs text-gray-500">
+                                                                {event.currentAttendees}/{event.maxAttendees}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {event.isFeatured && (
+                                                        <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 text-xs">Featured</span>
+                                                    )}
+                                                </div>
+                                            </Link>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="text-center py-6">
+                                        <p className="text-sm text-gray-500 mb-3">No events organized yet</p>
+                                        <Link href="/create/event">
+                                            <Button variant="secondary" size="sm">Create Your First Event</Button>
                                         </Link>
-                                    );
-                                })
-                            ) : (
-                                <div className="text-center py-6">
-                                    <p className="text-sm text-gray-500 mb-3">No events organized yet</p>
-                                    <Link href="/create/event">
-                                        <Button variant="secondary" size="sm">Create Your First Event</Button>
-                                    </Link>
-                                </div>
+                                    </div>
+                                )}
+                            </div>
+                            {dashboardData?.organizedEvents && dashboardData.organizedEvents.length > 0 && (
+                                <Link href="/dashboard/events" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
+                                    View all events →
+                                </Link>
                             )}
                         </div>
-                        {dashboardData?.organizedEvents && dashboardData.organizedEvents.length > 0 && (
-                            <Link href="/dashboard/events" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
-                                View all events →
-                            </Link>
-                        )}
-                    </div>
+                    </FadeIn>
 
                     {/* Recent Activity */}
-                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
-                        <div className="space-y-4">
-                            {loading ? (
-                                [...Array(3)].map((_, i) => (
-                                    <div key={i} className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white/10 animate-pulse" />
-                                        <div className="flex-1">
-                                            <div className="w-3/4 h-4 bg-white/10 rounded animate-pulse mb-2" />
-                                            <div className="w-1/4 h-3 bg-white/10 rounded animate-pulse" />
+                    <FadeIn delay={0.2}>
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 h-full flex flex-col">
+                            <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
+                            <div className="space-y-4 flex-1">
+                                {loading ? (
+                                    [...Array(3)].map((_, i) => (
+                                        <div key={i} className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-white/10 animate-pulse" />
+                                            <div className="flex-1">
+                                                <div className="w-3/4 h-4 bg-white/10 rounded animate-pulse mb-2" />
+                                                <div className="w-1/4 h-3 bg-white/10 rounded animate-pulse" />
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
-                            ) : dashboardData?.recentActivity && dashboardData.recentActivity.length > 0 ? (
-                                dashboardData.recentActivity.map((activity) => (
-                                    <div key={activity._id} className="flex items-start gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${getActivityColor(activity.category)}`}>
-                                            {getActivityIcon(activity.category)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-white">{activity.title}</p>
-                                            {activity.message && (
-                                                <p className="text-xs text-gray-500 truncate">{activity.message}</p>
+                                    ))
+                                ) : dashboardData?.recentActivity && dashboardData.recentActivity.length > 0 ? (
+                                    dashboardData.recentActivity.map((activity) => (
+                                        <div key={activity._id} className="flex items-start gap-4">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${getActivityColor(activity.category)}`}>
+                                                {getActivityIcon(activity.category)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-white">{activity.title}</p>
+                                                {activity.message && (
+                                                    <p className="text-xs text-gray-500 truncate">{activity.message}</p>
+                                                )}
+                                                <p className="text-xs text-gray-500 mt-1">{formatTime(activity.createdAt)}</p>
+                                            </div>
+                                            {!activity.isRead && (
+                                                <div className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />
                                             )}
-                                            <p className="text-xs text-gray-500 mt-1">{formatTime(activity.createdAt)}</p>
                                         </div>
-                                        {!activity.isRead && (
-                                            <div className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />
-                                        )}
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-gray-500 text-center py-4">No recent activity</p>
-                            )}
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-gray-500 text-center py-4">No recent activity</p>
+                                )}
+                            </div>
+                            <Link href="/dashboard/notifications" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
+                                View all activity →
+                            </Link>
                         </div>
-                        <Link href="/dashboard/notifications" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
-                            View all activity →
-                        </Link>
-                    </div>
+                    </FadeIn>
                 </div>
 
                 {/* Your Venues Section */}
                 {dashboardData?.venues && dashboardData.venues.length > 0 && (
-                    <div className="mt-6 bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-white">Your Venues</h2>
-                            <Link href="/dashboard/venues" className="text-sm text-violet-400 hover:text-violet-300">
-                                View all →
-                            </Link>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {dashboardData.venues.slice(0, 3).map((venue) => (
-                                <Link key={venue._id} href={`/venues/${venue._id}`}>
-                                    <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] overflow-hidden hover:bg-white/[0.04] transition-colors cursor-pointer">
-                                        <div className="h-32 bg-gradient-to-br from-violet-500/20 to-pink-500/20 relative">
-                                            {venue.images?.[0] && (
-                                                <img
-                                                    src={venue.images[0]}
-                                                    alt={venue.name}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            )}
-                                            <span className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs ${venue.status === 'approved'
+                    <FadeIn>
+                        <div className="mt-6 bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-white">Your Venues</h2>
+                                <Link href="/dashboard/venues" className="text-sm text-violet-400 hover:text-violet-300">
+                                    View all →
+                                </Link>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {dashboardData.venues.slice(0, 3).map((venue) => (
+                                    <Link key={venue._id} href={`/venues/${venue._id}`}>
+                                        <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] overflow-hidden hover:bg-white/[0.04] transition-colors cursor-pointer">
+                                            <div className="h-32 bg-gradient-to-br from-violet-500/20 to-pink-500/20 relative">
+                                                {venue.images?.[0] && (
+                                                    <img
+                                                        src={venue.images[0]}
+                                                        alt={venue.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                )}
+                                                <span className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs ${venue.status === 'approved'
                                                     ? 'bg-green-500/20 text-green-400'
                                                     : 'bg-yellow-500/20 text-yellow-400'
-                                                }`}>
-                                                {venue.status}
-                                            </span>
-                                        </div>
-                                        <div className="p-4">
-                                            <h3 className="font-medium text-white truncate">{venue.name}</h3>
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                {venue.address?.city}, {venue.address?.state}
-                                            </p>
-                                            <div className="flex items-center justify-between mt-2">
-                                                <span className="text-sm text-gray-400">
-                                                    ₹{venue.pricing?.basePrice?.toLocaleString()}
+                                                    }`}>
+                                                    {venue.status}
                                                 </span>
-                                                {venue.rating?.average > 0 && (
-                                                    <span className="text-sm text-yellow-400">
-                                                        ⭐ {venue.rating.average.toFixed(1)}
+                                            </div>
+                                            <div className="p-4">
+                                                <h3 className="font-medium text-white truncate">{venue.name}</h3>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {venue.address?.city}, {venue.address?.state}
+                                                </p>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <span className="text-sm text-gray-400">
+                                                        ₹{venue.pricing?.basePrice?.toLocaleString()}
                                                     </span>
-                                                )}
+                                                    {venue.rating?.average > 0 && (
+                                                        <span className="text-sm text-yellow-400">
+                                                            ⭐ {venue.rating.average.toFixed(1)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </Link>
-                            ))}
+                                    </Link>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    </FadeIn>
                 )}
 
                 {/* Brand Profile Card */}
                 {dashboardData?.brandProfile && (
-                    <div className="mt-6 bg-gradient-to-r from-violet-500/10 to-pink-500/10 backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 overflow-hidden">
-                                {dashboardData.brandProfile.profilePhoto ? (
-                                    <img
-                                        src={dashboardData.brandProfile.profilePhoto}
-                                        alt={dashboardData.brandProfile.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-2xl text-white">
-                                        {dashboardData.brandProfile.name.charAt(0)}
+                    <FadeIn>
+                        <div className="mt-6 bg-gradient-to-r from-violet-500/10 to-pink-500/10 backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 overflow-hidden">
+                                    {dashboardData.brandProfile.profilePhoto ? (
+                                        <img
+                                            src={dashboardData.brandProfile.profilePhoto}
+                                            alt={dashboardData.brandProfile.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-2xl text-white">
+                                            {dashboardData.brandProfile.name.charAt(0)}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-white">{dashboardData.brandProfile.name}</h3>
+                                        <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs capitalize">
+                                            {dashboardData.brandProfile.type}
+                                        </span>
                                     </div>
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-lg font-semibold text-white">{dashboardData.brandProfile.name}</h3>
-                                    <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs capitalize">
-                                        {dashboardData.brandProfile.type}
-                                    </span>
+                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+                                        <span>{dashboardData.brandProfile.followers.toLocaleString()} followers</span>
+                                        <span>{dashboardData.brandProfile.events} events</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
-                                    <span>{dashboardData.brandProfile.followers.toLocaleString()} followers</span>
-                                    <span>{dashboardData.brandProfile.events} events</span>
-                                </div>
+                                <Link href={`/brands/${dashboardData.brandProfile._id}`}>
+                                    <Button variant="secondary" size="sm">View Profile</Button>
+                                </Link>
                             </div>
-                            <Link href={`/brands/${dashboardData.brandProfile._id}`}>
-                                <Button variant="secondary" size="sm">View Profile</Button>
-                            </Link>
                         </div>
-                    </div>
+                    </FadeIn>
                 )}
             </div>
         </DashboardLayout>

@@ -33,6 +33,10 @@ const eventSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    endDate: {
+        type: Date,
+        default: function () { return this.date; } // Defaults to same day
+    },
     startTime: {
         type: String,
         required: true
@@ -82,7 +86,32 @@ const eventSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['draft', 'pending', 'upcoming', 'approved', 'ongoing', 'completed', 'cancelled', 'rejected', 'blocked'],
-        default: 'draft'
+        default: 'pending'
+    },
+    // Dual approval system
+    venueApproval: {
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending'
+        },
+        respondedAt: Date,
+        respondedBy: String,
+        rejectionReason: String
+    },
+    adminApproval: {
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending'
+        },
+        respondedAt: Date,
+        respondedBy: String,
+        rejectionReason: String
+    },
+    isActive: {
+        type: Boolean,
+        default: true
     },
     isFeatured: {
         type: Boolean,

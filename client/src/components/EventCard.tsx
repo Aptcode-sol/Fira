@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { Event, User, Venue } from '@/lib/types';
+import { motion } from 'framer-motion';
 
 interface EventCardProps {
     event: Event;
+    index?: number;
 }
 
-export default function EventCard({ event }: EventCardProps) {
+export default function EventCard({ event, index = 0 }: EventCardProps) {
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -29,7 +31,18 @@ export default function EventCard({ event }: EventCardProps) {
 
     return (
         <Link href={`/events/${event._id}`}>
-            <div className="group relative bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-all duration-300 hover:-translate-y-1">
+            <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.1 }}
+                transition={{
+                    duration: 0.4,
+                    delay: index * 0.05,
+                    ease: [0.25, 0.1, 0.25, 1]
+                }}
+                className="group relative bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-white/20 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/10 h-full"
+            >
+
                 {/* Image */}
                 <div className="relative h-44 overflow-hidden">
                     {event.images && event.images.length > 0 ? (
@@ -124,7 +137,7 @@ export default function EventCard({ event }: EventCardProps) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         </Link>
     );
 }

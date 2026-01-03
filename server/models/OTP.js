@@ -30,6 +30,11 @@ const otpSchema = new mongoose.Schema({
   verified: {
     type: Boolean,
     default: false
+  },
+  type: {
+    type: String,
+    enum: ['email_verification', 'password_reset'],
+    default: 'email_verification'
   }
 }, {
   timestamps: true
@@ -39,18 +44,18 @@ const otpSchema = new mongoose.Schema({
 otpSchema.index({ email: 1, verified: 1 });
 
 // Method to check if OTP is expired
-otpSchema.methods.isExpired = function() {
+otpSchema.methods.isExpired = function () {
   return Date.now() > this.expiresAt;
 };
 
 // Method to check if cooldown period has passed (90 seconds)
-otpSchema.methods.canResend = function() {
+otpSchema.methods.canResend = function () {
   const cooldownMs = 90 * 1000; // 90 seconds
   return Date.now() - this.lastSentAt.getTime() >= cooldownMs;
 };
 
 // Method to get remaining cooldown time in seconds
-otpSchema.methods.getRemainingCooldown = function() {
+otpSchema.methods.getRemainingCooldown = function () {
   const cooldownMs = 90 * 1000;
   const elapsed = Date.now() - this.lastSentAt.getTime();
   const remaining = Math.max(0, Math.ceil((cooldownMs - elapsed) / 1000));

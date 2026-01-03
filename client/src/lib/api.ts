@@ -79,6 +79,24 @@ export const authApi = {
         }),
 
     getMe: () => request<{ user: unknown }>('/auth/me'),
+
+    forgotPassword: (data: { email: string }) =>
+        request<{ success: boolean; message: string; email?: string }>('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    verifyResetOTP: (data: { email: string; code: string }) =>
+        request<{ success: boolean; message: string; resetToken: string }>('/auth/verify-reset-otp', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    resetPassword: (data: { resetToken: string; newPassword: string }) =>
+        request<{ success: boolean; message: string }>('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 };
 
 // Users API
@@ -117,15 +135,57 @@ export const brandsApi = {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
+
+    // Follow/Unfollow
+    follow: (brandId: string, userId: string) =>
+        request(`/brands/${brandId}/follow`, {
+            method: 'POST',
+            body: JSON.stringify({ userId }),
+        }),
+    unfollow: (brandId: string, userId: string) =>
+        request(`/brands/${brandId}/follow`, {
+            method: 'DELETE',
+            body: JSON.stringify({ userId }),
+        }),
+    getFollowStatus: (brandId: string, userId: string) =>
+        request<{ isFollowing: boolean }>(`/brands/${brandId}/follow/status?userId=${userId}`),
+
+    // Posts
     getPosts: (id: string, params?: Record<string, string>) => {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/brands/${id}/posts${query}`);
     },
-    createPost: (id: string, data: unknown) =>
-        request(`/brands/${id}/posts`, {
+    createPost: (brandId: string, data: { content: string; images?: string[]; userId: string }) =>
+        request(`/brands/${brandId}/posts`, {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+    updatePost: (brandId: string, postId: string, data: { content?: string; images?: string[]; userId: string }) =>
+        request(`/brands/${brandId}/posts/${postId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    deletePost: (brandId: string, postId: string, userId: string) =>
+        request(`/brands/${brandId}/posts/${postId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ userId }),
+        }),
+    toggleLike: (brandId: string, postId: string, userId: string) =>
+        request(`/brands/${brandId}/posts/${postId}/like`, {
+            method: 'POST',
+            body: JSON.stringify({ userId }),
+        }),
+    addComment: (brandId: string, postId: string, userId: string, content: string) =>
+        request(`/brands/${brandId}/posts/${postId}/comments`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, content }),
+        }),
+    deleteComment: (brandId: string, postId: string, commentId: string, userId: string) =>
+        request(`/brands/${brandId}/posts/${postId}/comments/${commentId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ userId }),
+        }),
+
     getEvents: (id: string) => request(`/brands/${id}/events`),
 };
 
@@ -169,6 +229,11 @@ export const venuesApi = {
             method: 'PUT',
             body: JSON.stringify({ status }),
         }),
+    cancel: (id: string, reason?: string) =>
+        request<{ venue: any; message: string }>(`/venues/${id}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({ reason }),
+        }),
 };
 
 // Events API
@@ -201,10 +266,11 @@ export const eventsApi = {
         request<{
             event: any;
             refundResults: {
-                totalRefunds: number;
-                successCount: number;
-                failedCount: number;
-            } | null;
+                totalTickets: number;
+                refundsInitiated: number;
+                refundsFailed: number;
+                totalRefundAmount: number;
+            };
         }>(`/events/${id}/cancel`, {
             method: 'POST',
             body: JSON.stringify({ reason }),
@@ -218,6 +284,62 @@ export const eventsApi = {
         request(`/events/${eventId}/access/${requestId}`, {
             method: 'PUT',
             body: JSON.stringify({ status }),
+        }),
+    // Venue owner approval
+    getVenueRequests: (userId: string, params?: Record<string, string>) => {
+        const query = new URLSearchParams({ userId, ...params }).toString();
+        return request(`/events/venue-requests?${query}`);
+    },
+    venueApprove: (eventId: string, data: { venueOwnerId: string; status: 'approved' | 'rejected'; rejectionReason?: string }) =>
+        request(`/events/${eventId}/venue-approve`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    // Admin approval
+    getAdminPending: (params?: Record<string, string>) => {
+        const query = params ? '?' + new URLSearchParams(params).toString() : '';
+        return request(`/events/admin-pending${query}`);
+    },
+    adminApprove: (eventId: string, data: { adminId: string; status: 'approved' | 'rejected'; rejectionReason?: string }) =>
+        request(`/events/${eventId}/admin-approve`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // Event Posts
+    getPosts: (eventId: string, params?: Record<string, string>) => {
+        const query = params ? '?' + new URLSearchParams(params).toString() : '';
+        return request(`/events/${eventId}/posts${query}`);
+    },
+    createPost: (eventId: string, data: { content: string; images?: string[]; userId: string }) =>
+        request(`/events/${eventId}/posts`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    updatePost: (eventId: string, postId: string, data: { content?: string; images?: string[]; userId: string }) =>
+        request(`/events/${eventId}/posts/${postId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    deletePost: (eventId: string, postId: string, userId: string) =>
+        request(`/events/${eventId}/posts/${postId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ userId }),
+        }),
+    toggleLike: (eventId: string, postId: string, userId: string) =>
+        request(`/events/${eventId}/posts/${postId}/like`, {
+            method: 'POST',
+            body: JSON.stringify({ userId }),
+        }),
+    addComment: (eventId: string, postId: string, userId: string, content: string) =>
+        request(`/events/${eventId}/posts/${postId}/comments`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, content }),
+        }),
+    deleteComment: (eventId: string, postId: string, commentId: string, userId: string) =>
+        request(`/events/${eventId}/posts/${postId}/comments/${commentId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ userId }),
         }),
 };
 

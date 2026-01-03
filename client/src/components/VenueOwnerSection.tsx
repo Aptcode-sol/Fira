@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { FadeIn, SlideUp, StaggerContainer, StaggerItem } from './animations';
 
 const features = [
     {
@@ -45,52 +46,59 @@ export default function VenueOwnerSection() {
     return (
         <section className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 flex items-center">
             <div className="max-w-7xl mx-auto w-full">
-                <div className="bg-black/70 backdrop-blur-sm rounded-3xl p-8 md:p-16  md:py-30 lg:p-20 lg:py-40 border border-white/10">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-                        {/* Left - Features */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 order-2 lg:order-1">
-                            {features.map((feature) => (
-                                <div key={feature.title} className="glass-card p-5 group">
-                                    <div className="text-violet-400 mb-3">
-                                        {feature.icon}
+                <FadeIn>
+                    <div className="bg-black/70 backdrop-blur-sm rounded-3xl p-8 md:p-16  md:py-30 lg:p-20 lg:py-40 border border-white/10">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                            {/* Left - Features */}
+                            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-6 order-2 lg:order-1">
+                                {features.map((feature) => (
+                                    <StaggerItem key={feature.title}>
+                                        <div className="glass-card p-5 group h-full">
+                                            <div className="text-violet-400 mb-3">
+                                                {feature.icon}
+                                            </div>
+                                            <h3 className="text-white font-medium mb-1">{feature.title}</h3>
+                                            <p className="text-gray-500 text-sm">{feature.description}</p>
+                                        </div>
+                                    </StaggerItem>
+                                ))}
+                            </StaggerContainer>
+
+                            {/* Right Content */}
+                            <SlideUp className="order-1 lg:order-2">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 text-violet-400 text-sm mb-4">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                        For Venue Owners
                                     </div>
-                                    <h3 className="text-white font-medium mb-1">{feature.title}</h3>
-                                    <p className="text-gray-500 text-sm">{feature.description}</p>
+
+                                    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white">
+                                        Rent your venues for <span className="accent-text">events</span>?
+                                    </h2>
+
+                                    <p className="text-gray-400 mb-8 leading-relaxed">
+                                        We are here for you. List your places and let organizers book your venue easily.
+                                        Manage your bookings, set your prices, and earn from every event.
+                                    </p>
+
+                                    <Link
+                                        href="/list-venue"
+                                        className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
+                                    >
+                                        Start listing
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                        </svg>
+                                    </Link>
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Right Content */}
-                        <div className="order-1 lg:order-2">
-                            <div className="inline-flex items-center gap-2 text-violet-400 text-sm mb-4">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                                For Venue Owners
-                            </div>
-
-                            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white">
-                                Rent your venues for <span className="accent-text">events</span>?
-                            </h2>
-
-                            <p className="text-gray-400 mb-8 leading-relaxed">
-                                We are here for you. List your places and let organizers book your venue easily.
-                                Manage your bookings, set your prices, and earn from every event.
-                            </p>
-
-                            <Link
-                                href="/list-venue"
-                                className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
-                            >
-                                Start listing
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                </svg>
-                            </Link>
+                            </SlideUp>
                         </div>
                     </div>
-                </div>
+                </FadeIn>
             </div>
         </section>
     );
 }
+

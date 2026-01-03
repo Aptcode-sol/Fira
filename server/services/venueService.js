@@ -5,8 +5,18 @@ const venueService = {
     async getAllVenues(query = {}) {
         const { page = 1, limit = 10, status, city, sort, search, owner } = query;
         const filter = {};
-        if (status) filter.status = status;
-        if (owner) filter.owner = owner;
+
+        // If querying by owner (dashboard), allow all statuses
+        // Otherwise, only show approved and active venues (public listing)
+        if (owner) {
+            filter.owner = owner;
+            if (status) filter.status = status;
+        } else {
+            // Public listing - only approved and active venues
+            filter.status = status || 'approved';
+            filter.isActive = true;
+        }
+
         if (city && city !== 'All') filter['address.city'] = new RegExp(city, 'i');
         if (search) {
             filter.$or = [

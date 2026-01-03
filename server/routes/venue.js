@@ -83,4 +83,14 @@ router.put('/:id/status', async (req, res) => {
     }
 });
 
+// POST /api/venues/:id/cancel - Cancel/deactivate venue
+router.post('/:id/cancel', async (req, res) => {
+    try {
+        const venue = await venueService.updateStatus(req.params.id, 'inactive');
+        res.json({ venue, message: 'Venue has been cancelled successfully' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;

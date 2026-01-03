@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button, Input } from '@/components/ui';
-import { venuesApi, uploadApi, bookingsApi } from '@/lib/api';
+import { venuesApi, uploadApi, bookingsApi, eventsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 
@@ -38,13 +38,30 @@ interface Booking {
     createdAt: string;
 }
 
+interface EventRequest {
+    _id: string;
+    name: string;
+    description: string;
+    date: string;
+    endDate?: string;
+    startTime: string;
+    endTime: string;
+    organizer: { _id: string; name: string; email: string };
+    venue: { _id: string; name: string };
+    category: string;
+    eventType: 'public' | 'private';
+    maxAttendees: number;
+    venueApproval: { status: string };
+    createdAt: string;
+}
+
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const COMMON_AMENITIES = ['Parking', 'WiFi', 'AC', 'Sound System', 'Projector', 'Stage', 'Green Room', 'Catering', 'Security', 'Restrooms'];
 
 export default function VenueManagePage() {
     const params = useParams();
     const router = useRouter();
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isAuthenticated, isLoading: authLoading, user } = useAuth();
     const { showToast } = useToast();
 
     const [venue, setVenue] = useState<Venue | null>(null);
@@ -86,6 +103,15 @@ export default function VenueManagePage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
 
+    // Event requests state (for venue owner approval)
+    const [eventRequests, setEventRequests] = useState<EventRequest[]>([]);
+    const [processingEventId, setProcessingEventId] = useState<string | null>(null);
+
+    // Venue status management
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
             router.push('/signin');
@@ -98,6 +124,13 @@ export default function VenueManagePage() {
             fetchBookings(params.id as string);
         }
     }, [params.id, isAuthenticated]);
+
+    // Fetch event requests when user is available
+    useEffect(() => {
+        if (user?._id && isAuthenticated) {
+            fetchEventRequests(user._id);
+        }
+    }, [user?._id, isAuthenticated]);
 
     const fetchVenue = async (id: string) => {
         try {
@@ -121,6 +154,32 @@ export default function VenueManagePage() {
         }
     };
 
+    const fetchEventRequests = async (userId: string) => {
+        try {
+            const result = await eventsApi.getVenueRequests(userId) as { events: EventRequest[] };
+            setEventRequests(result.events || []);
+        } catch {
+            console.error('Failed to fetch event requests');
+        }
+    };
+
+    const handleEventApproval = async (eventId: string, status: 'approved' | 'rejected') => {
+        if (!user?._id) return;
+        setProcessingEventId(eventId);
+        try {
+            await eventsApi.venueApprove(eventId, {
+                venueOwnerId: user._id,
+                status
+            });
+            showToast(`Event ${status}!`, 'success');
+            fetchEventRequests(user._id);
+        } catch {
+            showToast('Failed to update event status', 'error');
+        } finally {
+            setProcessingEventId(null);
+        }
+    };
+
     const handleBookingStatus = async (bookingId: string, status: 'accepted' | 'rejected') => {
         setProcessingBookingId(bookingId);
         try {
@@ -137,6 +196,35 @@ export default function VenueManagePage() {
             showToast('Failed to update booking', 'error');
         } finally {
             setProcessingBookingId(null);
+        }
+    };
+
+    const toggleVenueStatus = async () => {
+        if (!venue) return;
+        setIsTogglingStatus(true);
+        try {
+            await venuesApi.update(venue._id, { isActive: !venue.isActive });
+            showToast(`Venue ${venue.isActive ? 'deactivated' : 'activated'}!`, 'success');
+            fetchVenue(venue._id);
+        } catch {
+            showToast('Failed to update venue status', 'error');
+        } finally {
+            setIsTogglingStatus(false);
+        }
+    };
+
+    const handleCancelVenue = async () => {
+        if (!venue) return;
+        setIsCancelling(true);
+        try {
+            await venuesApi.cancel(venue._id);
+            showToast('Venue cancelled successfully', 'success');
+            setShowCancelModal(false);
+            router.push('/dashboard/venues');
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to cancel venue', 'error');
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -396,10 +484,42 @@ export default function VenueManagePage() {
                         </svg>
                         Back to Venues
                     </button>
-                    <div className="flex gap-3">
+                    <div className="flex items-center gap-3">
+                        {/* Status badges */}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${venue.status === 'approved'
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/20'
+                            : venue.status === 'pending'
+                                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
+                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/20'
+                            }`}>
+                            {venue.status}
+                        </span>
+
+                        {/* Active/Inactive Toggle */}
+                        <button
+                            onClick={toggleVenueStatus}
+                            disabled={isTogglingStatus}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${venue.isActive !== false
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/20 hover:bg-green-500/30'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30'
+                                }`}
+                        >
+                            {isTogglingStatus ? '...' : venue.isActive !== false ? 'Active' : 'Inactive'}
+                        </button>
+
+                        {/* Cancel Button */}
+                        {venue.status !== 'cancelled' && (
+                            <button
+                                onClick={() => setShowCancelModal(true)}
+                                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 transition-colors"
+                            >
+                                Cancel Venue
+                            </button>
+                        )}
+
                         {isEditMode ? (
                             <>
-                                <Button variant="ghost" onClick={() => { setIsEditMode(false); initEditForm(venue); }}>Cancel</Button>
+                                <Button variant="ghost" onClick={() => { setIsEditMode(false); initEditForm(venue); }}>Cancel Edit</Button>
                                 <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
                             </>
                         ) : (
@@ -407,6 +527,31 @@ export default function VenueManagePage() {
                         )}
                     </div>
                 </div>
+
+                {/* Cancel Confirmation Modal */}
+                {showCancelModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                        <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-md w-full">
+                            <h3 className="text-xl font-bold text-white mb-2">Cancel Venue?</h3>
+                            <p className="text-gray-400 mb-6">
+                                Are you sure you want to cancel <strong className="text-white">{venue.name}</strong>? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <Button variant="ghost" onClick={() => setShowCancelModal(false)} disabled={isCancelling}>
+                                    Keep Venue
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={handleCancelVenue}
+                                    disabled={isCancelling}
+                                    className="bg-red-500 hover:bg-red-600"
+                                >
+                                    {isCancelling ? 'Cancelling...' : 'Yes, Cancel Venue'}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {error && <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400">{error}</div>}
 
@@ -476,46 +621,6 @@ export default function VenueManagePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Name & Location */}
-                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
-                            {isEditMode ? (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Venue Name</label>
-                                        <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} className="text-xl font-bold" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Street</label>
-                                            <Input value={editForm.street} onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-400 mb-1">City</label>
-                                            <Input value={editForm.city} onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-400 mb-1">State</label>
-                                            <Input value={editForm.state} onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Pincode</label>
-                                            <Input value={editForm.pincode} onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))} />
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <h1 className="text-3xl font-bold text-white mb-3">{venue.name}</h1>
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        </svg>
-                                        <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
                         {/* Description */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                             <h2 className="text-xl font-semibold text-white mb-4">About this venue</h2>
@@ -528,38 +633,6 @@ export default function VenueManagePage() {
                                 />
                             ) : (
                                 <p className="text-gray-400 leading-relaxed whitespace-pre-line">{venue.description}</p>
-                            )}
-                        </div>
-
-                        {/* Amenities */}
-                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
-                            <h2 className="text-xl font-semibold text-white mb-4">Amenities</h2>
-                            {isEditMode ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {COMMON_AMENITIES.map((amenity) => (
-                                        <button
-                                            key={amenity}
-                                            onClick={() => toggleAmenity(amenity)}
-                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editForm.amenities.includes(amenity)
-                                                ? 'bg-violet-500/30 text-violet-300 border border-violet-500/50'
-                                                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                                                }`}
-                                        >
-                                            {amenity}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {venue.amenities?.map((amenity, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 text-gray-300">
-                                            <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            {amenity}
-                                        </div>
-                                    ))}
-                                </div>
                             )}
                         </div>
 
@@ -703,146 +776,233 @@ export default function VenueManagePage() {
                                 </div>
                             )}
                         </div>
-                    </div>
+                        {/* Event Requests Card */}
+                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Event Requests ({eventRequests.length})
+                            </h3>
 
-                    {/* Booking Requests Section */}
-                    <div className="lg:col-span-2 bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
-                        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            📋 Booking Requests
-                            {bookings.filter(b => b.status === 'pending').length > 0 && (
-                                <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
-                                    {bookings.filter(b => b.status === 'pending').length} pending
-                                </span>
-                            )}
-                        </h2>
-
-                        {bookings.length === 0 ? (
-                            <p className="text-gray-400 text-sm">No booking requests yet</p>
-                        ) : (
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                                {bookings.map(booking => (
-                                    <div key={booking._id} className={`p-4 rounded-lg border ${booking.status === 'pending' ? 'bg-yellow-500/10 border-yellow-500/30' :
-                                        booking.status === 'accepted' ? 'bg-green-500/10 border-green-500/30' :
-                                            'bg-gray-500/10 border-gray-500/30'
-                                        }`}>
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${booking.status === 'pending' ? 'bg-yellow-500/30 text-yellow-300' :
-                                                        booking.status === 'accepted' ? 'bg-green-500/30 text-green-300' :
-                                                            'bg-gray-500/30 text-gray-300'
-                                                        }`}>
-                                                        {booking.status.toUpperCase()}
-                                                    </span>
-                                                    <span className="text-gray-500 text-xs">
-                                                        {new Date(booking.createdAt).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <p className="text-white font-medium">{booking.user?.name || 'Customer'}</p>
-                                                <p className="text-gray-400 text-sm">
-                                                    {new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • {booking.startTime} - {booking.endTime}
+                            {eventRequests.length === 0 ? (
+                                <div className="text-center py-6 text-gray-400">
+                                    <svg className="w-10 h-10 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <p className="text-sm">No pending requests</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 max-h-[350px] overflow-y-auto">
+                                    {eventRequests.map((event) => (
+                                        <div key={event._id} className="p-4 rounded-xl bg-black/30 border border-white/5">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className={`px-2 py-0.5 rounded text-xs ${event.eventType === 'private'
+                                                    ? 'bg-violet-500/20 text-violet-400'
+                                                    : 'bg-green-500/20 text-green-400'
+                                                    }`}>
+                                                    {event.eventType}
+                                                </span>
+                                            </div>
+                                            <p className="text-white font-medium">{event.name}</p>
+                                            <p className="text-gray-400 text-sm mt-1">
+                                                by {event.organizer?.name || 'Unknown'}
+                                            </p>
+                                            <div className="mt-2 text-gray-500 text-xs space-y-1">
+                                                <p className="flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    {new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    {event.endDate && event.endDate !== event.date && (
+                                                        <> - {new Date(event.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                                                    )}
                                                 </p>
-                                                <p className="text-gray-500 text-xs mt-1">
-                                                    {booking.expectedGuests} guests • ₹{booking.totalAmount?.toLocaleString()}
+                                                <p className="flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    {event.startTime} - {event.endTime}
+                                                </p>
+                                                <p className="flex items-center gap-1">
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                    </svg>
+                                                    {event.maxAttendees} max attendees
                                                 </p>
                                             </div>
-                                            {booking.status === 'pending' && (
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleBookingStatus(booking._id, 'rejected')}
-                                                        disabled={processingBookingId === booking._id}
+                                            {event.venueApproval?.status === 'pending' && (
+                                                <div className="flex gap-2 mt-3">
+                                                    <button
+                                                        onClick={() => handleEventApproval(event._id, 'rejected')}
+                                                        disabled={processingEventId === event._id}
+                                                        className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50"
                                                     >
                                                         Reject
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleBookingStatus(booking._id, 'accepted')}
-                                                        disabled={processingBookingId === booking._id}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEventApproval(event._id, 'approved')}
+                                                        disabled={processingEventId === event._id}
+                                                        className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors disabled:opacity-50"
                                                     >
-                                                        {processingBookingId === booking._id ? '...' : 'Accept'}
-                                                    </Button>
+                                                        {processingEventId === event._id ? '...' : 'Approve'}
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Sidebar - Venue Stats */}
+
                     <div className="lg:col-span-1">
-                        <div className="sticky top-28 bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
-                            {/* Price */}
-                            <div className="mb-6">
-                                {isEditMode ? (
-                                    <div className="space-y-3">
+                        {/* Name & Location */}
+                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6 mb-6">
+                            {isEditMode ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Venue Name</label>
+                                        <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} className="text-xl font-bold" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Base Price (₹)</label>
-                                            <Input type="number" value={editForm.basePrice} onChange={(e) => setEditForm(prev => ({ ...prev, basePrice: Number(e.target.value) }))} />
+                                            <label className="block text-sm text-gray-400 mb-1">Street</label>
+                                            <Input value={editForm.street} onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Price per Hour (₹)</label>
-                                            <Input type="number" value={editForm.pricePerHour} onChange={(e) => setEditForm(prev => ({ ...prev, pricePerHour: Number(e.target.value) }))} />
+                                            <label className="block text-sm text-gray-400 mb-1">City</label>
+                                            <Input value={editForm.city} onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">State</label>
+                                            <Input value={editForm.state} onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Pincode</label>
+                                            <Input value={editForm.pincode} onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))} />
                                         </div>
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
-                                            <span className="text-gray-400">base</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <h1 className="text-3xl font-bold text-white mb-3">{venue.name}</h1>
+                                    <div className="flex items-center gap-2 text-gray-400">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        </svg>
+                                        <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Stats Card */}
+                            <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                                {/* Price */}
+                                <div className="mb-6">
+                                    {isEditMode ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-sm text-gray-400 mb-1">Base Price (₹)</label>
+                                                <Input type="number" value={editForm.basePrice} onChange={(e) => setEditForm(prev => ({ ...prev, basePrice: Number(e.target.value) }))} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-gray-400 mb-1">Price per Hour (₹)</label>
+                                                <Input type="number" value={editForm.pricePerHour} onChange={(e) => setEditForm(prev => ({ ...prev, pricePerHour: Number(e.target.value) }))} />
+                                            </div>
                                         </div>
-                                        {venue.pricing.pricePerHour && (
-                                            <p className="text-sm text-gray-500 mt-1">+ {formatPrice(venue.pricing.pricePerHour)} / hour</p>
-                                        )}
-                                    </>
-                                )}
+                                    ) : (
+                                        <>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
+                                                <span className="text-gray-400">base</span>
+                                            </div>
+                                            {venue.pricing.pricePerHour && (
+                                                <p className="text-sm text-gray-500 mt-1">+ {formatPrice(venue.pricing.pricePerHour)} / hour</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Capacity */}
+                                <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
+                                    {isEditMode ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-sm text-gray-400 mb-1">Min Capacity</label>
+                                                <Input type="number" value={editForm.capacityMin} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMin: Number(e.target.value) }))} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-gray-400 mb-1">Max Capacity</label>
+                                                <Input type="number" value={editForm.capacityMax} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMax: Number(e.target.value) }))} />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-400">Capacity</span>
+                                            <span className="text-white">{venue.capacity.min} - {venue.capacity.max} guests</span>
+                                        </div>
+                                    )}
+
+                                    {venue.rating.count > 0 && (
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-400">Rating</span>
+                                            <div className="flex items-center gap-1">
+                                                <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                                <span className="text-white">{venue.rating.average.toFixed(1)}</span>
+                                                <span className="text-gray-500">({venue.rating.count})</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Status */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-400 text-sm">Status</span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${venue.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                        }`}>
+                                        {venue.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                </div>
                             </div>
+                        </div>
 
-                            {/* Capacity */}
-                            <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
-                                {isEditMode ? (
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Min Capacity</label>
-                                            <Input type="number" value={editForm.capacityMin} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMin: Number(e.target.value) }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Max Capacity</label>
-                                            <Input type="number" value={editForm.capacityMax} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMax: Number(e.target.value) }))} />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Capacity</span>
-                                        <span className="text-white">{venue.capacity.min} - {venue.capacity.max} guests</span>
-                                    </div>
-                                )}
-
-                                {venue.rating.count > 0 && (
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Rating</span>
-                                        <div className="flex items-center gap-1">
-                                            <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        {/* Amenities */}
+                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6 mt-6">
+                            <h2 className="text-xl font-semibold text-white mb-4">Amenities</h2>
+                            {isEditMode ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {COMMON_AMENITIES.map((amenity) => (
+                                        <button
+                                            key={amenity}
+                                            onClick={() => toggleAmenity(amenity)}
+                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editForm.amenities.includes(amenity)
+                                                ? 'bg-violet-500/30 text-violet-300 border border-violet-500/50'
+                                                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                                                }`}
+                                        >
+                                            {amenity}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {venue.amenities?.map((amenity, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 text-gray-300">
+                                            <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                             </svg>
-                                            <span className="text-white">{venue.rating.average.toFixed(1)}</span>
-                                            <span className="text-gray-500">({venue.rating.count})</span>
+                                            {amenity}
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Status */}
-                            <div className="flex items-center justify-between">
-                                <span className="text-gray-400 text-sm">Status</span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${venue.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                                    }`}>
-                                    {venue.isActive ? 'Active' : 'Inactive'}
-                                </span>
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

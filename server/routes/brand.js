@@ -20,9 +20,9 @@ router.get('/', async (req, res) => {
 router.get('/my-profile', async (req, res) => {
     // Assuming auth middleware sets req.user
     if (!req.query.userId) {
-       return res.status(401).json({ error: 'User ID required (Auth middleware pending)' }); 
+        return res.status(401).json({ error: 'User ID required (Auth middleware pending)' });
     }
-    
+
     try {
         const profile = await brandService.getBrandByUserId(req.query.userId);
         res.json(profile);
@@ -82,7 +82,7 @@ router.get('/:id/events', async (req, res) => {
     try {
         const brand = await brandService.getBrandById(req.params.id);
         if (!brand) return res.status(404).json({ error: 'Brand not found' });
-        
+
         // Use eventService to get events by organizer (brand.user._id)
         const events = await eventService.getEventsByOrganizer(brand.user._id);
         res.json(events);
@@ -91,4 +91,114 @@ router.get('/:id/events', async (req, res) => {
     }
 });
 
+// ================== FOLLOW ROUTES ==================
+
+// POST /api/brands/:id/follow - Follow a brand
+router.post('/:id/follow', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const result = await brandService.followBrand(userId, req.params.id);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// DELETE /api/brands/:id/follow - Unfollow a brand
+router.delete('/:id/follow', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const result = await brandService.unfollowBrand(userId, req.params.id);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// GET /api/brands/:id/follow/status - Check if user follows brand
+router.get('/:id/follow/status', async (req, res) => {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const result = await brandService.isFollowingBrand(userId, req.params.id);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ================== POST CRUD ROUTES ==================
+
+// PUT /api/brands/:id/posts/:postId - Update a post
+router.put('/:id/posts/:postId', async (req, res) => {
+    const { userId, ...data } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const post = await postService.updatePost(req.params.postId, req.params.id, userId, data);
+        res.json(post);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// DELETE /api/brands/:id/posts/:postId - Delete a post
+router.delete('/:id/posts/:postId', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const result = await postService.deletePost(req.params.postId, req.params.id, userId);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/brands/:id/posts/:postId/like - Toggle like on a post
+router.post('/:id/posts/:postId/like', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const result = await postService.toggleLike(req.params.postId, userId);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/brands/:id/posts/:postId/comments - Add comment to a post
+router.post('/:id/posts/:postId/comments', async (req, res) => {
+    const { userId, content } = req.body;
+    if (!userId || !content) return res.status(400).json({ error: 'User ID and content required' });
+
+    try {
+        const comments = await postService.addComment(req.params.postId, userId, content);
+        res.json({ comments });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// DELETE /api/brands/:id/posts/:postId/comments/:commentId - Delete a comment
+router.delete('/:id/posts/:postId/comments/:commentId', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    try {
+        const result = await postService.deleteComment(req.params.postId, req.params.commentId, userId);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;
+
+

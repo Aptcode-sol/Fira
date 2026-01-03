@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button, Input } from '@/components/ui';
 import { venuesApi, bookingsApi, uploadApi } from '@/lib/api';
+import { FadeIn, SlideUp } from '@/components/animations';
+import { motion } from 'framer-motion';
 
 interface Venue {
     _id: string;
@@ -77,6 +79,11 @@ export default function VenuesPage() {
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [busyHoursForm, setBusyHoursForm] = useState({ startTime: '09:00', endTime: '18:00', reason: '' });
+
+    // Cancel Venue State
+    const [cancellingVenue, setCancellingVenue] = useState<Venue | null>(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [isCancelling, setIsCancelling] = useState(false);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -356,6 +363,22 @@ export default function VenuesPage() {
     const prevMonth = () => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
     const nextMonth = () => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
 
+    const handleCancelVenue = async () => {
+        if (!cancellingVenue) return;
+        setIsCancelling(true);
+        try {
+            await venuesApi.cancel(cancellingVenue._id, cancelReason || 'Cancelled by owner');
+            // Refresh venues list
+            await fetchVenues();
+            setCancellingVenue(null);
+            setCancelReason('');
+        } catch (error) {
+            console.error('Failed to cancel venue:', error);
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
     if (isLoading || !isAuthenticated) {
         return (
             <DashboardLayout>
@@ -373,45 +396,70 @@ export default function VenuesPage() {
         <DashboardLayout>
             <div className="p-6 lg:p-8">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">My Venues</h1>
-                        <p className="text-gray-400">Manage your venues and booking requests</p>
+                <SlideUp>
+                    <div className="flex items-start justify-between mb-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2">My Venues</h1>
+                            <p className="text-gray-400">Manage your venues and booking requests</p>
+                        </div>
+                        <Link href="/create/venue">
+                            <Button>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Venue
+                            </Button>
+                        </Link>
                     </div>
-                    <Link href="/create/venue">
-                        <Button>
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            Add Venue
-                        </Button>
-                    </Link>
-                </div>
+                </SlideUp>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                        <div className="text-sm text-gray-400 mb-1">Total Venues</div>
-                        <div className="text-2xl font-bold text-white">{venues.length}</div>
+                <FadeIn delay={0.1}>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
+                            <div className="text-sm text-gray-400 mb-1">Total Venues</div>
+                            <div className="text-2xl font-bold text-white">{venues.length}</div>
+                        </div>
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
+                            <div className="text-sm text-gray-400 mb-1">Active Venues</div>
+                            <div className="text-2xl font-bold text-green-400">{venues.filter((v) => v.isActive !== false).length}</div>
+                        </div>
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
+                            <div className="text-sm text-gray-400 mb-1">Pending Requests</div>
+                            <div className="text-2xl font-bold text-yellow-400">{totalPendingRequests}</div>
+                        </div>
+                        <div className="bg-gradient-to-r from-violet-500/20 to-pink-500/20 backdrop-blur-sm border border-violet-500/20 rounded-2xl p-5">
+                            <div className="text-sm text-violet-300 mb-1">This Month&apos;s Earnings</div>
+                            <div className="text-2xl font-bold text-white">₹{totalMonthlyEarnings.toLocaleString()}</div>
+                        </div>
                     </div>
-                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                        <div className="text-sm text-gray-400 mb-1">Active Venues</div>
-                        <div className="text-2xl font-bold text-green-400">{venues.filter((v) => v.isActive !== false).length}</div>
-                    </div>
-                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                        <div className="text-sm text-gray-400 mb-1">Pending Requests</div>
-                        <div className="text-2xl font-bold text-yellow-400">{totalPendingRequests}</div>
-                    </div>
-                    <div className="bg-gradient-to-r from-violet-500/20 to-pink-500/20 backdrop-blur-sm border border-violet-500/20 rounded-2xl p-5">
-                        <div className="text-sm text-violet-300 mb-1">This Month&apos;s Earnings</div>
-                        <div className="text-2xl font-bold text-white">₹{totalMonthlyEarnings.toLocaleString()}</div>
-                    </div>
-                </div>
+                </FadeIn>
 
-                {/* Loading State */}
+                {/* Loading State - Skeleton Cards */}
                 {loading && (
-                    <div className="flex items-center justify-center py-16">
-                        <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {[0, 1, 2, 3].map((i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.4, delay: i * 0.1, ease: [0.25, 0.1, 0.25, 1] }}
+                                className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden"
+                            >
+                                <div className="flex flex-col md:flex-row">
+                                    <div className="md:w-48 h-40 md:h-48 bg-white/[0.05] animate-pulse" />
+                                    <div className="flex-1 p-5 space-y-4">
+                                        <div className="h-5 w-3/4 bg-white/[0.05] rounded animate-pulse" />
+                                        <div className="h-4 w-1/2 bg-white/[0.05] rounded animate-pulse" />
+                                        <div className="grid grid-cols-3 gap-4 pt-2">
+                                            <div className="h-8 bg-white/[0.05] rounded animate-pulse" />
+                                            <div className="h-8 bg-white/[0.05] rounded animate-pulse" />
+                                            <div className="h-8 bg-white/[0.05] rounded animate-pulse" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
                     </div>
                 )}
 
@@ -425,100 +473,98 @@ export default function VenuesPage() {
 
                 {/* Venues Grid */}
                 {!loading && !error && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {venues.map((venue) => (
-                            <Link
-                                key={venue._id}
-                                href={`/dashboard/venues/${venue._id}`}
-                                className="group bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 cursor-pointer"
-                            >
-                                <div className="flex flex-col md:flex-row">
-                                    {/* Venue Image */}
-                                    <div className="md:w-48 h-40 md:h-48 bg-gradient-to-br from-violet-500/30 to-blue-500/30 flex items-center justify-center relative overflow-hidden flex-shrink-0">
-                                        {venue.images?.[0] ? (
-                                            <img src={venue.images[0]} alt={venue.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <svg className="w-12 h-12 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                            </svg>
-                                        )}
-                                        <div className="absolute top-3 left-3 flex gap-2">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm border ${venue.status === 'approved'
-                                                ? 'bg-green-500/20 text-green-400 border-green-500/20'
-                                                : venue.status === 'pending'
-                                                    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
-                                                    : 'bg-gray-500/20 text-gray-400 border-gray-500/20'
-                                                }`}>
-                                                {venue.status}
-                                            </span>
-                                        </div>
-                                        {/* Active Toggle */}
-                                        <button
-                                            onClick={() => toggleVenueStatus(venue)}
-                                            className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm border transition-colors ${venue.isActive !== false
-                                                ? 'bg-green-500/20 text-green-400 border-green-500/20 hover:bg-green-500/30'
-                                                : 'bg-red-500/20 text-red-400 border-red-500/20 hover:bg-red-500/30'
-                                                }`}
-                                        >
-                                            {venue.isActive !== false ? 'Active' : 'Inactive'}
-                                        </button>
-                                    </div>
-
-                                    {/* Venue Details */}
-                                    <div className="flex-1 p-5">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-white group-hover:text-violet-300 transition-colors">
-                                                    {venue.name}
-                                                </h3>
-                                                <div className="flex items-center gap-2 text-sm text-gray-400">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <FadeIn>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {venues.map((venue, index) => (
+                                <motion.div
+                                    key={venue._id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.4, delay: index * 0.08, ease: [0.25, 0.1, 0.25, 1] }}
+                                >
+                                    <Link
+                                        href={`/dashboard/venues/${venue._id}`}
+                                        className="group block bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 cursor-pointer"
+                                    >
+                                        <div className="flex flex-col md:flex-row">
+                                            {/* Venue Image */}
+                                            <div className="md:w-48 h-40 md:h-48 bg-gradient-to-br from-violet-500/30 to-blue-500/30 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+                                                {venue.images?.[0] ? (
+                                                    <img src={venue.images[0]} alt={venue.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <svg className="w-12 h-12 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                                     </svg>
-                                                    {venue.address?.city}, {venue.address?.state}
+                                                )}
+                                                <div className="absolute top-3 left-3 flex gap-2">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm border ${venue.status === 'approved'
+                                                        ? 'bg-green-500/20 text-green-400 border-green-500/20'
+                                                        : venue.status === 'pending'
+                                                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
+                                                            : 'bg-gray-500/20 text-gray-400 border-gray-500/20'
+                                                        }`}>
+                                                        {venue.status}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            {venue.rating?.average && (
-                                                <div className="flex items-center gap-1 text-yellow-400">
-                                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                    </svg>
-                                                    <span className="text-sm font-medium">{venue.rating.average.toFixed(1)}</span>
+
+                                            {/* Venue Details */}
+                                            <div className="flex-1 p-5">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div>
+                                                        <h3 className="text-lg font-semibold text-white group-hover:text-violet-300 transition-colors">
+                                                            {venue.name}
+                                                        </h3>
+                                                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            </svg>
+                                                            {venue.address?.city}, {venue.address?.state}
+                                                        </div>
+                                                    </div>
+                                                    {venue.rating?.average && (
+                                                        <div className="flex items-center gap-1 text-yellow-400">
+                                                            <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                            </svg>
+                                                            <span className="text-sm font-medium">{venue.rating.average.toFixed(1)}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        {/* Stats */}
-                                        <div className="grid grid-cols-3 gap-4 mb-4">
-                                            <div>
-                                                <p className="text-xs text-gray-500">Capacity</p>
-                                                <p className="text-sm font-medium text-white">{venue.capacity?.max || venue.capacity?.min || 0}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500">Bookings</p>
-                                                <p className="text-sm font-medium text-white">{venue.totalBookings || 0}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500">This Month</p>
-                                                <p className="text-sm font-medium text-emerald-400">₹{((venue.monthlyEarnings || 0) / 1000).toFixed(0)}K</p>
+                                                {/* Stats */}
+                                                <div className="grid grid-cols-3 gap-4 mb-4">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Capacity</p>
+                                                        <p className="text-sm font-medium text-white">{venue.capacity?.max || venue.capacity?.min || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Bookings</p>
+                                                        <p className="text-sm font-medium text-white">{venue.totalBookings || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">This Month</p>
+                                                        <p className="text-sm font-medium text-emerald-400">₹{((venue.monthlyEarnings || 0) / 1000).toFixed(0)}K</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Pending Requests Alert */}
+                                                {(venue.pendingBookings || 0) > 0 && (
+                                                    <div className="mb-4 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span className="text-sm text-yellow-400">{venue.pendingBookings} pending request{(venue.pendingBookings || 0) > 1 ? 's' : ''}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-
-                                        {/* Pending Requests Alert */}
-                                        {(venue.pendingBookings || 0) > 0 && (
-                                            <div className="mb-4 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span className="text-sm text-yellow-400">{venue.pendingBookings} pending request{(venue.pendingBookings || 0) > 1 ? 's' : ''}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
+                                    </Link>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </FadeIn>
                 )}
 
                 {/* Empty State */}
@@ -1003,6 +1049,77 @@ export default function VenuesPage() {
                     </div>
                 )
             }
+
+            {/* Cancel Venue Modal */}
+            {cancellingVenue && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-white">Cancel Venue</h2>
+                            <button onClick={() => setCancellingVenue(null)} className="text-gray-400 hover:text-white">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                                <div className="flex items-start gap-3">
+                                    <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-red-400 font-medium">Cancel {cancellingVenue.name}?</p>
+                                        <p className="text-sm text-gray-400 mt-1">
+                                            This will set the venue status to inactive and it will no longer accept new bookings.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-2">
+                                    Reason for cancellation (optional)
+                                </label>
+                                <textarea
+                                    value={cancelReason}
+                                    onChange={(e) => setCancelReason(e.target.value)}
+                                    placeholder="Let us know why you're cancelling..."
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 resize-none"
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="secondary"
+                                    className="flex-1"
+                                    onClick={() => { setCancellingVenue(null); setCancelReason(''); }}
+                                    disabled={isCancelling}
+                                >
+                                    Keep Venue
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="flex-1 !bg-red-500 hover:!bg-red-600"
+                                    onClick={handleCancelVenue}
+                                    disabled={isCancelling}
+                                >
+                                    {isCancelling ? (
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Cancelling...
+                                        </span>
+                                    ) : (
+                                        'Cancel Venue'
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </DashboardLayout >
     );
 }

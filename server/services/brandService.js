@@ -13,7 +13,7 @@ const brandService = {
             sort = 'newest'
         } = query;
 
-        const filter = { isActive: true };
+        const filter = { isActive: true, status: 'approved' };
 
         if (type && type !== 'All') {
             filter.type = type.toLowerCase();
@@ -125,7 +125,71 @@ const brandService = {
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
         return profile;
+    },
+
+    // Follow a brand
+    async followBrand(userId, brandId) {
+        const User = require('../models/User');
+
+        const brand = await BrandProfile.findById(brandId);
+        if (!brand) throw new Error('Brand not found');
+
+        const user = await User.findById(userId);
+        if (!user) throw new Error('User not found');
+
+        // Check if already following
+        if (user.followingBrands.includes(brandId)) {
+            throw new Error('Already following this brand');
+        }
+
+        // Add brand to user's followingBrands
+        await User.findByIdAndUpdate(userId, {
+            $addToSet: { followingBrands: brandId }
+        });
+
+        // Increment brand's follower count
+        await BrandProfile.findByIdAndUpdate(brandId, {
+            $inc: { 'stats.followers': 1 }
+        });
+
+        return { success: true, message: 'Now following this brand' };
+    },
+
+    // Unfollow a brand
+    async unfollowBrand(userId, brandId) {
+        const User = require('../models/User');
+
+        const user = await User.findById(userId);
+        if (!user) throw new Error('User not found');
+
+        // Check if actually following
+        if (!user.followingBrands.includes(brandId)) {
+            throw new Error('Not following this brand');
+        }
+
+        // Remove brand from user's followingBrands
+        await User.findByIdAndUpdate(userId, {
+            $pull: { followingBrands: brandId }
+        });
+
+        // Decrement brand's follower count (minimum 0)
+        await BrandProfile.findByIdAndUpdate(brandId, {
+            $inc: { 'stats.followers': -1 }
+        });
+
+        return { success: true, message: 'Unfollowed this brand' };
+    },
+
+    // Check if user follows a brand
+    async isFollowingBrand(userId, brandId) {
+        const User = require('../models/User');
+
+        const user = await User.findById(userId);
+        if (!user) return { isFollowing: false };
+
+        return { isFollowing: user.followingBrands.includes(brandId) };
     }
 };
 
 module.exports = brandService;
+

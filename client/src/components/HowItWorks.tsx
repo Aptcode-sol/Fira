@@ -1,5 +1,7 @@
 'use client';
 
+import { FadeIn, SlideUp, StaggerContainer, StaggerItem } from './animations';
+
 const steps = [
     {
         number: '01',
@@ -71,58 +73,67 @@ const features = [
 
 export default function HowItWorks() {
     return (
-        <section className="py-24 px-4 sm:px-6 lg:px-8 relative">
-            <div className="max-w-6xl mx-auto">
-                {/* Section Header */}
-                <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-semibold mb-4 text-white">
-                        How <span className="accent-text">FIRA</span> Works
-                    </h2>
-                    <p className="text-gray-500 max-w-xl mx-auto">
-                        From listing your venue to hosting unforgettable events - simple and seamless.
-                    </p>
-                </div>
-
-                {/* Steps - Clean minimal design */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-20">
-                    {steps.map((step, index) => (
-                        <div key={step.number} className="text-center group">
-                            {/* Step Number */}
-                            <div className="inline-flex items-center justify-center mb-6">
-                                <span className="text-6xl font-bold text-white/5 group-hover:text-violet-500/10 transition-colors duration-500">
-                                    {step.number}
-                                </span>
-                            </div>
-
-                            {/* Icon - Clean, no background */}
-                            <div className="flex justify-center mb-4">
-                                <span className="text-violet-400 group-hover:text-violet-300 transition-colors">
-                                    {step.icon}
-                                </span>
-                            </div>
-
-                            {/* Content */}
-                            <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
-                            <p className="text-gray-500 text-sm leading-relaxed">{step.description}</p>
+        <FadeIn>
+            <section className="py-24 px-4 sm:px-6 lg:px-8 relative">
+                <div className="max-w-6xl mx-auto">
+                    {/* Section Header */}
+                    <SlideUp>
+                        <div className="text-center mb-16">
+                            <h2 className="text-3xl md:text-4xl font-semibold mb-4 text-white">
+                                How <span className="accent-text">FIRA</span> Works
+                            </h2>
+                            <p className="text-gray-500 max-w-xl mx-auto">
+                                From listing your venue to hosting unforgettable events - simple and seamless.
+                            </p>
                         </div>
-                    ))}
-                </div>
+                    </SlideUp>
 
-                {/* Features - Minimal inline style */}
-                <div className="flex flex-wrap justify-center gap-8 md:gap-12">
-                    {features.map((feature) => (
-                        <div
-                            key={feature.title}
-                            className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors group"
-                        >
-                            <span className="text-violet-400 group-hover:text-violet-300 transition-colors">
-                                {feature.icon}
-                            </span>
-                            <span className="text-sm font-medium">{feature.title}</span>
+                    {/* Steps - Clean minimal design */}
+                    <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-20">
+                        {steps.map((step) => (
+                            <StaggerItem key={step.number}>
+                                <div className="text-center group">
+                                    {/* Step Number */}
+                                    <div className="inline-flex items-center justify-center mb-6">
+                                        <span className="text-6xl font-bold text-white/5 group-hover:text-violet-500/10 transition-colors duration-500">
+                                            {step.number}
+                                        </span>
+                                    </div>
+
+                                    {/* Icon - Clean, no background */}
+                                    <div className="flex justify-center mb-4">
+                                        <span className="text-violet-400 group-hover:text-violet-300 transition-colors">
+                                            {step.icon}
+                                        </span>
+                                    </div>
+
+                                    {/* Content */}
+                                    <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
+                                    <p className="text-gray-500 text-sm leading-relaxed">{step.description}</p>
+                                </div>
+                            </StaggerItem>
+                        ))}
+                    </StaggerContainer>
+
+                    {/* Features - Minimal inline style */}
+                    <SlideUp delay={0.2}>
+                        <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+                            {features.map((feature) => (
+                                <div
+                                    key={feature.title}
+                                    className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors group"
+                                >
+                                    <span className="text-violet-400 group-hover:text-violet-300 transition-colors">
+                                        {feature.icon}
+                                    </span>
+                                    <span className="text-sm font-medium">{feature.title}</span>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    </SlideUp>
                 </div>
-            </div>
-        </section>
+            </section>
+        </FadeIn>
     );
 }
+

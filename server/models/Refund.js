@@ -66,6 +66,10 @@ const refundSchema = new mongoose.Schema({
     rejectionReason: {
         type: String,
         default: null
+    },
+    failureReason: {
+        type: String,
+        default: null
     }
 }, {
     timestamps: true

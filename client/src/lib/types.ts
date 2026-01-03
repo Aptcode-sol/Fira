@@ -91,6 +91,7 @@ export interface Event {
     description: string;
     images: string[];
     date: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
     eventType: 'public' | 'private';
@@ -101,7 +102,8 @@ export interface Event {
     privateCode: string | null;
     category: 'party' | 'concert' | 'wedding' | 'corporate' | 'birthday' | 'festival' | 'other';
     tags: string[];
-    status: 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+    termsAndConditions?: string;
+    status: 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'approved';
     isFeatured: boolean;
     createdAt: string;
     updatedAt: string;

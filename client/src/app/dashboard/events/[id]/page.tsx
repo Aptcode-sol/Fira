@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { Button } from '@/components/ui';
-import { eventsApi, ticketsApi } from '@/lib/api';
+import { Button, Modal } from '@/components/ui';
+import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
 import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
@@ -35,6 +35,36 @@ export default function DashboardEventDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [copiedCode, setCopiedCode] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelling, setCancelling] = useState(false);
+
+    // Edit mode state
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [editForm, setEditForm] = useState({
+        name: '',
+        description: '',
+        category: '',
+        date: '',
+        endDate: '',
+        startTime: '',
+        endTime: '',
+        eventType: 'public' as 'public' | 'private',
+        ticketType: 'free' as 'free' | 'paid',
+        ticketPrice: 0,
+        maxAttendees: 100,
+        termsAndConditions: '',
+    });
+
+    // Posts state
+    const [posts, setPosts] = useState<any[]>([]);
+    const [showPostModal, setShowPostModal] = useState(false);
+    const [postContent, setPostContent] = useState('');
+    const [postImages, setPostImages] = useState<File[]>([]);
+    const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
+    const [isCreatingPost, setIsCreatingPost] = useState(false);
+    const [editingPost, setEditingPost] = useState<any>(null);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -101,6 +131,177 @@ export default function DashboardEventDetailPage() {
         }).format(price);
     };
 
+    const handleCancelEvent = async () => {
+        if (!event) return;
+        setCancelling(true);
+        try {
+            const result = await eventsApi.cancel(event._id, cancelReason || 'Cancelled by organizer');
+            const refundInfo = result.refundResults;
+            if (refundInfo && refundInfo.refundsInitiated > 0) {
+                showToast(`Event cancelled. ${refundInfo.refundsInitiated} refund(s) initiated totaling ₹${refundInfo.totalRefundAmount}`, 'success');
+            } else {
+                showToast('Event cancelled successfully', 'success');
+            }
+            setShowCancelModal(false);
+            setCancelReason('');
+            // Refresh event data
+            fetchEvent(event._id);
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to cancel event', 'error');
+        } finally {
+            setCancelling(false);
+        }
+    };
+
+    // Initialize edit form with event data
+    const initEditForm = (e: Event) => {
+        const eventWithTerms = e as Event & { termsAndConditions?: string; endDate?: string };
+        setEditForm({
+            name: e.name || '',
+            description: e.description || '',
+            category: e.category || '',
+            date: e.date ? new Date(e.date).toISOString().split('T')[0] : '',
+            endDate: eventWithTerms.endDate ? new Date(eventWithTerms.endDate).toISOString().split('T')[0] : '',
+            startTime: e.startTime || '',
+            endTime: e.endTime || '',
+            eventType: e.eventType || 'public',
+            ticketType: e.ticketType || 'free',
+            ticketPrice: e.ticketPrice || 0,
+            maxAttendees: e.maxAttendees || 100,
+            termsAndConditions: eventWithTerms.termsAndConditions || '',
+        });
+    };
+
+    const handleEditClick = () => {
+        if (event) {
+            initEditForm(event);
+            setIsEditMode(true);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!event) return;
+        setIsSaving(true);
+        try {
+            await eventsApi.update(event._id, {
+                name: editForm.name,
+                description: editForm.description,
+                category: editForm.category,
+                date: editForm.date,
+                endDate: editForm.endDate || editForm.date,
+                startTime: editForm.startTime,
+                endTime: editForm.endTime,
+                eventType: editForm.eventType,
+                ticketType: editForm.ticketType,
+                ticketPrice: editForm.ticketType === 'paid' ? editForm.ticketPrice : 0,
+                maxAttendees: editForm.maxAttendees,
+                termsAndConditions: editForm.termsAndConditions || null,
+            });
+            showToast('Event updated successfully!', 'success');
+            setIsEditMode(false);
+            fetchEvent(event._id);
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to update event', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Fetch event posts
+    const fetchPosts = async () => {
+        if (!params.id) return;
+        try {
+            const result = await eventsApi.getPosts(params.id as string) as { posts: any[] };
+            setPosts(result.posts || []);
+        } catch (err) {
+            console.error('Failed to fetch posts:', err);
+        }
+    };
+
+    // Fetch posts when event loads
+    useEffect(() => {
+        if (event?._id) {
+            fetchPosts();
+        }
+    }, [event?._id]);
+
+    // Handle post image add (local preview only)
+    const handlePostImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            setPostImages(prev => [...prev, ...files]);
+            setPostImagePreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+        }
+    };
+
+    // Reset post form
+    const resetPostForm = () => {
+        setPostContent('');
+        setPostImages([]);
+        setPostImagePreviews([]);
+        setEditingPost(null);
+        setShowPostModal(false);
+    };
+
+    // Create or Update post
+    const handleCreatePost = async () => {
+        if (!params.id || !user?._id || !postContent.trim()) return;
+
+        setIsCreatingPost(true);
+        try {
+            let imageUrls: string[] = [];
+            if (postImages.length > 0) {
+                const uploadPromises = postImages.map(file => uploadApi.single(file));
+                const results = await Promise.all(uploadPromises);
+                imageUrls = results.map((r: any) => r.url);
+            }
+
+            if (editingPost) {
+                await eventsApi.updatePost(params.id as string, editingPost._id, {
+                    content: postContent,
+                    images: imageUrls.length > 0 ? imageUrls : editingPost.images,
+                    userId: user._id
+                });
+            } else {
+                await eventsApi.createPost(params.id as string, {
+                    content: postContent,
+                    images: imageUrls,
+                    userId: user._id
+                });
+            }
+
+            resetPostForm();
+            fetchPosts();
+            showToast(editingPost ? 'Post updated!' : 'Post created!', 'success');
+        } catch (err) {
+            showToast('Failed to save post', 'error');
+        } finally {
+            setIsCreatingPost(false);
+        }
+    };
+
+    // Start editing a post
+    const handleEditPost = (post: any) => {
+        setEditingPost(post);
+        setPostContent(post.content);
+        setPostImagePreviews(post.images || []);
+        setShowPostModal(true);
+    };
+
+    // Delete post
+    const handleDeletePost = async (postId: string) => {
+        if (!params.id || !user?._id) return;
+        if (!confirm('Are you sure you want to delete this post?')) return;
+
+        try {
+            await eventsApi.deletePost(params.id as string, postId, user._id);
+            fetchPosts();
+            showToast('Post deleted', 'success');
+        } catch (err) {
+            showToast('Failed to delete post', 'error');
+        }
+    };
+
     if (authLoading || !isAuthenticated) {
         return (
             <DashboardLayout>
@@ -163,9 +364,46 @@ export default function DashboardEventDetailPage() {
                         <p className="text-gray-400">View bookings and manage your event</p>
                     </div>
                     <div className="flex gap-3">
-                        <Link href={`/events/${event._id}`} target="_blank">
-                            <Button variant="secondary">View Public Page</Button>
-                        </Link>
+                        {isEditMode ? (
+                            <>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setIsEditMode(false)}
+                                    disabled={isSaving}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button onClick={handleSave} isLoading={isSaving}>
+                                    Save Changes
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Link href={`/events/${event._id}`} target="_blank">
+                                    <Button variant="secondary">View Public Page</Button>
+                                </Link>
+                                {event.status !== 'cancelled' && (
+                                    <>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={handleEditClick}
+                                        >
+                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Edit
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            className="!bg-red-500/20 !text-red-400 hover:!bg-red-500/30 !border-red-500/30"
+                                            onClick={() => setShowCancelModal(true)}
+                                        >
+                                            Cancel Event
+                                        </Button>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -195,9 +433,9 @@ export default function DashboardEventDetailPage() {
                             {event.category}
                         </span>
                         <span className={`px-3 py-1.5 rounded-full backdrop-blur-sm text-sm capitalize ${event.status === 'upcoming' ? 'bg-green-500/30 text-green-200' :
-                                event.status === 'ongoing' ? 'bg-blue-500/30 text-blue-200' :
-                                    event.status === 'completed' ? 'bg-gray-500/30 text-gray-200' :
-                                        'bg-red-500/30 text-red-200'
+                            event.status === 'ongoing' ? 'bg-blue-500/30 text-blue-200' :
+                                event.status === 'completed' ? 'bg-gray-500/30 text-gray-200' :
+                                    'bg-red-500/30 text-red-200'
                             }`}>
                             {event.status}
                         </span>
@@ -205,7 +443,12 @@ export default function DashboardEventDetailPage() {
 
                     {/* Date Banner */}
                     <div className="absolute bottom-4 left-4 px-4 py-3 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10">
-                        <div className="text-violet-400 text-sm font-medium">{formatDate(event.date)}</div>
+                        <div className="text-violet-400 text-sm font-medium">
+                            {formatDate(event.date)}
+                            {event.endDate && new Date(event.endDate).toDateString() !== new Date(event.date).toDateString() && (
+                                <> - {formatDate(event.endDate)}</>
+                            )}
+                        </div>
                         <div className="text-white text-lg font-semibold">{event.startTime} - {event.endTime}</div>
                     </div>
                 </div>
@@ -324,8 +567,8 @@ export default function DashboardEventDetailPage() {
                                                 <p className="text-gray-400 text-sm">{formatPrice(ticket.price)}</p>
                                             </div>
                                             <span className={`px-2 py-1 rounded text-xs ${ticket.isUsed ? 'bg-gray-500/20 text-gray-400' :
-                                                    ticket.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                                                        'bg-red-500/20 text-red-400'
+                                                ticket.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                                                    'bg-red-500/20 text-red-400'
                                                 }`}>
                                                 {ticket.isUsed ? 'Used' : ticket.status}
                                             </span>
@@ -335,11 +578,172 @@ export default function DashboardEventDetailPage() {
                             )}
                         </div>
 
-                        {/* Description */}
+                        {/* Description / Edit Form */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">About this event</h3>
-                            <p className="text-gray-400 leading-relaxed whitespace-pre-line">{event.description}</p>
+                            <h3 className="text-lg font-semibold text-white mb-4">
+                                {isEditMode ? 'Edit Event Details' : 'About this event'}
+                            </h3>
+
+                            {isEditMode ? (
+                                <div className="space-y-4">
+                                    {/* Name */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Event Name *</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.name}
+                                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                        />
+                                    </div>
+
+                                    {/* Description */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Description *</label>
+                                        <textarea
+                                            value={editForm.description}
+                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                            rows={4}
+                                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                                        />
+                                    </div>
+
+                                    {/* Date & Time */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Start Date *</label>
+                                            <input
+                                                type="date"
+                                                value={editForm.date}
+                                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">End Date</label>
+                                            <input
+                                                type="date"
+                                                value={editForm.endDate}
+                                                onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Start Time *</label>
+                                            <input
+                                                type="time"
+                                                value={editForm.startTime}
+                                                onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">End Time *</label>
+                                            <input
+                                                type="time"
+                                                value={editForm.endTime}
+                                                onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Ticket Info */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Max Attendees</label>
+                                            <input
+                                                type="number"
+                                                value={editForm.maxAttendees}
+                                                onChange={(e) => setEditForm({ ...editForm, maxAttendees: parseInt(e.target.value) })}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-400 mb-1">Ticket Price (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={editForm.ticketPrice}
+                                                onChange={(e) => setEditForm({ ...editForm, ticketPrice: parseInt(e.target.value) })}
+                                                disabled={editForm.ticketType === 'free'}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:opacity-50"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Terms */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Terms & Conditions</label>
+                                        <textarea
+                                            value={editForm.termsAndConditions}
+                                            onChange={(e) => setEditForm({ ...editForm, termsAndConditions: e.target.value })}
+                                            rows={3}
+                                            placeholder="Optional terms and conditions..."
+                                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-gray-400 leading-relaxed whitespace-pre-line">{event.description}</p>
+                            )}
                         </div>
+
+                        {/* Venue Details - Non-editable */}
+                        {venue && typeof venue === 'object' && (
+                            <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-white">Venue Details</h3>
+                                    <span className="text-xs text-gray-500 bg-gray-500/10 px-2 py-1 rounded">Non-editable</span>
+                                </div>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="text-lg font-medium text-white">{venue.name}</h4>
+                                        <p className="text-gray-400 text-sm mb-2">
+                                            {venue.address?.street && `${venue.address.street}, `}
+                                            {venue.address?.city}, {venue.address?.state}
+                                        </p>
+                                        {venue.capacity && (
+                                            <p className="text-gray-500 text-sm">
+                                                Capacity: {venue.capacity.min || 0} - {venue.capacity.max || 'N/A'} people
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tags */}
+                        {event.tags && event.tags.length > 0 && (
+                            <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold text-white mb-4">Tags</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {event.tags.map((tag, index) => (
+                                        <span key={index} className="px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-sm">
+                                            #{tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Terms and Conditions */}
+                        {(event as Event & { termsAndConditions?: string }).termsAndConditions && (
+                            <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold text-white mb-4">Terms & Conditions</h3>
+                                <p className="text-gray-400 leading-relaxed whitespace-pre-line text-sm">
+                                    {(event as Event & { termsAndConditions?: string }).termsAndConditions}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Sidebar */}
@@ -367,8 +771,8 @@ export default function DashboardEventDetailPage() {
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-gray-400">Status</span>
                                         <span className={`capitalize ${event.status === 'upcoming' ? 'text-green-400' :
-                                                event.status === 'ongoing' ? 'text-blue-400' :
-                                                    'text-gray-400'
+                                            event.status === 'ongoing' ? 'text-blue-400' :
+                                                'text-gray-400'
                                             }`}>{event.status}</span>
                                     </div>
                                 </div>
@@ -405,6 +809,180 @@ export default function DashboardEventDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Event Posts Section */}
+            <div className="bg-black/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 mt-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold text-white">Event Posts</h3>
+                    <Button onClick={() => setShowPostModal(true)}>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        New Post
+                    </Button>
+                </div>
+
+                {posts.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                        <p>No posts yet. Create your first post to engage with attendees!</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {posts.map((post: any) => (
+                            <div key={post._id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                                <div className="flex justify-between items-start mb-3">
+                                    <p className="text-white whitespace-pre-wrap flex-1">{post.content}</p>
+                                    <div className="flex gap-2 ml-4">
+                                        <button
+                                            onClick={() => handleEditPost(post)}
+                                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeletePost(post._id)}
+                                            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                {post.images && post.images.length > 0 && (
+                                    <div className="grid grid-cols-3 gap-2 mb-3">
+                                        {post.images.map((img: string, idx: number) => (
+                                            <img key={idx} src={img} alt="" className="w-full h-24 object-cover rounded-lg" />
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-4 text-sm text-gray-500">
+                                    <span>{post.likes?.length || 0} likes</span>
+                                    <span>{post.comments?.length || 0} comments</span>
+                                    <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Post Modal */}
+            <Modal isOpen={showPostModal} onClose={resetPostForm} title={editingPost ? 'Edit Post' : 'Create Post'} size="md">
+                <div className="space-y-4">
+                    <textarea
+                        value={postContent}
+                        onChange={(e) => setPostContent(e.target.value)}
+                        placeholder="Share an update about your event..."
+                        className="w-full h-32 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                    />
+
+                    {postImagePreviews.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2">
+                            {postImagePreviews.map((preview, idx) => (
+                                <div key={idx} className="relative">
+                                    <img src={preview} alt="" className="w-full h-20 object-cover rounded-lg" />
+                                    <button
+                                        onClick={() => {
+                                            setPostImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                                            setPostImages(prev => prev.filter((_, i) => i !== idx));
+                                        }}
+                                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <label className="flex items-center gap-2 text-gray-400 hover:text-white cursor-pointer transition-colors">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Add Images</span>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handlePostImageAdd}
+                        />
+                    </label>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button variant="secondary" onClick={resetPostForm}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreatePost}
+                            disabled={isCreatingPost || !postContent.trim()}
+                        >
+                            {isCreatingPost ? 'Posting...' : (editingPost ? 'Update Post' : 'Create Post')}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Cancel Event Modal */}
+            <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancel Event" size="md">
+                <div className="space-y-6">
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                        <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <p className="text-red-400 font-medium">This action cannot be undone</p>
+                                <p className="text-sm text-gray-400 mt-1">
+                                    Cancelling this event will notify all ticket holders and may trigger refunds based on your refund policy.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-2">
+                            Reason for cancellation (optional)
+                        </label>
+                        <textarea
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                            placeholder="Let attendees know why you're cancelling..."
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 resize-none"
+                            rows={3}
+                        />
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Button
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() => setShowCancelModal(false)}
+                            disabled={cancelling}
+                        >
+                            Keep Event
+                        </Button>
+                        <Button
+                            variant="primary"
+                            className="flex-1 !bg-red-500 hover:!bg-red-600"
+                            onClick={handleCancelEvent}
+                            disabled={cancelling}
+                        >
+                            {cancelling ? (
+                                <span className="flex items-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Cancelling...
+                                </span>
+                            ) : (
+                                'Cancel Event'
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </DashboardLayout>
     );
 }

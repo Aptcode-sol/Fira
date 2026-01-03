@@ -114,8 +114,8 @@ const paymentService = {
         }
     },
 
-    // Request refund
-    async requestRefund(paymentId, { reason, reasonDetails }) {
+    // Request refund - processes refund through Razorpay
+    async requestRefund(paymentId, { reason, reasonDetails, amount = null }) {
         const payment = await Payment.findById(paymentId);
         if (!payment) {
             throw new Error('Payment not found');
@@ -125,16 +125,68 @@ const paymentService = {
             throw new Error('Can only refund successful payments');
         }
 
+        if (!payment.gatewayTransactionId) {
+            throw new Error('No gateway transaction ID found - cannot process refund');
+        }
+
+        // Use provided amount or full payment amount
+        const refundAmount = amount || payment.amount;
+
+        // Create refund record first with pending status
         const refund = await Refund.create({
             payment: paymentId,
             user: payment.user,
             reason,
             reasonDetails,
-            amount: payment.amount,
+            amount: refundAmount,
             status: 'pending'
         });
 
-        return refund;
+        // Process refund through Razorpay
+        try {
+            if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+                throw new Error('Razorpay credentials not configured');
+            }
+
+            const razorpay = new Razorpay({
+                key_id: process.env.RAZORPAY_KEY_ID,
+                key_secret: process.env.RAZORPAY_KEY_SECRET,
+            });
+
+            // Call Razorpay refund API
+            const razorpayRefund = await razorpay.payments.refund(payment.gatewayTransactionId, {
+                amount: Math.round(refundAmount * 100), // Amount in paise
+                speed: 'normal', // 'normal' or 'optimum'
+                notes: {
+                    reason: reason,
+                    refundId: refund._id.toString()
+                },
+                receipt: `refund_${refund._id}`
+            });
+
+            // Update refund record with gateway response
+            refund.gatewayRefundId = razorpayRefund.id;
+            refund.gatewayResponse = razorpayRefund;
+            refund.status = razorpayRefund.status === 'processed' ? 'completed' : 'processing';
+            refund.processedAt = new Date();
+            await refund.save();
+
+            // Update payment status
+            payment.status = 'refunded';
+            payment.refundedAt = new Date();
+            await payment.save();
+
+            return refund;
+
+        } catch (error) {
+            // Update refund record with failure
+            refund.status = 'failed';
+            refund.failureReason = error.message;
+            await refund.save();
+
+            console.error('Razorpay refund failed:', error);
+            throw new Error(`Refund processing failed: ${error.message}`);
+        }
     },
 
     // Get all payouts

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { brandsApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import BrandHeader from '@/components/BrandHeader';
 import PostCard from '@/components/PostCard';
 import EventCard from '@/components/EventCard';
@@ -13,6 +14,7 @@ import Navbar from '@/components/Navbar';
 export default function BrandProfilePage() {
     const params = useParams();
     const id = params.id as string;
+    const { user } = useAuth();
 
     const [brand, setBrand] = useState<any>(null);
     const [posts, setPosts] = useState<any[]>([]);
@@ -20,10 +22,18 @@ export default function BrandProfilePage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('posts');
     const [isFollowing, setIsFollowing] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
 
     useEffect(() => {
         fetchData();
     }, [id]);
+
+    // Check follow status when user is available
+    useEffect(() => {
+        if (user && id) {
+            checkFollowStatus();
+        }
+    }, [user, id]);
 
     interface BrandData {
         _id: string;
@@ -34,8 +44,6 @@ export default function BrandProfilePage() {
         socialLinks: any;
         members: any[];
     }
-
-    // ... existing imports
 
     const fetchData = async () => {
         try {
@@ -48,7 +56,6 @@ export default function BrandProfilePage() {
             setBrand(brandData);
             setPosts(postsData.posts);
             setEvents(eventsData);
-            // setIsFollowing(brandData.isFollowing); // Backend to implement this check later
         } catch (error) {
             console.error('Error fetching brand profile:', error);
         } finally {
@@ -56,10 +63,49 @@ export default function BrandProfilePage() {
         }
     };
 
+    const checkFollowStatus = async () => {
+        if (!user?._id) return;
+        try {
+            const result = await brandsApi.getFollowStatus(id, user._id);
+            setIsFollowing(result.isFollowing);
+        } catch (error) {
+            console.error('Error checking follow status:', error);
+        }
+    };
+
     const handleFollow = async () => {
-        // Optimistic UI
-        setIsFollowing(!isFollowing);
-        // Call API (Future Implementation)
+        if (!user?._id) {
+            // Could redirect to login or show message
+            return;
+        }
+
+        setFollowLoading(true);
+        try {
+            if (isFollowing) {
+                await brandsApi.unfollow(id, user._id);
+                setIsFollowing(false);
+                // Update local brand stats
+                if (brand) {
+                    setBrand({
+                        ...brand,
+                        stats: { ...brand.stats, followers: (brand.stats?.followers || 1) - 1 }
+                    });
+                }
+            } else {
+                await brandsApi.follow(id, user._id);
+                setIsFollowing(true);
+                if (brand) {
+                    setBrand({
+                        ...brand,
+                        stats: { ...brand.stats, followers: (brand.stats?.followers || 0) + 1 }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling follow:', error);
+        } finally {
+            setFollowLoading(false);
+        }
     };
 
     if (loading) {
@@ -119,7 +165,7 @@ export default function BrandProfilePage() {
                                         <p>No posts yet from {brand.name}</p>
                                     </div>
                                 ) : (
-                                    posts.map(post => <PostCard key={post._id} post={post} />)
+                                    posts.map(post => <PostCard key={post._id} post={post} type="brand" parentId={id} />)
                                 )}
                             </div>
                         )}

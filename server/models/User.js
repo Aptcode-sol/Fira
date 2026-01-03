@@ -72,6 +72,10 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  followingBrands: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BrandProfile'
+  }],
   bankDetails: {
     accountName: { type: String, default: null },
     accountNumber: { type: String, default: null },

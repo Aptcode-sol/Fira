@@ -70,7 +70,7 @@ const brandProfileSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['pending', 'approved', 'rejected', 'blocked'],
-        default: 'approved'
+        default: 'pending'
     }
 }, {
     timestamps: true

@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { notificationsApi } from '@/lib/api';
+import { FadeIn, SlideUp } from '@/components/animations';
+import { motion } from 'framer-motion';
 
 type NotificationCategory = 'all' | 'events' | 'bookings' | 'payments' | 'system';
 
@@ -144,40 +146,59 @@ export default function NotificationsPage() {
         <DashboardLayout>
             <div className="p-6 lg:p-8">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">Notifications</h1>
-                        <p className="text-gray-400">
-                            {unreadCount > 0 ? `You have ${unreadCount} unread notifications` : 'You\'re all caught up!'}
-                        </p>
+                <SlideUp>
+                    <div className="flex items-start justify-between mb-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2">Notifications</h1>
+                            <p className="text-gray-400">
+                                {unreadCount > 0 ? `You have ${unreadCount} unread notifications` : 'You\'re all caught up!'}
+                            </p>
+                        </div>
+                        {unreadCount > 0 && (
+                            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+                                Mark all as read
+                            </Button>
+                        )}
                     </div>
-                    {unreadCount > 0 && (
-                        <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-                            Mark all as read
-                        </Button>
-                    )}
-                </div>
+                </SlideUp>
 
                 {/* Category Filters */}
-                <div className="flex gap-2 mb-8 flex-wrap">
-                    {(['all', 'events', 'bookings', 'payments', 'system'] as NotificationCategory[]).map((category) => (
-                        <button
-                            key={category}
-                            onClick={() => setCategoryFilter(category)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium capitalize transition-all duration-200 ${categoryFilter === category
-                                ? 'bg-white text-black shadow-lg shadow-white/10'
-                                : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-white border border-white/[0.08]'
-                                }`}
-                        >
-                            {category}
-                        </button>
-                    ))}
-                </div>
+                <FadeIn delay={0.1}>
+                    <div className="flex gap-2 mb-8 flex-wrap">
+                        {(['all', 'events', 'bookings', 'payments', 'system'] as NotificationCategory[]).map((category) => (
+                            <button
+                                key={category}
+                                onClick={() => setCategoryFilter(category)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium capitalize transition-all duration-200 ${categoryFilter === category
+                                    ? 'bg-white text-black shadow-lg shadow-white/10'
+                                    : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-white border border-white/[0.08]'
+                                    }`}
+                            >
+                                {category}
+                            </button>
+                        ))}
+                    </div>
+                </FadeIn>
 
-                {/* Loading State */}
+                {/* Loading State - Skeleton Cards */}
                 {loading && (
-                    <div className="flex items-center justify-center py-16">
-                        <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
+                    <div className="space-y-3">
+                        {[0, 1, 2, 3, 4].map((i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.4, delay: i * 0.08, ease: [0.25, 0.1, 0.25, 1] }}
+                                className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-4 flex items-start gap-4"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-white/[0.05] animate-pulse" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-4 w-48 bg-white/[0.05] rounded animate-pulse" />
+                                    <div className="h-3 w-full bg-white/[0.05] rounded animate-pulse" />
+                                    <div className="h-3 w-24 bg-white/[0.05] rounded animate-pulse" />
+                                </div>
+                            </motion.div>
+                        ))}
                     </div>
                 )}
 
