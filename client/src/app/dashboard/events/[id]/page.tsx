@@ -9,6 +9,7 @@ import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
 import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import { formatDateTimeRange } from '@/lib/dateUtils';
 
 interface Ticket {
     _id: string;
@@ -46,7 +47,7 @@ export default function DashboardEventDetailPage() {
         name: '',
         description: '',
         category: '',
-        date: '',
+        startDate: '',
         endDate: '',
         startTime: '',
         endTime: '',
@@ -155,15 +156,26 @@ export default function DashboardEventDetailPage() {
 
     // Initialize edit form with event data
     const initEditForm = (e: Event) => {
-        const eventWithTerms = e as Event & { termsAndConditions?: string; endDate?: string };
+        const eventWithTerms = e as Event & { termsAndConditions?: string };
+        // Extract date and time from combined datetime fields
+        const startDT = e.startDateTime ? new Date(e.startDateTime) : new Date();
+        const endDT = e.endDateTime ? new Date(e.endDateTime) : new Date();
+
+        const formatDateForInput = (dt: Date) => dt.toISOString().split('T')[0];
+        const formatTimeForInput = (dt: Date) => {
+            const hours = dt.getHours().toString().padStart(2, '0');
+            const mins = dt.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${mins}`;
+        };
+
         setEditForm({
             name: e.name || '',
             description: e.description || '',
             category: e.category || '',
-            date: e.date ? new Date(e.date).toISOString().split('T')[0] : '',
-            endDate: eventWithTerms.endDate ? new Date(eventWithTerms.endDate).toISOString().split('T')[0] : '',
-            startTime: e.startTime || '',
-            endTime: e.endTime || '',
+            startDate: formatDateForInput(startDT),
+            endDate: formatDateForInput(endDT),
+            startTime: formatTimeForInput(startDT),
+            endTime: formatTimeForInput(endDT),
             eventType: e.eventType || 'public',
             ticketType: e.ticketType || 'free',
             ticketPrice: e.ticketPrice || 0,
@@ -183,14 +195,16 @@ export default function DashboardEventDetailPage() {
         if (!event) return;
         setIsSaving(true);
         try {
+            // Combine date and time into DateTime strings
+            const startDateTime = new Date(`${editForm.startDate}T${editForm.startTime}:00`).toISOString();
+            const endDateTime = new Date(`${editForm.endDate}T${editForm.endTime}:00`).toISOString();
+
             await eventsApi.update(event._id, {
                 name: editForm.name,
                 description: editForm.description,
                 category: editForm.category,
-                date: editForm.date,
-                endDate: editForm.endDate || editForm.date,
-                startTime: editForm.startTime,
-                endTime: editForm.endTime,
+                startDateTime,
+                endDateTime,
                 eventType: editForm.eventType,
                 ticketType: editForm.ticketType,
                 ticketPrice: editForm.ticketType === 'paid' ? editForm.ticketPrice : 0,
@@ -441,15 +455,11 @@ export default function DashboardEventDetailPage() {
                         </span>
                     </div>
 
-                    {/* Date Banner */}
+                    {/* Date/Time Range Banner */}
                     <div className="absolute bottom-4 left-4 px-4 py-3 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10">
-                        <div className="text-violet-400 text-sm font-medium">
-                            {formatDate(event.date)}
-                            {event.endDate && new Date(event.endDate).toDateString() !== new Date(event.date).toDateString() && (
-                                <> - {formatDate(event.endDate)}</>
-                            )}
+                        <div className="text-white text-lg font-semibold">
+                            {formatDateTimeRange(event.startDateTime, event.endDateTime)}
                         </div>
-                        <div className="text-white text-lg font-semibold">{event.startTime} - {event.endTime}</div>
                     </div>
                 </div>
 
@@ -614,8 +624,8 @@ export default function DashboardEventDetailPage() {
                                             <label className="block text-sm text-gray-400 mb-1">Start Date *</label>
                                             <input
                                                 type="date"
-                                                value={editForm.date}
-                                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                                value={editForm.startDate}
+                                                onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
                                                 className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                                             />
                                         </div>

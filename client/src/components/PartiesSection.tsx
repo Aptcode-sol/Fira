@@ -8,7 +8,7 @@ import { eventsApi } from '@/lib/api';
 interface Event {
     _id: string;
     name: string;
-    date: string;
+    startDateTime: string;
     startTime: string;
     venue?: { name: string; address?: { city: string } };
     venueName?: string;
@@ -106,7 +106,7 @@ export default function PartiesSection() {
                             {!isLoading && parties.length > 0 && (
                                 <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                                     {parties.map((party) => {
-                                        const { day, month } = formatDate(party.date);
+                                        const { day, month } = formatDate(party.startDateTime);
                                         const venueName = party.venue?.name || party.venueName || 'Venue TBA';
                                         const venueCity = party.venue?.address?.city || '';
                                         const displayVenue = venueCity ? `${venueName}, ${venueCity}` : venueName;

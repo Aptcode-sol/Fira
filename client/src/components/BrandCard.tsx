@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from './ui';
 import { useToast } from './ui/Toast';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+import { brandsApi } from '@/lib/api';
 
 interface BrandCardProps {
     brand: {
@@ -29,13 +31,31 @@ interface BrandCardProps {
 
 export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps) {
     const [isFollowing, setIsFollowing] = useState(false); // Todo: Init based on actual follow status
-    const { showToast } = useToast();
 
     const handleFollow = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsFollowing(!isFollowing);
-        if (onFollow) onFollow(brand._id);
+        if (!user?._id) return;
+
+        // Optimistic update
+        const wasFollowing = isFollowing;
+        const previousCount = followersCount;
+
+        setIsFollowing(!wasFollowing);
+        setFollowersCount(prev => wasFollowing ? Math.max(0, prev - 1) : prev + 1);
+
+        try {
+            if (wasFollowing) {
+                await brandsApi.unfollow(brand._id, user._id);
+            } else {
+                await brandsApi.follow(brand._id, user._id);
+            }
+            if (onFollow) onFollow(brand._id);
+        } catch {
+            // Revert on error
+            setIsFollowing(wasFollowing);
+            setFollowersCount(previousCount);
+        }
     };
 
     const formatFollowers = (count: number) => {
@@ -126,7 +146,7 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
 
                         <div className="flex items-center justify-between pt-3 border-t border-white/5">
                             <div className="flex gap-4 text-xs font-medium text-gray-400">
-                                <span>{formatFollowers(brand.stats.followers)} Followers</span>
+                                <span>{formatFollowers(followersCount)} Followers</span>
                                 <span>{brand.stats.events} Events</span>
                             </div>
 

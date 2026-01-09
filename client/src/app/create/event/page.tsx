@@ -36,6 +36,20 @@ function CreateEventForm() {
         maxAttendees: 100,
         termsAndConditions: '',
         images: [] as string[],
+        friendsAndFamilyStay: false,
+        allowAlcohol: false,
+        useCustomVenue: false,
+        customVenue: {
+            name: '',
+            description: '',
+            address: '',
+            city: '',
+            state: '',
+            pincode: '',
+            capacity: 0,
+            images: [] as string[],
+            locationLink: ''
+        }
     });
     const [venues, setVenues] = useState<{ _id: string; name: string }[]>([]);
     const [loadingVenues, setLoadingVenues] = useState(true);
@@ -45,7 +59,7 @@ function CreateEventForm() {
     useEffect(() => {
         // Only redirect if auth check is complete AND user is not authenticated
         if (!isLoading && !isAuthenticated) {
-            router.replace('/signin');
+            router.replace('/signin?redirect=/create/event');
         }
     }, [isLoading, isAuthenticated, router]);
 
@@ -75,8 +89,8 @@ function CreateEventForm() {
             showToast('Please sign in to create an event', 'error');
             return;
         }
-        if (!formData.venueId) {
-            showToast('Please select a venue', 'error');
+        if (!formData.useCustomVenue && !formData.venueId) {
+            showToast('Please select a venue or create a custom venue', 'error');
             return;
         }
         if (!formData.name || !formData.description || !formData.date || !formData.startTime || !formData.endTime) {
@@ -106,6 +120,12 @@ function CreateEventForm() {
             return;
         }
 
+        // Validate custom venue if being used
+        if (formData.useCustomVenue && (!formData.customVenue.name || !formData.customVenue.address || !formData.customVenue.city || !formData.customVenue.capacity || !formData.customVenue.locationLink)) {
+            showToast('Please fill in all custom venue details', 'error');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             // Upload image if selected
@@ -116,24 +136,36 @@ function CreateEventForm() {
                 imageUrls = [uploadResult.url];
             }
 
-            const eventData = {
+            // Combine date and time into DateTime strings
+            const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
+            const endDateStr = formData.endDate || formData.date;
+            const endDateTime = new Date(`${endDateStr}T${formData.endTime}:00`);
+
+            const eventData: any = {
                 organizer: user._id,
-                venue: formData.venueId,
+                venue: formData.useCustomVenue ? null : formData.venueId,
                 name: formData.name,
                 description: formData.description,
                 category: formData.category,
-                date: formData.date,
-                endDate: formData.endDate || formData.date, // Default to same day if not set
-                startTime: formData.startTime,
-                endTime: formData.endTime,
+                startDateTime: startDateTime.toISOString(),
+                endDateTime: endDateTime.toISOString(),
                 eventType: formData.eventType,
                 ticketType: formData.ticketType,
                 ticketPrice: formData.ticketType === 'paid' ? formData.ticketPrice : 0,
                 maxAttendees: formData.maxAttendees,
                 termsAndConditions: formData.termsAndConditions || null,
                 images: imageUrls,
+                friendsAndFamilyStay: formData.friendsAndFamilyStay,
+                allowAlcohol: formData.allowAlcohol,
                 status: 'pending', // Events need venue and admin approval first
             };
+
+            if (formData.useCustomVenue) {
+                eventData.customVenue = {
+                    isCustom: true,
+                    ...formData.customVenue
+                };
+            }
 
             await eventsApi.create(eventData);
             showToast('Event submitted for approval! The venue owner and admin will review it.', 'success');
@@ -190,13 +222,13 @@ function CreateEventForm() {
 
                     {/* Progress Steps */}
                     <div className="flex items-center justify-center gap-2 mb-8">
-                        {[1, 2, 3].map((s) => (
+                        {[1, 2, 3, 4].map((s) => (
                             <div key={s} className="flex items-center">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-500'
                                     }`}>
                                     {s}
                                 </div>
-                                {s < 3 && (
+                                {s < 4 && (
                                     <div className={`w-12 h-0.5 mx-2 ${step > s ? 'bg-violet-500' : 'bg-white/10'}`} />
                                 )}
                             </div>
@@ -328,12 +360,12 @@ function CreateEventForm() {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Select Venue *</label>
-                                    <div className="relative">
+                                    <div className="relative mb-4">
                                         <select
                                             value={formData.venueId}
-                                            onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, venueId: e.target.value, useCustomVenue: false })}
                                             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer"
-                                            disabled={loadingVenues}
+                                            disabled={loadingVenues || formData.useCustomVenue}
                                         >
                                             <option value="" className="bg-[#1a1a1a]">
                                                 {loadingVenues ? 'Loading venues...' : 'Select a venue'}
@@ -348,8 +380,122 @@ function CreateEventForm() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </div>
-                                    <p className="mt-1.5 text-xs text-gray-500">Choose from available venues for your event</p>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="flex-1 h-px bg-white/10"></div>
+                                        <span className="text-xs text-gray-500">OR</span>
+                                        <div className="flex-1 h-px bg-white/10"></div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, useCustomVenue: !formData.useCustomVenue, venueId: '' })}
+                                        className={`w-full p-4 rounded-xl border text-left transition-all ${formData.useCustomVenue
+                                            ? 'bg-blue-500/10 border-blue-500/50 text-white'
+                                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="font-medium mb-1">+ Create Custom Venue</div>
+                                        <div className="text-xs text-gray-500">Create a venue specific to this event only</div>
+                                    </button>
+                                    <p className="mt-1.5 text-xs text-gray-500">Choose from available venues or create a custom one for this event</p>
                                 </div>
+
+                                {formData.useCustomVenue && (
+                                    <div className="space-y-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                                        <h3 className="text-sm font-semibold text-white">Custom Venue Details</h3>
+
+                                        <Input
+                                            label="Venue Name"
+                                            placeholder="e.g., My Backyard"
+                                            value={formData.customVenue.name}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                customVenue: { ...formData.customVenue, name: e.target.value }
+                                            })}
+                                            required
+                                        />
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                                            <textarea
+                                                placeholder="Describe your venue..."
+                                                value={formData.customVenue.description}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    customVenue: { ...formData.customVenue, description: e.target.value }
+                                                })}
+                                                rows={3}
+                                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                            />
+                                        </div>
+
+                                        <Input
+                                            label="Address"
+                                            placeholder="Street address"
+                                            value={formData.customVenue.address}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                customVenue: { ...formData.customVenue, address: e.target.value }
+                                            })}
+                                            required
+                                        />
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Input
+                                                label="City"
+                                                placeholder="City"
+                                                value={formData.customVenue.city}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    customVenue: { ...formData.customVenue, city: e.target.value }
+                                                })}
+                                                required
+                                            />
+                                            <Input
+                                                label="State"
+                                                placeholder="State"
+                                                value={formData.customVenue.state}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    customVenue: { ...formData.customVenue, state: e.target.value }
+                                                })}
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Input
+                                                label="Pincode"
+                                                placeholder="Pincode"
+                                                value={formData.customVenue.pincode}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    customVenue: { ...formData.customVenue, pincode: e.target.value }
+                                                })}
+                                            />
+                                            <Input
+                                                label="Capacity"
+                                                type="number"
+                                                placeholder="Max capacity"
+                                                value={formData.customVenue.capacity}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    customVenue: { ...formData.customVenue, capacity: parseInt(e.target.value) }
+                                                })}
+                                                required
+                                            />
+                                        </div>
+
+                                        <Input
+                                            label="Location Link (Maps URL)"
+                                            placeholder="https://maps.google.com/..."
+                                            value={formData.customVenue.locationLink}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                customVenue: { ...formData.customVenue, locationLink: e.target.value }
+                                            })}
+                                            required
+                                        />
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Maximum Attendees</label>
@@ -453,6 +599,12 @@ function CreateEventForm() {
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
+                                                // 2MB size limit
+                                                const MAX_SIZE = 2 * 1024 * 1024;
+                                                if (file.size > MAX_SIZE) {
+                                                    showToast('Image exceeds 2MB limit', 'error');
+                                                    return;
+                                                }
                                                 setCoverImageFile(file);
                                                 setCoverImagePreview(URL.createObjectURL(file));
                                             }}
@@ -475,10 +627,10 @@ function CreateEventForm() {
                                             )}
                                         </label>
                                         {coverImagePreview && (
-                                            <img src={coverImagePreview} alt="Preview" className="mt-2 w-full h-40 object-cover rounded-xl" />
+                                            <img src={coverImagePreview} alt="Preview" className="mt-2 w-full rounded-xl object-cover" />
                                         )}
                                     </div>
-                                    <p className="mt-1.5 text-xs text-gray-500">Recommended: 1200x600px, max 10MB</p>
+                                    <p className="mt-1.5 text-xs text-gray-500">Max size per image: 2MB</p>
                                 </div>
 
                                 {/* Terms and Conditions */}
@@ -496,6 +648,64 @@ function CreateEventForm() {
 
                                 <div className="flex justify-between pt-4">
                                     <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
+                                    <Button onClick={() => setStep(4)}>Next</Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 4: Additional Options */}
+                        {step === 4 && (
+                            <div className="space-y-6">
+                                <h2 className="text-xl font-semibold text-white mb-4">Additional Event Options</h2>
+
+                                {/* Friends and Family Stay */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-3">Friends & Family Stay</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, friendsAndFamilyStay: !formData.friendsAndFamilyStay })}
+                                        className={`w-full p-4 rounded-xl border text-left transition-all ${formData.friendsAndFamilyStay
+                                            ? 'bg-emerald-500/10 border-emerald-500/50 text-white'
+                                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <div className="font-medium mb-1">Enable Friends & Family Stay</div>
+                                                <div className="text-xs text-gray-500">Allow attendees to book accommodation with friends/family</div>
+                                            </div>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${formData.friendsAndFamilyStay ? 'bg-emerald-500' : 'bg-white/20'}`}>
+                                                {formData.friendsAndFamilyStay && <span className="text-white text-sm">✓</span>}
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                {/* Alcohol Option */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-3">Alcohol Policy</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, allowAlcohol: !formData.allowAlcohol })}
+                                        className={`w-full p-4 rounded-xl border text-left transition-all ${formData.allowAlcohol
+                                            ? 'bg-orange-500/10 border-orange-500/50 text-white'
+                                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <div className="font-medium mb-1">Allow Alcohol at Event</div>
+                                                <div className="text-xs text-gray-500">Indicate if alcoholic beverages are permitted</div>
+                                            </div>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${formData.allowAlcohol ? 'bg-orange-500' : 'bg-white/20'}`}>
+                                                {formData.allowAlcohol && <span className="text-white text-sm">✓</span>}
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <div className="flex justify-between pt-4">
+                                    <Button variant="secondary" onClick={() => setStep(3)}>Back</Button>
                                     <Button onClick={handleSubmit} isLoading={isSubmitting}>Create Event</Button>
                                 </div>
                             </div>

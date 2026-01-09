@@ -14,8 +14,9 @@ import { motion } from 'framer-motion';
 interface Event {
     _id: string;
     name: string;
-    date: string;
-    startTime: string;
+    date?: string;
+    startDateTime: string;
+    endDateTime: string;
     venue: {
         name: string;
         address: { city: string };
@@ -36,6 +37,7 @@ export default function EventsPage() {
     const router = useRouter();
     const { isAuthenticated, isLoading, user } = useAuth();
     const [activeTab, setActiveTab] = useState<'all' | 'attending' | 'organizing'>('all');
+    const [showCompleted, setShowCompleted] = useState(false);
     const [attendingEvents, setAttendingEvents] = useState<Event[]>([]);
     const [organizingEvents, setOrganizingEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
@@ -98,7 +100,11 @@ export default function EventsPage() {
     };
 
     const allEvents = [...attendingEvents, ...organizingEvents];
-    const currentEvents = activeTab === 'all' ? allEvents : activeTab === 'attending' ? attendingEvents : organizingEvents;
+    const now = new Date();
+    const filteredEvents = showCompleted
+        ? allEvents
+        : allEvents.filter(e => new Date(e.date || e.startDateTime || 0) >= now);
+    const currentEvents = activeTab === 'all' ? filteredEvents : activeTab === 'attending' ? attendingEvents.filter(e => showCompleted || new Date(e.date || e.startDateTime || 0) >= now) : organizingEvents.filter(e => showCompleted || new Date(e.date || e.startDateTime || 0) >= now);
 
     return (
         <DashboardLayout>
@@ -116,9 +122,19 @@ export default function EventsPage() {
                             value={activeTab}
                             onChange={(val) => setActiveTab(val as 'all' | 'attending' | 'organizing')}
                             options={[
-                                { value: 'all', label: `All (${attendingEvents.length + organizingEvents.length})` },
-                                { value: 'attending', label: `Attending (${attendingEvents.length})` },
-                                { value: 'organizing', label: `Organizing (${organizingEvents.length})` },
+                                { value: 'all', label: `All (${filteredEvents.length})` },
+                                { value: 'attending', label: `Attending (${attendingEvents.filter(e => showCompleted || new Date(e.date || e.startDateTime || 0) >= now).length})` },
+                                { value: 'organizing', label: `Organizing (${organizingEvents.filter(e => showCompleted || new Date(e.date || e.startDateTime || 0) >= now).length})` },
+                            ]}
+                        />
+
+                        <FilterDropdown
+                            label="Status:"
+                            value={showCompleted ? 'all' : 'upcoming'}
+                            onChange={(val) => setShowCompleted(val === 'all')}
+                            options={[
+                                { value: 'upcoming', label: 'Upcoming' },
+                                { value: 'all', label: 'All (incl. Completed)' },
                             ]}
                         />
                     </div>
@@ -200,7 +216,7 @@ export default function EventsPage() {
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                {formatDate(event.date)} • {event.startTime}
+                                                {formatDate(event.startDateTime)} • {new Date(event.startDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                             </div>
                                             <div className="flex items-center gap-2 text-gray-500">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

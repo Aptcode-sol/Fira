@@ -2,6 +2,12 @@
     max-width: 1400px;
 }
 
+@media (max-width: 768px) {
+    .dashboard {
+        padding-bottom: 80px;
+    }
+}
+
 .card-title {
     font-size: 1rem;
     font-weight: 600;
@@ -14,6 +20,12 @@
     color: var(--accent-green);
 }
 
+@media (max-width: 640px) {
+    .revenue-value {
+        font-size: 1.875rem;
+    }
+}
+
 .revenue-subtitle {
     color: var(--text-secondary);
     font-size: 0.875rem;
@@ -24,6 +36,13 @@
     gap: 2rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 640px) {
+    .stats-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
 }
 
 .stats-label {
@@ -53,10 +72,24 @@
     border: 1px solid var(--border-color);
 }
 
+@media (max-width: 640px) {
+    .pending-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
 .pending-info {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .pending-info {
+        width: 100%;
+    }
 }
 
 .pending-name {
@@ -69,6 +102,13 @@
     gap: 1rem;
     font-size: 0.875rem;
     color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+    .pending-meta {
+        gap: 0.5rem;
+        font-size: 0.75rem;
+    }
 }
 
 .pending-date {
@@ -87,6 +127,14 @@
     align-items: center;
     padding: 0.75rem 0;
     border-bottom: 1px solid var(--border-color);
+}
+
+@media (max-width: 640px) {
+    .stat-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
 }
 
 .stat-item:last-child {

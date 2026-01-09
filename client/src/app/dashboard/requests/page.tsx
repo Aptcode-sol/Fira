@@ -27,9 +27,8 @@ interface EventRequest {
     name: string;
     organizer: { _id: string; name: string; email: string; avatar?: string };
     venue: { _id: string; name: string; images?: string[] };
-    date: string;
-    startTime: string;
-    endTime: string;
+    startDateTime: string;
+    endDateTime: string;
     maxAttendees: number;
     ticketPrice?: number;
     venueApproval?: { status: string };
@@ -163,6 +162,19 @@ export default function RequestsPage() {
         return new Date(dateStr).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short', year: 'numeric'
         });
+    };
+
+    // Format DateTime like "3 Jan 2026 14:00"
+    const formatDateTime = (dateTimeStr: string) => {
+        if (!dateTimeStr) return 'N/A';
+        const dt = new Date(dateTimeStr);
+        if (isNaN(dt.getTime())) return 'Invalid Date';
+        const day = dt.getDate();
+        const month = dt.toLocaleString('en-US', { month: 'short' });
+        const year = dt.getFullYear();
+        const hours = dt.getHours().toString().padStart(2, '0');
+        const mins = dt.getMinutes().toString().padStart(2, '0');
+        return `${day} ${month} ${year} ${hours}:${mins}`;
     };
 
     const formatPrice = (price: number) => {
@@ -427,12 +439,12 @@ export default function RequestsPage() {
                                                         <span className="text-white ml-2">{event.venue?.name}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">Date:</span>
-                                                        <span className="text-white ml-2">{formatDate(event.date)}</span>
+                                                        <span className="text-gray-500">From:</span>
+                                                        <span className="text-white ml-2">{formatDateTime(event.startDateTime)}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">Time:</span>
-                                                        <span className="text-white ml-2">{event.startTime} - {event.endTime}</span>
+                                                        <span className="text-gray-500">To:</span>
+                                                        <span className="text-white ml-2">{formatDateTime(event.endDateTime)}</span>
                                                     </div>
                                                     <div>
                                                         <span className="text-gray-500">Capacity:</span>

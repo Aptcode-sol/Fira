@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const paymentService = require('../services/paymentService');
 
+const auth = require('../middleware/auth');
+
 // GET /api/payments - Get all payments
 router.get('/', async (req, res) => {
     try {
@@ -13,8 +15,11 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/payments/user/:userId - Get user's payments
-router.get('/user/:userId', async (req, res) => {
+router.get('/user/:userId', auth, async (req, res) => {
     try {
+        if (req.params.userId !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
         const payments = await paymentService.getUserPayments(req.params.userId);
         res.json(payments);
     } catch (error) {
@@ -33,9 +38,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/payments/initiate - Initiate payment
-router.post('/initiate', async (req, res) => {
+router.post('/initiate', auth, async (req, res) => {
     try {
-        const result = await paymentService.initiatePayment(req.body);
+        // Enforce authed user
+        const paymentData = { ...req.body, userId: req.user._id };
+        const result = await paymentService.initiatePayment(paymentData);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -53,7 +60,7 @@ router.post('/verify', async (req, res) => {
 });
 
 // POST /api/payments/:id/refund - Request refund
-router.post('/:id/refund', async (req, res) => {
+router.post('/:id/refund', auth, async (req, res) => {
     try {
         const result = await paymentService.requestRefund(req.params.id, req.body);
         res.json(result);

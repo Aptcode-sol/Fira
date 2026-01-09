@@ -4,21 +4,25 @@ const PrivateEventAccess = require('../models/PrivateEventAccess');
 const eventService = {
     // Get all events
     async getAllEvents(query = {}) {
-        const { page = 1, limit = 10, eventType, status, category, organizer, sort, search } = query;
-        const filter = {};
+        const { page = 1, limit = 10, eventType, status, category, organizer, sort, search, showCompleted } = query;
+        const filter = { isDeleted: { $ne: true } }; // Always exclude deleted events
         if (eventType) filter.eventType = eventType;
         if (category && category !== 'All') filter.category = category;
 
-        // If querying by organizer (dashboard), show all their events
+        // If querying by organizer (dashboard), show their events excluding deleted
         // Otherwise, only show approved/upcoming and active events (public listing)
         if (organizer) {
             filter.organizer = organizer;
             if (status) filter.status = status;
+            // By default, hide completed/past events in dashboard unless showCompleted=true
+            if (showCompleted !== 'true' && showCompleted !== true) {
+                filter.endDateTime = { $gte: new Date() }; // Only upcoming/ongoing events
+            }
         } else {
             // Public listing - show only fully approved events that are in the future
             filter.status = 'approved';
             filter.isActive = { $ne: false };
-            filter.date = { $gte: new Date() }; // Only future events
+            filter.startDateTime = { $gte: new Date() }; // Only future events
         }
 
         if (search) {
@@ -29,8 +33,8 @@ const eventService = {
         }
 
         // Sorting options
-        let sortOption = { date: 1 }; // default: upcoming (earliest first)
-        if (sort === 'upcoming') sortOption = { date: 1 };
+        let sortOption = { startDateTime: 1 }; // default: upcoming (earliest first)
+        if (sort === 'upcoming') sortOption = { startDateTime: 1 };
         else if (sort === 'top') sortOption = { 'stats.attendees': -1, 'stats.interested': -1 };
         else if (sort === 'latest') sortOption = { createdAt: -1 };
 
@@ -55,10 +59,11 @@ const eventService = {
     async getUpcomingEvents(query = {}) {
         const { limit = 10, category } = query;
         const filter = {
-            date: { $gte: new Date() },
+            startDateTime: { $gte: new Date() },
             status: 'approved', // Only show fully approved events
             eventType: 'public',
-            isActive: { $ne: false }
+            isActive: { $ne: false },
+            isDeleted: { $ne: true }
         };
         if (category) filter.category = category;
 
@@ -66,7 +71,7 @@ const eventService = {
             .populate('organizer', 'name verificationBadge')
             .populate('venue', 'name address')
             .limit(limit * 1)
-            .sort({ date: 1 });
+            .sort({ startDateTime: 1 });
 
         return events;
     },
@@ -85,57 +90,97 @@ const eventService = {
     // Create event
     async createEvent(data) {
         // Check for time slot conflicts at the venue
-        const { venue, date, endDate, startTime, endTime } = data;
+        const { venue, startDateTime, endDateTime } = data;
 
-        // Validate date is not in the past
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const eventDate = new Date(date);
-        eventDate.setHours(0, 0, 0, 0);
+        // Validate startDateTime is not in the past
+        const now = new Date();
+        const eventStart = new Date(startDateTime);
+        const eventEnd = new Date(endDateTime);
 
-        if (eventDate < today) {
-            throw new Error('Event date cannot be in the past');
+        if (eventStart < now) {
+            throw new Error('Event start date/time cannot be in the past');
         }
 
-        // Validate end date if provided
-        if (endDate && new Date(endDate) < new Date(date)) {
-            throw new Error('End date must be after start date');
+        // Validate end datetime is after start datetime
+        if (eventEnd <= eventStart) {
+            throw new Error('End date/time must be after start date/time');
         }
 
-        if (venue && date && startTime && endTime) {
-            const checkDate = new Date(date);
-            checkDate.setHours(0, 0, 0, 0);
-
-            // Find events at the same venue on the same date that are not cancelled/rejected
+        if (venue && startDateTime && endDateTime) {
+            // Find events at the same venue that overlap with this time range
             const conflictingEvents = await Event.find({
                 venue: venue,
-                date: {
-                    $gte: checkDate,
-                    $lt: new Date(checkDate.getTime() + 24 * 60 * 60 * 1000)
-                },
-                status: { $nin: ['cancelled', 'rejected'] }
+                status: { $nin: ['cancelled', 'rejected'] },
+                // Check for any overlap: existing event overlaps if:
+                // existingStart < newEnd AND existingEnd > newStart
+                $and: [
+                    { startDateTime: { $lt: eventEnd } },
+                    { endDateTime: { $gt: eventStart } }
+                ]
             });
 
-            // Check for time overlap
-            for (const existingEvent of conflictingEvents) {
-                const existingStart = existingEvent.startTime;
-                const existingEnd = existingEvent.endTime;
-
-                // Check if times overlap
-                // Time format is "HH:MM" string
-                const newStartMins = this.timeToMinutes(startTime);
-                const newEndMins = this.timeToMinutes(endTime);
-                const existingStartMins = this.timeToMinutes(existingStart);
-                const existingEndMins = this.timeToMinutes(existingEnd);
-
-                // Overlap occurs if: newStart < existingEnd AND newEnd > existingStart
-                if (newStartMins < existingEndMins && newEndMins > existingStartMins) {
-                    throw new Error(`Time slot conflict: This venue is already booked from ${existingStart} to ${existingEnd} for "${existingEvent.name}"`);
-                }
+            if (conflictingEvents.length > 0) {
+                const conflict = conflictingEvents[0];
+                const conflictStart = new Date(conflict.startDateTime).toLocaleString();
+                const conflictEnd = new Date(conflict.endDateTime).toLocaleString();
+                throw new Error(`Time slot conflict: This venue is already booked from ${conflictStart} to ${conflictEnd} for "${conflict.name}"`);
             }
         }
 
+        // Auto-approve venue for personal (custom) venue events
+        if (data.customVenue && (data.customVenue.isCustom === true || data.customVenue.isCustom === 'true')) {
+            data.venueApproval = {
+                status: 'approved',
+                respondedAt: new Date(),
+                respondedBy: 'system',
+            };
+            // Ensure admin approval stays pending (default), and no venue ID is required
+        }
+
         const event = await Event.create(data);
+
+        // Send email notification to venue owner (only for non-custom venues)
+        if (venue && !data.customVenue?.isCustom) {
+            const Venue = require('../models/Venue');
+            const User = require('../models/User');
+            const emailService = require('./emailService');
+
+            // Fetch venue with owner details
+            const venueWithOwner = await Venue.findById(venue).populate('owner', 'name email');
+            const organizer = await User.findById(data.organizer).select('name email');
+
+            console.log('🎫 Event created, notifying venue owner...');
+            console.log('🏢 Venue:', venueWithOwner?.name);
+            console.log('👤 Owner:', venueWithOwner?.owner?.name, venueWithOwner?.owner?.email);
+            console.log('🎉 Organizer:', organizer?.name, organizer?.email);
+
+            if (venueWithOwner?.owner?.email && organizer) {
+                try {
+                    await emailService.sendEventRequestEmail(
+                        venueWithOwner.owner.email,
+                        venueWithOwner.owner.name || 'Venue Owner',
+                        { name: venueWithOwner.name },
+                        {
+                            name: event.name,
+                            startDateTime: event.startDateTime,
+                            endDateTime: event.endDateTime,
+                            category: event.category,
+                            maxAttendees: event.maxAttendees
+                        },
+                        {
+                            name: organizer.name,
+                            email: organizer.email
+                        }
+                    );
+                    console.log('✅ Event request email sent to venue owner:', venueWithOwner.owner.email);
+                } catch (emailErr) {
+                    console.error('❌ Failed to send event request email:', emailErr.message);
+                }
+            } else {
+                console.log('⚠️ Skipping email - venue owner or organizer not found');
+            }
+        }
+
         return event;
     },
 
@@ -159,13 +204,23 @@ const eventService = {
         return event;
     },
 
-    // Delete event
+    // Delete event (soft delete)
     async deleteEvent(id) {
-        const event = await Event.findByIdAndDelete(id);
+        const event = await Event.findByIdAndUpdate(
+            id,
+            {
+                $set: {
+                    isDeleted: true,
+                    deletedAt: new Date(),
+                    isActive: false
+                }
+            },
+            { new: true }
+        );
         if (!event) {
             throw new Error('Event not found');
         }
-        return { message: 'Event deleted successfully' };
+        return { message: 'Event deleted successfully', event };
     },
 
     // Cancel event with automatic refunds
@@ -184,6 +239,12 @@ const eventService = {
 
         // Update event status
         event.status = 'cancelled';
+        event.cancelledAt = new Date();
+        event.cancellationReason = reason;
+        event.isDeleted = true;
+        event.deletedAt = new Date();
+        event.isActive = false;
+        event.currentAttendees = 0;
         await event.save();
 
         // Process refunds for all ticket holders
@@ -421,12 +482,20 @@ const eventService = {
         const venue = await Venue.findById(venueId);
         if (!venue) return;
 
-        // Get all dates between event start and end
-        const startDate = new Date(event.date);
-        startDate.setHours(0, 0, 0, 0); // Reset to start of day
+        // Ensure arrays exist to avoid runtime errors on older docs
+        if (!Array.isArray(venue.daySlots)) venue.daySlots = [];
+        if (!Array.isArray(venue.blockedDates)) venue.blockedDates = [];
 
-        const endDate = event.endDate ? new Date(event.endDate) : new Date(event.date);
-        endDate.setHours(23, 59, 59, 999); // Set to end of day
+        // Get all dates between event start and end using combined datetime fields
+        const startDateTime = new Date(event.startDateTime);
+        const endDateTime = new Date(event.endDateTime);
+
+        // Extract date part for iteration
+        const startDate = new Date(startDateTime);
+        startDate.setHours(0, 0, 0, 0);
+
+        const endDate = new Date(endDateTime);
+        endDate.setHours(23, 59, 59, 999);
 
         const datesToBook = [];
         const currentDate = new Date(startDate);
@@ -438,6 +507,13 @@ const eventService = {
         }
 
         console.log(`[updateVenueAvailability] Event: ${event.name}, Dates to book:`, datesToBook.map(d => d.toISOString().split('T')[0]));
+
+        // Helper to format time from Date object
+        const formatTime = (dt) => {
+            const hours = dt.getHours().toString().padStart(2, '0');
+            const mins = dt.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${mins}`;
+        };
 
         // Update or add daySlots for each event date
         const totalDays = datesToBook.length;
@@ -452,17 +528,17 @@ const eventService = {
             let slotStartTime, slotEndTime;
 
             if (isSingleDay) {
-                // Single day event: use actual start and end times
-                slotStartTime = event.startTime;
-                slotEndTime = event.endTime;
+                // Single day event: use actual start and end times from datetime
+                slotStartTime = formatTime(startDateTime);
+                slotEndTime = formatTime(endDateTime);
             } else if (isFirstDay) {
                 // First day: from event start time to end of day
-                slotStartTime = event.startTime;
+                slotStartTime = formatTime(startDateTime);
                 slotEndTime = '23:59';
             } else if (isLastDay) {
                 // Last day: from start of day to event end time
                 slotStartTime = '00:00';
-                slotEndTime = event.endTime;
+                slotEndTime = formatTime(endDateTime);
             } else {
                 // Middle days: full 24 hours
                 slotStartTime = '00:00';

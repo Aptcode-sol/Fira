@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { Button, Input, Select } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 import { brandsApi, uploadApi } from '@/lib/api';
 
 const brandTypes = [
@@ -56,6 +57,7 @@ export default function CreateBrandPage() {
         );
     }
 
+    const { showToast } = useToast();
     if (!user) return null;
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -65,6 +67,11 @@ export default function CreateBrandPage() {
     const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            const MAX_SIZE = 2 * 1024 * 1024;
+            if (file.size > MAX_SIZE) {
+                showToast('Profile photo exceeds 2MB limit', 'error');
+                return;
+            }
             setProfilePhoto(file);
             setProfilePreview(URL.createObjectURL(file));
         }
@@ -73,6 +80,11 @@ export default function CreateBrandPage() {
     const handleCoverPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            const MAX_SIZE = 2 * 1024 * 1024;
+            if (file.size > MAX_SIZE) {
+                showToast('Cover photo exceeds 2MB limit', 'error');
+                return;
+            }
             setCoverPhoto(file);
             setCoverPreview(URL.createObjectURL(file));
         }
@@ -169,10 +181,10 @@ export default function CreateBrandPage() {
                                 key={step.num}
                                 onClick={() => setCurrentStep(step.num)}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${currentStep === step.num
-                                        ? 'bg-cyan-500 text-white'
-                                        : currentStep > step.num
-                                            ? 'bg-cyan-500/20 text-cyan-400'
-                                            : 'bg-white/5 text-gray-500'
+                                    ? 'bg-cyan-500 text-white'
+                                    : currentStep > step.num
+                                        ? 'bg-cyan-500/20 text-cyan-400'
+                                        : 'bg-white/5 text-gray-500'
                                     }`}
                             >
                                 <span className="w-6 h-6 rounded-full bg-black/30 flex items-center justify-center text-xs">

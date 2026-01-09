@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const userService = require('../services/userService');
+const auth = require('../middleware/auth');
 
 // GET /api/users - Get all users (admin only)
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
     try {
         const users = await userService.getAllUsers(req.query);
         res.json(users);
@@ -34,8 +35,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT /api/users/:id - Update user
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
     try {
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
         const user = await userService.updateUser(req.params.id, req.body);
         res.json(user);
     } catch (error) {
@@ -44,8 +48,11 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/users/:id - Delete user
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
     try {
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
         await userService.deleteUser(req.params.id);
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
@@ -54,9 +61,9 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /api/users/:id/follow - Follow a user
-router.post('/:id/follow', async (req, res) => {
+router.post('/:id/follow', auth, async (req, res) => {
     try {
-        const result = await userService.followUser(req.body.userId, req.params.id);
+        const result = await userService.followUser(req.user._id, req.params.id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -64,9 +71,9 @@ router.post('/:id/follow', async (req, res) => {
 });
 
 // POST /api/users/:id/unfollow - Unfollow a user
-router.post('/:id/unfollow', async (req, res) => {
+router.post('/:id/unfollow', auth, async (req, res) => {
     try {
-        const result = await userService.unfollowUser(req.body.userId, req.params.id);
+        const result = await userService.unfollowUser(req.user._id, req.params.id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

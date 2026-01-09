@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { Button, Modal, Input } from '@/components/ui';
 import { eventsApi, ticketsApi } from '@/lib/api';
+import { formatSingleDateTime } from '@/lib/dateUtils';
 import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import PostCard from '@/components/PostCard';
@@ -297,15 +298,14 @@ export default function EventDetailPage() {
                             </span>
                         </div>
 
-                        {/* Date Banner */}
+                        {/* Date/Time Range Banner */}
                         <div className="absolute bottom-4 left-4 px-4 py-3 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10">
                             <div className="text-violet-400 text-sm font-medium">
-                                {formatDate(event.date)}
-                                {event.endDate && event.endDate !== event.date && new Date(event.endDate).toDateString() !== new Date(event.date).toDateString() && (
-                                    <> - {formatDate(event.endDate)}</>
-                                )}
+                                {formatSingleDateTime(event.startDateTime)}
                             </div>
-                            <div className="text-white text-lg font-semibold">{event.startTime} - {event.endTime}</div>
+                            <div className="text-white text-lg font-semibold">
+                                to {formatSingleDateTime(event.endDateTime)}
+                            </div>
                         </div>
                     </div>
 
@@ -376,8 +376,8 @@ export default function EventDetailPage() {
 
 
 
-                                    {/* Venue Info */}
-                                    {venue && typeof venue === 'object' && (
+                                    {/* Venue / Custom Venue Info */}
+                                    {(venue && typeof venue === 'object') ? (
                                         <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                                             <h2 className="text-xl font-semibold text-white mb-4">Venue</h2>
                                             <div className="flex items-start gap-4">
@@ -389,10 +389,51 @@ export default function EventDetailPage() {
                                                 <div>
                                                     <h3 className="text-lg font-medium text-white">{venue.name}</h3>
                                                     <p className="text-gray-400 text-sm">{venue.address?.city}, {venue.address?.state}</p>
+                                                    {(venue as any).locationLink && (
+                                                        <a
+                                                            href={(venue as any).locationLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30"
+                                                        >
+                                                            Open in Maps
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                                                            </svg>
+                                                        </a>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
-                                    )}
+                                    ) : ((event as any).customVenue ? (
+                                        <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+                                            <h2 className="text-xl font-semibold text-white mb-4">Custom Venue</h2>
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
+                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-medium text-white">{(event as any).customVenue?.name}</h3>
+                                                    <p className="text-gray-400 text-sm">{(event as any).customVenue?.city}</p>
+                                                    {(event as any).customVenue?.locationLink && (
+                                                        <a
+                                                            href={(event as any).customVenue.locationLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30"
+                                                        >
+                                                            Open in Maps
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                                                            </svg>
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : null)}
 
                                     {/* Tags */}
                                     {event.tags && event.tags.length > 0 && (
@@ -457,12 +498,12 @@ export default function EventDetailPage() {
                                 {/* Quick Info */}
                                 <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Date</span>
-                                        <span className="text-white">{formatDate(event.date)}</span>
+                                        <span className="text-gray-400">From</span>
+                                        <span className="text-white text-right">{formatSingleDateTime(event.startDateTime)}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Time</span>
-                                        <span className="text-white">{event.startTime} - {event.endTime}</span>
+                                        <span className="text-gray-400">To</span>
+                                        <span className="text-white text-right">{formatSingleDateTime(event.endDateTime)}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-gray-400">Spots Left</span>
@@ -527,7 +568,7 @@ export default function EventDetailPage() {
                 <div className="space-y-6">
                     <div>
                         <h3 className="text-lg font-semibold text-white mb-2">{event.name}</h3>
-                        <p className="text-gray-400 text-sm">{formatDate(event.date)} • {event.startTime}</p>
+                        <p className="text-gray-400 text-sm">{formatSingleDateTime(event.startDateTime)}</p>
                     </div>
 
                     <div className="bg-white/5 rounded-xl p-4">
@@ -607,9 +648,8 @@ function getMockEvent(id: string): Event {
         name: 'Neon Nights Festival',
         description: 'Get ready for an electrifying night of music, lights, and unforgettable experiences at Neon Nights Festival!\n\nJoin us for an immersive journey through electronic dance music featuring:\n\n🎵 World-class DJs spinning the hottest tracks\n💡 Stunning visual displays and neon art installations\n🎪 Multiple stages with different music genres\n🍹 Premium bars and gourmet food stalls\n\nWhether you\'re a seasoned raver or new to the scene, Neon Nights promises an experience that will leave you breathless. Our state-of-the-art sound system and carefully curated lineup ensure every moment is pure magic.\n\nDoors open at 9 PM. Come early to explore the art installations and grab the best spots!',
         images: ['https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200'],
-        date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        startTime: '21:00',
-        endTime: '04:00',
+        startDateTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 21 * 60 * 60 * 1000).toISOString(), // +7 days, 21:00
+        endDateTime: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000).toISOString(), // +8 days, 04:00
         eventType: 'public',
         ticketType: 'paid',
         ticketPrice: 1500,

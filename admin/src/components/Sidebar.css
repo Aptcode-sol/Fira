@@ -1,5 +1,4 @@
 .sidebar {
-    width: 260px;
     min-height: 100vh;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
@@ -9,11 +8,48 @@
     left: 0;
     top: 0;
     bottom: 0;
+    z-index: 30;
+    transition: width 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+/* Desktop collapsed state */
+.sidebar.collapsed {
+    width: 80px;
+}
+
+.sidebar.collapsed .logo-text,
+.sidebar.collapsed .nav-item span,
+.sidebar.collapsed .admin-name,
+.sidebar.collapsed .admin-role {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-header {
+    justify-content: center;
+}
+
+.sidebar.collapsed .admin-info > div:last-child {
+    display: none;
+}
+
+/* Hide sidebar completely on mobile - we use the drawer instead */
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
 }
 
 .sidebar-header {
     padding: 1.5rem;
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
 }
 
 .logo {
@@ -32,11 +68,14 @@
     justify-content: center;
     font-weight: 700;
     font-size: 1.25rem;
+    flex-shrink: 0;
 }
 
 .logo-text {
     font-weight: 700;
     font-size: 1.125rem;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
 }
 
 .sidebar-nav {
@@ -45,6 +84,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    overflow-y: auto;
 }
 
 .nav-item {
@@ -58,6 +98,7 @@
     font-size: 0.875rem;
     font-weight: 500;
     transition: all 0.2s ease;
+    overflow: hidden;
 }
 
 .nav-item:hover {
@@ -74,8 +115,13 @@
     flex-shrink: 0;
 }
 
+.nav-item span {
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+}
+
 .sidebar-footer {
-    padding: 1rem 1.25rem;
+    padding: 1rem 0.75rem;
     border-top: 1px solid var(--border-color);
 }
 
@@ -83,16 +129,21 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    padding: 0.5rem;
 }
 
 .admin-name {
     font-size: 0.875rem;
     font-weight: 500;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
 }
 
 .admin-role {
     font-size: 0.75rem;
     color: var(--text-muted);
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
 }
 
 .logout-btn {
@@ -100,7 +151,7 @@
     align-items: center;
     gap: 0.5rem;
     width: 100%;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     padding: 0.625rem 0.75rem;
     border-radius: 0.5rem;
     background: rgba(239, 68, 68, 0.1);
@@ -109,8 +160,14 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
+    overflow: hidden;
 }
 
 .logout-btn:hover {
     background: rgba(239, 68, 68, 0.2);
+}
+
+.logout-btn span {
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
 }

@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input } from '@/components/ui';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { authApi } from '@/lib/api';
 
-export default function SignInPage() {
+// Inner component that uses useSearchParams
+function SignInContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirectTo = searchParams.get('redirect') || '/dashboard';
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -33,7 +36,8 @@ export default function SignInPage() {
 
         try {
             await login(formData.email, formData.password);
-            router.push('/dashboard');
+            // Redirect to the original page they were trying to access, or dashboard
+            router.push(redirectTo);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Login failed';
 
@@ -201,3 +205,19 @@ export default function SignInPage() {
     );
 }
 
+// Wrapper with Suspense for useSearchParams
+export default function SignInPage() {
+    return (
+        <Suspense fallback={
+            <>
+                <PartyBackground />
+                <Navbar />
+                <main className="relative z-20 min-h-screen flex items-center justify-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
+                </main>
+            </>
+        }>
+            <SignInContent />
+        </Suspense>
+    );
+}

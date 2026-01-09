@@ -16,6 +16,11 @@ const bookingSchema = new mongoose.Schema({
         ref: 'Event',
         default: null
     },
+    bookingType: {
+        type: String,
+        enum: ['event', 'personal'],
+        default: 'event'
+    },
     bookingDate: {
         type: Date,
         required: true

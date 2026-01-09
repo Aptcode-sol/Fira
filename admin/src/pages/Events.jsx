@@ -3,6 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import './ApprovalPage.css';
 
+// Helper to format DateTime like "30 Dec 2025 14:00"
+const formatDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return 'N/A';
+    const dt = new Date(dateTimeStr);
+    if (isNaN(dt.getTime())) return 'Invalid Date';
+    const day = dt.getDate();
+    const month = dt.toLocaleString('en-US', { month: 'short' });
+    const year = dt.getFullYear();
+    const hours = dt.getHours().toString().padStart(2, '0');
+    const mins = dt.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${year} ${hours}:${mins}`;
+};
+
 const ITEMS_PER_PAGE = 10;
 
 export default function Events() {
@@ -210,12 +223,12 @@ export default function Events() {
                                                     <span style={{ color: '#fff' }}>{event.venue?.name || 'N/A'}</span>
                                                 </div>
                                                 <div>
-                                                    <span style={{ color: 'var(--text-muted)' }}>📅 Date: </span>
-                                                    <span style={{ color: '#fff' }}>{new Date(event.date).toLocaleDateString()}</span>
+                                                    <span style={{ color: 'var(--text-muted)' }}>📅 From: </span>
+                                                    <span style={{ color: '#fff' }}>{formatDateTime(event.startDateTime)}</span>
                                                 </div>
                                                 <div>
-                                                    <span style={{ color: 'var(--text-muted)' }}>⏰ Time: </span>
-                                                    <span style={{ color: '#fff' }}>{event.startTime} - {event.endTime}</span>
+                                                    <span style={{ color: 'var(--text-muted)' }}>📅 To: </span>
+                                                    <span style={{ color: '#fff' }}>{formatDateTime(event.endDateTime)}</span>
                                                 </div>
                                                 <div>
                                                     <span style={{ color: 'var(--text-muted)' }}>👥 Capacity: </span>
@@ -344,7 +357,7 @@ export default function Events() {
                                                     </div>
                                                 </td>
                                                 <td>{event.venue?.name || 'N/A'}</td>
-                                                <td>{new Date(event.date).toLocaleDateString()}</td>
+                                                <td>{formatDateTime(event.startDateTime)}</td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: '0.25rem', flexDirection: 'column' }}>
                                                         <span style={{

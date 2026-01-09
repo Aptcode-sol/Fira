@@ -3,7 +3,7 @@ const router = express.Router();
 const brandService = require('../services/brandService');
 const postService = require('../services/postService');
 const eventService = require('../services/eventService');
-// const auth = require('../middleware/auth'); // Assuming auth middleware exists
+const auth = require('../middleware/auth');
 
 // GET /api/brands - Get all brands with filters
 router.get('/', async (req, res) => {
@@ -17,14 +17,10 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/brands/my-profile - Get current user's brand profile
-router.get('/my-profile', async (req, res) => {
-    // Assuming auth middleware sets req.user
-    if (!req.query.userId) {
-        return res.status(401).json({ error: 'User ID required (Auth middleware pending)' });
-    }
-
+router.get('/my-profile', auth, async (req, res) => {
     try {
-        const profile = await brandService.getBrandByUserId(req.query.userId);
+        // Use req.user._id from auth middleware instead of query param
+        const profile = await brandService.getBrandByUserId(req.user._id);
         res.json(profile);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -42,13 +38,13 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/brands - Create/Update profile
-router.post('/', async (req, res) => {
-    // Needs Auth
-    const { userId, ...data } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+router.post('/', auth, async (req, res) => {
+    const data = req.body;
+    // Remove userId from body if present, stick to authenticated user
+    delete data.userId;
 
     try {
-        const profile = await brandService.updateProfile(userId, data);
+        const profile = await brandService.updateProfile(req.user._id, data);
         res.json(profile);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -66,10 +62,16 @@ router.get('/:id/posts', async (req, res) => {
 });
 
 // POST /api/brands/:id/posts - Create brand post
-router.post('/:id/posts', async (req, res) => {
-    // Needs Auth and check if user owns brand
-    // For now assuming req.body has necessary data or user is validated
+router.post('/:id/posts', auth, async (req, res) => {
     try {
+        // Verify user owns the brand they are posting to
+        const brand = await brandService.getBrandById(req.params.id);
+        if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+        if (brand.user._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'Unauthorized: You do not own this brand' });
+        }
+
         const post = await postService.createPost(req.params.id, req.body);
         res.status(201).json(post);
     } catch (error) {
@@ -94,12 +96,9 @@ router.get('/:id/events', async (req, res) => {
 // ================== FOLLOW ROUTES ==================
 
 // POST /api/brands/:id/follow - Follow a brand
-router.post('/:id/follow', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.post('/:id/follow', auth, async (req, res) => {
     try {
-        const result = await brandService.followBrand(userId, req.params.id);
+        const result = await brandService.followBrand(req.user._id, req.params.id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -107,12 +106,9 @@ router.post('/:id/follow', async (req, res) => {
 });
 
 // DELETE /api/brands/:id/follow - Unfollow a brand
-router.delete('/:id/follow', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.delete('/:id/follow', auth, async (req, res) => {
     try {
-        const result = await brandService.unfollowBrand(userId, req.params.id);
+        const result = await brandService.unfollowBrand(req.user._id, req.params.id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -120,12 +116,9 @@ router.delete('/:id/follow', async (req, res) => {
 });
 
 // GET /api/brands/:id/follow/status - Check if user follows brand
-router.get('/:id/follow/status', async (req, res) => {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.get('/:id/follow/status', auth, async (req, res) => {
     try {
-        const result = await brandService.isFollowingBrand(userId, req.params.id);
+        const result = await brandService.isFollowingBrand(req.user._id, req.params.id);
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -135,12 +128,12 @@ router.get('/:id/follow/status', async (req, res) => {
 // ================== POST CRUD ROUTES ==================
 
 // PUT /api/brands/:id/posts/:postId - Update a post
-router.put('/:id/posts/:postId', async (req, res) => {
-    const { userId, ...data } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+router.put('/:id/posts/:postId', auth, async (req, res) => {
+    const data = req.body;
+    delete data.userId; // valid only if user owns post
 
     try {
-        const post = await postService.updatePost(req.params.postId, req.params.id, userId, data);
+        const post = await postService.updatePost(req.params.postId, req.params.id, req.user._id, data);
         res.json(post);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -148,12 +141,9 @@ router.put('/:id/posts/:postId', async (req, res) => {
 });
 
 // DELETE /api/brands/:id/posts/:postId - Delete a post
-router.delete('/:id/posts/:postId', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.delete('/:id/posts/:postId', auth, async (req, res) => {
     try {
-        const result = await postService.deletePost(req.params.postId, req.params.id, userId);
+        const result = await postService.deletePost(req.params.postId, req.params.id, req.user._id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -161,12 +151,9 @@ router.delete('/:id/posts/:postId', async (req, res) => {
 });
 
 // POST /api/brands/:id/posts/:postId/like - Toggle like on a post
-router.post('/:id/posts/:postId/like', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.post('/:id/posts/:postId/like', auth, async (req, res) => {
     try {
-        const result = await postService.toggleLike(req.params.postId, userId);
+        const result = await postService.toggleLike(req.params.postId, req.user._id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -174,12 +161,12 @@ router.post('/:id/posts/:postId/like', async (req, res) => {
 });
 
 // POST /api/brands/:id/posts/:postId/comments - Add comment to a post
-router.post('/:id/posts/:postId/comments', async (req, res) => {
-    const { userId, content } = req.body;
-    if (!userId || !content) return res.status(400).json({ error: 'User ID and content required' });
+router.post('/:id/posts/:postId/comments', auth, async (req, res) => {
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: 'Content required' });
 
     try {
-        const comments = await postService.addComment(req.params.postId, userId, content);
+        const comments = await postService.addComment(req.params.postId, req.user._id, content);
         res.json({ comments });
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -187,12 +174,9 @@ router.post('/:id/posts/:postId/comments', async (req, res) => {
 });
 
 // DELETE /api/brands/:id/posts/:postId/comments/:commentId - Delete a comment
-router.delete('/:id/posts/:postId/comments/:commentId', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.delete('/:id/posts/:postId/comments/:commentId', auth, async (req, res) => {
     try {
-        const result = await postService.deleteComment(req.params.postId, req.params.commentId, userId);
+        const result = await postService.deleteComment(req.params.postId, req.params.commentId, req.user._id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

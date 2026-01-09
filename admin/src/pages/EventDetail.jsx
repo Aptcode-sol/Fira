@@ -3,6 +3,19 @@ import { useParams, Link } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import './DetailPage.css';
 
+// Helper to format DateTime like "30 Dec 2025 14:00"
+const formatDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return 'N/A';
+    const dt = new Date(dateTimeStr);
+    if (isNaN(dt.getTime())) return 'Invalid Date';
+    const day = dt.getDate();
+    const month = dt.toLocaleString('en-US', { month: 'short' });
+    const year = dt.getFullYear();
+    const hours = dt.getHours().toString().padStart(2, '0');
+    const mins = dt.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${year} ${hours}:${mins}`;
+};
+
 const ITEMS_PER_PAGE = 5;
 
 export default function EventDetail() {
@@ -93,7 +106,7 @@ export default function EventDetail() {
                     <div>
                         <h1>{event.name}</h1>
                         <p className="detail-meta">
-                            {event.venue?.name || 'N/A'} • {new Date(event.date).toLocaleDateString()} • {event.startTime} - {event.endTime}
+                            {event.venue?.name || 'N/A'} • {formatDateTime(event.startDateTime)} to {formatDateTime(event.endDateTime)}
                         </p>
                     </div>
                     <span className={`badge badge-${event.status === 'upcoming' ? 'approved' : event.status}`}>{event.status}</span>

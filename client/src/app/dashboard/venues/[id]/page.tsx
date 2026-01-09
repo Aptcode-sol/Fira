@@ -23,6 +23,7 @@ interface Venue {
     status: string;
     isActive: boolean;
     rating: { average: number; count: number };
+    locationLink?: string;
 }
 
 interface Booking {
@@ -42,10 +43,8 @@ interface EventRequest {
     _id: string;
     name: string;
     description: string;
-    date: string;
-    endDate?: string;
-    startTime: string;
-    endTime: string;
+    startDateTime: string;
+    endDateTime: string;
     organizer: { _id: string; name: string; email: string };
     venue: { _id: string; name: string };
     category: string;
@@ -78,6 +77,7 @@ export default function VenueManagePage() {
         city: '',
         state: '',
         pincode: '',
+        locationLink: '',
         basePrice: 0,
         pricePerHour: 0,
         capacityMin: 1,
@@ -85,6 +85,7 @@ export default function VenueManagePage() {
         amenities: [] as string[],
         rules: [] as string[],
         images: [] as string[],
+        autoApproveBookings: false,
     });
 
     // Image management
@@ -111,6 +112,7 @@ export default function VenueManagePage() {
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [isTogglingStatus, setIsTogglingStatus] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const [isTogglingAutoApprove, setIsTogglingAutoApprove] = useState(false);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -218,13 +220,28 @@ export default function VenueManagePage() {
         setIsCancelling(true);
         try {
             await venuesApi.cancel(venue._id);
-            showToast('Venue cancelled successfully', 'success');
+            showToast('Venue deleted successfully', 'success');
             setShowCancelModal(false);
             router.push('/dashboard/venues');
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Failed to cancel venue', 'error');
+            showToast(err instanceof Error ? err.message : 'Failed to delete venue', 'error');
         } finally {
             setIsCancelling(false);
+        }
+    };
+
+    const toggleAutoApproveBookings = async () => {
+        if (!venue) return;
+        setIsTogglingAutoApprove(true);
+        try {
+            const newValue = !(venue as any).autoApproveBookings;
+            await venuesApi.update(venue._id, { autoApproveBookings: newValue });
+            showToast(`Auto-approve ${newValue ? 'enabled' : 'disabled'}!`, 'success');
+            fetchVenue(venue._id);
+        } catch (err) {
+            showToast('Failed to update auto-approve setting', 'error');
+        } finally {
+            setIsTogglingAutoApprove(false);
         }
     };
 
@@ -236,6 +253,7 @@ export default function VenueManagePage() {
             city: v.address?.city || '',
             state: v.address?.state || '',
             pincode: v.address?.pincode || '',
+            locationLink: (v as any).locationLink || '',
             basePrice: v.pricing?.basePrice || 0,
             pricePerHour: v.pricing?.pricePerHour || 0,
             capacityMin: v.capacity?.min || 1,
@@ -243,6 +261,7 @@ export default function VenueManagePage() {
             amenities: v.amenities || [],
             rules: v.rules || [],
             images: v.images || [],
+            autoApproveBookings: (v as any).autoApproveBookings || false,
         });
         setSelectedImage(0);
     };
@@ -261,11 +280,13 @@ export default function VenueManagePage() {
                 name: editForm.name,
                 description: editForm.description,
                 address: { street: editForm.street, city: editForm.city, state: editForm.state, pincode: editForm.pincode },
+                locationLink: editForm.locationLink,
                 pricing: { basePrice: editForm.basePrice, pricePerHour: editForm.pricePerHour },
                 capacity: { min: editForm.capacityMin, max: editForm.capacityMax },
                 amenities: editForm.amenities,
                 rules: editForm.rules,
                 images: allImages,
+                autoApproveBookings: editForm.autoApproveBookings,
             });
 
             setNewImageFiles([]);
@@ -403,6 +424,19 @@ export default function VenueManagePage() {
 
     const formatPrice = (price: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
 
+    // Format DateTime like "3 Jan 2026 14:00"
+    const formatDateTime = (dateTimeStr: string) => {
+        if (!dateTimeStr) return 'N/A';
+        const dt = new Date(dateTimeStr);
+        if (isNaN(dt.getTime())) return 'Invalid Date';
+        const day = dt.getDate();
+        const month = dt.toLocaleString('en-US', { month: 'short' });
+        const year = dt.getFullYear();
+        const hours = dt.getHours().toString().padStart(2, '0');
+        const mins = dt.getMinutes().toString().padStart(2, '0');
+        return `${day} ${month} ${year} ${hours}:${mins}`;
+    };
+
     // Get availability info for a specific date - returns all slots
     const getDateAvailability = (date: Date) => {
         const key = formatDateKey(date);
@@ -513,9 +547,22 @@ export default function VenueManagePage() {
                                 onClick={() => setShowCancelModal(true)}
                                 className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 transition-colors"
                             >
-                                Cancel Venue
+                                Delete Venue
                             </button>
                         )}
+
+                        {/* Auto-Approve Bookings Toggle */}
+                        <button
+                            onClick={toggleAutoApproveBookings}
+                            disabled={isTogglingAutoApprove}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${(venue as any).autoApproveBookings
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20 hover:bg-blue-500/30'
+                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/20 hover:bg-gray-500/30'
+                                }`}
+                            title={`Auto-approve booking requests: ${(venue as any).autoApproveBookings ? 'Enabled' : 'Disabled'}`}
+                        >
+                            {isTogglingAutoApprove ? '...' : (venue as any).autoApproveBookings ? '✓ Auto-Approve ON' : 'Auto-Approve OFF'}
+                        </button>
 
                         {isEditMode ? (
                             <>
@@ -546,7 +593,7 @@ export default function VenueManagePage() {
                                     disabled={isCancelling}
                                     className="bg-red-500 hover:bg-red-600"
                                 >
-                                    {isCancelling ? 'Cancelling...' : 'Yes, Cancel Venue'}
+                                    {isCancelling ? 'Deleting...' : 'Yes, Delete Venue'}
                                 </Button>
                             </div>
                         </div>
@@ -621,6 +668,59 @@ export default function VenueManagePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-6">
+                        {/* Location */}
+                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                            <h2 className="text-xl font-semibold text-white mb-2">Location</h2>
+                            {isEditMode ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <Input
+                                        placeholder="Street"
+                                        value={editForm.street}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))}
+                                    />
+                                    <Input
+                                        placeholder="City"
+                                        value={editForm.city}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
+                                    />
+                                    <Input
+                                        placeholder="State"
+                                        value={editForm.state}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))}
+                                    />
+                                    <Input
+                                        placeholder="Pincode"
+                                        value={editForm.pincode}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))}
+                                    />
+                                    <Input
+                                        placeholder="Location link (Google Maps URL)"
+                                        value={editForm.locationLink}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, locationLink: e.target.value }))}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-gray-300">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    </svg>
+                                    <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
+                                    {venue.locationLink && (
+                                        <a
+                                            href={venue.locationLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="ml-3 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30"
+                                        >
+                                            Open in Maps
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                                            </svg>
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         {/* Description */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                             <h2 className="text-xl font-semibold text-white mb-4">About this venue</h2>
@@ -813,16 +913,13 @@ export default function VenueManagePage() {
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                     </svg>
-                                                    {new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                    {event.endDate && event.endDate !== event.date && (
-                                                        <> - {new Date(event.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                                                    )}
+                                                    From: {formatDateTime(event.startDateTime)}
                                                 </p>
                                                 <p className="flex items-center gap-1">
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
-                                                    {event.startTime} - {event.endTime}
+                                                    To: {formatDateTime(event.endDateTime)}
                                                 </p>
                                                 <p className="flex items-center gap-1">
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

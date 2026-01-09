@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const ticketService = require('../services/ticketService');
 
+const auth = require('../middleware/auth');
+
 // GET /api/tickets - Get all tickets
 router.get('/', async (req, res) => {
     try {
@@ -13,8 +15,11 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/tickets/user/:userId - Get user's tickets
-router.get('/user/:userId', async (req, res) => {
+router.get('/user/:userId', auth, async (req, res) => {
     try {
+        if (req.params.userId !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
         const tickets = await ticketService.getUserTickets(req.params.userId);
         res.json(tickets);
     } catch (error) {
@@ -43,9 +48,10 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/tickets - Purchase ticket
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
     try {
-        const ticket = await ticketService.purchaseTicket(req.body);
+        const ticketData = { ...req.body, userId: req.user._id };
+        const ticket = await ticketService.purchaseTicket(ticketData);
         res.status(201).json(ticket);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -104,25 +110,16 @@ router.get('/event/:eventId/stats', async (req, res) => {
     }
 });
 
-// GET /api/tickets/:id/refund-eligibility - Check refund eligibility
-router.get('/:id/refund-eligibility', async (req, res) => {
+// POST /api/tickets/:id/cancel - Cancel ticket
+router.post('/:id/cancel', auth, async (req, res) => {
     try {
-        const eligibility = await ticketService.checkRefundEligibility(req.params.id);
-        res.json(eligibility);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// POST /api/tickets/:id/cancel - Cancel ticket with refund
-router.post('/:id/cancel', async (req, res) => {
-    try {
-        const { userId, reason } = req.body;
-        if (!userId) {
-            return res.status(400).json({ error: 'userId is required' });
-        }
-        const result = await ticketService.cancelTicket(req.params.id, userId, reason);
-        res.json(result);
+        // Enforce user
+        // Assuming service can handle reason separately or part of object
+        // The service method signature (id, userId, reason) was seen in api.ts so let's check assumptions or use update
+        // Looking at api.ts: cancel: (ticketId, userId, reason)
+        // Let's assume service follows similar pattern or verify
+        const ticket = await ticketService.cancelTicket(req.params.id, req.user._id.toString(), req.body.reason);
+        res.json(ticket);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

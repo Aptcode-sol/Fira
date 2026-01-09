@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const eventService = require('../services/eventService');
 
+const auth = require('../middleware/auth');
+
 // GET /api/events - Get all events
 router.get('/', async (req, res) => {
     try {
@@ -57,9 +59,10 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/events - Create new event
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
     try {
-        const event = await eventService.createEvent(req.body);
+        const eventData = { ...req.body, organizer: req.user._id };
+        const event = await eventService.createEvent(eventData);
         res.status(201).json(event);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -67,7 +70,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/events/:id - Update event
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
     try {
         const event = await eventService.updateEvent(req.params.id, req.body);
         res.json(event);
@@ -77,7 +80,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/events/:id - Delete event
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
     try {
         await eventService.deleteEvent(req.params.id);
         res.json({ message: 'Event deleted successfully' });
@@ -86,8 +89,8 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// POST /api/events/:id/cancel - Cancel event with automatic refunds
-router.post('/:id/cancel', async (req, res) => {
+// POST /api/events/:id/cancel - Cancel event
+router.post('/:id/cancel', auth, async (req, res) => {
     try {
         const { reason } = req.body;
         const result = await eventService.cancelEvent(req.params.id, reason);
@@ -98,9 +101,9 @@ router.post('/:id/cancel', async (req, res) => {
 });
 
 // POST /api/events/:id/access - Request access to private event
-router.post('/:id/access', async (req, res) => {
+router.post('/:id/access', auth, async (req, res) => {
     try {
-        const result = await eventService.requestPrivateAccess(req.params.id, req.body);
+        const result = await eventService.requestPrivateAccess(req.params.id, { ...req.body, userId: req.user._id });
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -159,12 +162,11 @@ router.get('/:id/posts', async (req, res) => {
 });
 
 // POST /api/events/:id/posts - Create a post for an event
-router.post('/:id/posts', async (req, res) => {
-    const { userId, content, images } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+router.post('/:id/posts', auth, async (req, res) => {
+    const { content, images } = req.body;
 
     try {
-        const post = await postService.createEventPost(req.params.id, userId, { content, images });
+        const post = await postService.createEventPost(req.params.id, req.user._id, { content, images });
         res.status(201).json(post);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -172,12 +174,11 @@ router.post('/:id/posts', async (req, res) => {
 });
 
 // PUT /api/events/:id/posts/:postId - Update an event post
-router.put('/:id/posts/:postId', async (req, res) => {
-    const { userId, content, images } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+router.put('/:id/posts/:postId', auth, async (req, res) => {
+    const { content, images } = req.body;
 
     try {
-        const post = await postService.updateEventPost(req.params.postId, req.params.id, userId, { content, images });
+        const post = await postService.updateEventPost(req.params.postId, req.params.id, req.user._id, { content, images });
         res.json(post);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -185,12 +186,9 @@ router.put('/:id/posts/:postId', async (req, res) => {
 });
 
 // DELETE /api/events/:id/posts/:postId - Delete an event post
-router.delete('/:id/posts/:postId', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.delete('/:id/posts/:postId', auth, async (req, res) => {
     try {
-        const result = await postService.deleteEventPost(req.params.postId, req.params.id, userId);
+        const result = await postService.deleteEventPost(req.params.postId, req.params.id, req.user._id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -198,12 +196,9 @@ router.delete('/:id/posts/:postId', async (req, res) => {
 });
 
 // POST /api/events/:id/posts/:postId/like - Toggle like on a post
-router.post('/:id/posts/:postId/like', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.post('/:id/posts/:postId/like', auth, async (req, res) => {
     try {
-        const result = await postService.toggleLike(req.params.postId, userId);
+        const result = await postService.toggleLike(req.params.postId, req.user._id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -211,12 +206,12 @@ router.post('/:id/posts/:postId/like', async (req, res) => {
 });
 
 // POST /api/events/:id/posts/:postId/comments - Add comment to a post
-router.post('/:id/posts/:postId/comments', async (req, res) => {
-    const { userId, content } = req.body;
-    if (!userId || !content) return res.status(400).json({ error: 'User ID and content required' });
+router.post('/:id/posts/:postId/comments', auth, async (req, res) => {
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: 'Content required' });
 
     try {
-        const comments = await postService.addComment(req.params.postId, userId, content);
+        const comments = await postService.addComment(req.params.postId, req.user._id, content);
         res.json({ comments });
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -224,12 +219,9 @@ router.post('/:id/posts/:postId/comments', async (req, res) => {
 });
 
 // DELETE /api/events/:id/posts/:postId/comments/:commentId - Delete a comment
-router.delete('/:id/posts/:postId/comments/:commentId', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+router.delete('/:id/posts/:postId/comments/:commentId', auth, async (req, res) => {
     try {
-        const result = await postService.deleteComment(req.params.postId, req.params.commentId, userId);
+        const result = await postService.deleteComment(req.params.postId, req.params.commentId, req.user._id);
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

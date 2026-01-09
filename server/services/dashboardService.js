@@ -19,38 +19,39 @@ const dashboardService = {
             // Events organized by this user
             eventsOrganized,
             upcomingEventsOrganized,
-            
+
             // Venues owned by this user
             venuesOwned,
-            
+
             // Tickets purchased by this user
             userTickets,
-            
+
             // Bookings made by this user
             userBookings,
-            
+
             // Brand profile
             brandProfile,
-            
+
             // Recent notifications
             recentNotifications,
-            
+
             // Event statistics for organizer
             eventStats,
         ] = await Promise.all([
             // Total events organized
-            Event.countDocuments({ organizer: userId }),
-            
+            Event.countDocuments({ organizer: userId, isDeleted: { $ne: true } }),
+
             // Upcoming events organized (not cancelled, date >= now)
-            Event.countDocuments({ 
-                organizer: userId, 
+            Event.countDocuments({
+                organizer: userId,
                 date: { $gte: now },
-                status: { $ne: 'cancelled' }
+                status: { $ne: 'cancelled' },
+                isDeleted: { $ne: true }
             }),
-            
+
             // Venues owned
-            Venue.countDocuments({ owner: userId }),
-            
+            Venue.countDocuments({ owner: userId, isDeleted: { $ne: true } }),
+
             // User's tickets
             Ticket.find({ user: userId })
                 .populate({
@@ -60,25 +61,25 @@ const dashboardService = {
                 })
                 .sort({ createdAt: -1 })
                 .lean(),
-            
+
             // User's bookings
             Booking.find({ user: userId })
                 .populate('venue', 'name images')
                 .sort({ createdAt: -1 })
                 .lean(),
-            
+
             // Brand profile
             BrandProfile.findOne({ user: userId }).lean(),
-            
+
             // Recent notifications (last 5)
             Notification.find({ user: userId })
                 .sort({ createdAt: -1 })
                 .limit(5)
                 .lean(),
-            
+
             // Aggregate stats for events organized by user
             Event.aggregate([
-                { $match: { organizer: userId } },
+                { $match: { organizer: userId, isDeleted: { $ne: true } } },
                 {
                     $group: {
                         _id: null,
@@ -96,12 +97,12 @@ const dashboardService = {
 
         // Process tickets
         const activeTickets = userTickets.filter(t => t.status === 'active');
-        const upcomingTickets = activeTickets.filter(t => 
+        const upcomingTickets = activeTickets.filter(t =>
             t.event && new Date(t.event.date) >= now
         );
 
         // Process bookings
-        const activeBookings = userBookings.filter(b => 
+        const activeBookings = userBookings.filter(b =>
             ['pending', 'confirmed'].includes(b.status)
         );
 
@@ -119,15 +120,16 @@ const dashboardService = {
         const organizedEvents = await Event.find({
             organizer: userId,
             date: { $gte: now },
-            status: { $ne: 'cancelled' }
+            status: { $ne: 'cancelled' },
+            isDeleted: { $ne: true }
         })
-        .populate('venue', 'name address images')
-        .sort({ date: 1 })
-        .limit(5)
-        .lean();
+            .populate('venue', 'name address images')
+            .sort({ date: 1 })
+            .limit(5)
+            .lean();
 
         // Get user's venues
-        const venues = await Venue.find({ owner: userId })
+        const venues = await Venue.find({ owner: userId, isDeleted: { $ne: true } })
             .select('name images address status capacity pricing rating')
             .sort({ createdAt: -1 })
             .limit(5)
@@ -154,7 +156,7 @@ const dashboardService = {
                 totalRevenue: eventStatistics.totalRevenue,
                 hasBrandProfile: !!brandProfile
             },
-            
+
             // Recent data
             recentActivity: recentNotifications.map(n => ({
                 _id: n._id,
@@ -164,10 +166,10 @@ const dashboardService = {
                 isRead: n.isRead,
                 createdAt: n.createdAt
             })),
-            
+
             // Upcoming events attending
             upcomingEventsAttending,
-            
+
             // Events user is organizing
             organizedEvents: organizedEvents.map(e => ({
                 _id: e._id,
@@ -183,10 +185,10 @@ const dashboardService = {
                 status: e.status,
                 isFeatured: e.isFeatured
             })),
-            
+
             // User's venues
             venues,
-            
+
             // Brand profile summary
             brandProfile: brandProfile ? {
                 _id: brandProfile._id,
@@ -211,19 +213,19 @@ const dashboardService = {
             venuesOwned,
             activeBookings
         ] = await Promise.all([
-            Event.countDocuments({ 
+            Event.countDocuments({
                 organizer: userId,
                 date: { $gte: now },
                 status: { $ne: 'cancelled' }
             }),
-            Ticket.countDocuments({ 
-                user: userId, 
+            Ticket.countDocuments({
+                user: userId,
                 status: 'active',
             }),
             Venue.countDocuments({ owner: userId }),
-            Booking.countDocuments({ 
-                user: userId, 
-                status: { $in: ['pending', 'confirmed'] } 
+            Booking.countDocuments({
+                user: userId,
+                status: { $in: ['pending', 'confirmed'] }
             })
         ]);
 

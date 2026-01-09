@@ -53,11 +53,19 @@ export default function BrandProfilePage() {
                 brandsApi.getPosts(id) as Promise<{ posts: any[] }>,
                 brandsApi.getEvents(id) as Promise<any[]>
             ]);
+
+            if (!brandData) {
+                console.error('Brand not found');
+                setBrand(null);
+                return;
+            }
+
             setBrand(brandData);
-            setPosts(postsData.posts);
-            setEvents(eventsData);
+            setPosts(postsData.posts || []);
+            setEvents(eventsData || []);
         } catch (error) {
             console.error('Error fetching brand profile:', error);
+            setBrand(null);
         } finally {
             setLoading(false);
         }
@@ -79,30 +87,37 @@ export default function BrandProfilePage() {
             return;
         }
 
+        // Optimistic update
+        const wasFollowing = isFollowing;
+        const previousBrand = brand;
+
+        setIsFollowing(!wasFollowing);
+        if (brand) {
+            setBrand({
+                ...brand,
+                stats: {
+                    ...brand.stats,
+                    followers: wasFollowing
+                        ? Math.max(0, (brand.stats?.followers || 1) - 1)
+                        : (brand.stats?.followers || 0) + 1
+                }
+            });
+        }
+
         setFollowLoading(true);
         try {
-            if (isFollowing) {
+            if (wasFollowing) {
                 await brandsApi.unfollow(id, user._id);
-                setIsFollowing(false);
-                // Update local brand stats
-                if (brand) {
-                    setBrand({
-                        ...brand,
-                        stats: { ...brand.stats, followers: (brand.stats?.followers || 1) - 1 }
-                    });
-                }
             } else {
                 await brandsApi.follow(id, user._id);
-                setIsFollowing(true);
-                if (brand) {
-                    setBrand({
-                        ...brand,
-                        stats: { ...brand.stats, followers: (brand.stats?.followers || 0) + 1 }
-                    });
-                }
             }
         } catch (error) {
             console.error('Error toggling follow:', error);
+            // Revert on error
+            setIsFollowing(wasFollowing);
+            if (previousBrand) {
+                setBrand(previousBrand);
+            }
         } finally {
             setFollowLoading(false);
         }
@@ -118,8 +133,19 @@ export default function BrandProfilePage() {
 
     if (!brand) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center text-white">
-                Brand not found
+            <div className="min-h-screen bg-black">
+                <Navbar />
+                <div className="flex flex-col items-center justify-center min-h-[70vh] text-white px-4">
+                    <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
+                    <h1 className="text-2xl font-bold mb-2">Brand not found</h1>
+                    <p className="text-gray-400 mb-6 text-center">The brand you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+                    <button
+                        onClick={() => window.location.href = '/brands'}
+                        className="px-6 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors"
+                    >
+                        Browse All Brands
+                    </button>
+                </div>
             </div>
         );
     }

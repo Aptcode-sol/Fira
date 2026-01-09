@@ -4,9 +4,9 @@ const venueService = {
     // Get all venues
     async getAllVenues(query = {}) {
         const { page = 1, limit = 10, status, city, sort, search, owner } = query;
-        const filter = {};
+        const filter = { isDeleted: { $ne: true } }; // Always exclude deleted venues
 
-        // If querying by owner (dashboard), allow all statuses
+        // If querying by owner (dashboard), allow all statuses but exclude deleted
         // Otherwise, only show approved and active venues (public listing)
         if (owner) {
             filter.owner = owner;
@@ -60,7 +60,8 @@ const venueService = {
                 }
             },
             status: 'approved',
-            isActive: true
+            isActive: true,
+            isDeleted: { $ne: true }
         }).populate('owner', 'name email');
 
         return venues;
@@ -94,13 +95,23 @@ const venueService = {
         return venue;
     },
 
-    // Delete venue
+    // Delete venue (soft delete)
     async deleteVenue(id) {
-        const venue = await Venue.findByIdAndDelete(id);
+        const venue = await Venue.findByIdAndUpdate(
+            id,
+            {
+                $set: {
+                    isDeleted: true,
+                    deletedAt: new Date(),
+                    isActive: false
+                }
+            },
+            { new: true }
+        );
         if (!venue) {
             throw new Error('Venue not found');
         }
-        return { message: 'Venue deleted successfully' };
+        return { message: 'Venue deleted successfully', venue };
     },
 
     // Update availability

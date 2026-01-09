@@ -30,13 +30,14 @@ export default function CreateVenuePage() {
         city: '',
         state: '',
         pincode: '',
+        locationLink: '',
     });
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.replace('/signin');
+            router.replace('/signin?redirect=/create/venue');
         }
     }, [isLoading, isAuthenticated, router]);
 
@@ -46,7 +47,15 @@ export default function CreateVenuePage() {
             showToast('Maximum 5 images allowed', 'error');
             return;
         }
-        const newFiles = [...imageFiles, ...files];
+        const MAX_SIZE = 2 * 1024 * 1024; // 2MB per image
+        const filtered = files.filter(f => {
+            if (f.size > MAX_SIZE) {
+                showToast(`Image ${f.name} exceeds 2MB limit`, 'error');
+                return false;
+            }
+            return true;
+        });
+        const newFiles = [...imageFiles, ...filtered];
         const newPreviews = newFiles.map(f => URL.createObjectURL(f));
         setImageFiles(newFiles);
         setImagePreviews(newPreviews);
@@ -75,6 +84,10 @@ export default function CreateVenuePage() {
         }
         if (!formData.name || !formData.description || !formData.street || !formData.city || !formData.state || !formData.pincode) {
             showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        if (!formData.locationLink) {
+            showToast('Please add a location link', 'error');
             return;
         }
         if (!formData.basePrice) {
@@ -115,6 +128,7 @@ export default function CreateVenuePage() {
                     pincode: formData.pincode,
                     country: 'India',
                 },
+                locationLink: formData.locationLink,
                 location: {
                     type: 'Point',
                     coordinates: [77.2090, 28.6139], // Default Delhi coordinates - can be enhanced with geocoding
@@ -219,8 +233,8 @@ export default function CreateVenuePage() {
                                                 type="button"
                                                 onClick={() => toggleAmenity(amenity)}
                                                 className={`px-3 py-1.5 rounded-full text-sm transition-all ${formData.amenities.includes(amenity)
-                                                        ? 'bg-violet-500/20 border border-violet-500/50 text-violet-300'
-                                                        : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
+                                                    ? 'bg-violet-500/20 border border-violet-500/50 text-violet-300'
+                                                    : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
                                                     }`}
                                             >
                                                 {amenity}
@@ -336,6 +350,15 @@ export default function CreateVenuePage() {
                                         onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
                                         rows={4}
                                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Location Link (Mandatory)</label>
+                                    <Input
+                                        placeholder="https://maps.google.com/..."
+                                        value={formData.locationLink}
+                                        onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })}
+                                        required
                                     />
                                 </div>
 

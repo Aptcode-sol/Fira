@@ -59,8 +59,13 @@ const uploadSingle = async (file, folder = 'events') => {
 
 // Upload multiple images
 const uploadMultiple = async (files, folder = 'events') => {
-    const uploadPromises = files.map(file => uploadSingle(file, folder));
-    return Promise.all(uploadPromises);
+    const uploadPromises = files.map(file => uploadToCloudinary(file.buffer, folder));
+    const results = await Promise.all(uploadPromises);
+
+    return results.map(result => ({
+        url: result.secure_url,
+        publicId: result.public_id,
+    }));
 };
 
 // Delete image from Cloudinary

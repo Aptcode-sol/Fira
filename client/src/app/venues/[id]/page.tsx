@@ -27,6 +27,7 @@ export default function VenueDetailPage() {
         const day = String(today.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     });
+    const [showBookingOptionsModal, setShowBookingOptionsModal] = useState(false);
 
     // Format date for display as dd/mm/yyyy
     const formatDateForDisplay = (dateStr: string | null) => {
@@ -36,6 +37,7 @@ export default function VenueDetailPage() {
     };
     const [bookingData, setBookingData] = useState({
         date: '',
+        endDate: '',
         startTime: '',
         endTime: '',
         guests: 50,
@@ -119,16 +121,26 @@ export default function VenueDetailPage() {
 
     const handleBooking = () => {
         if (!isAuthenticated) {
-            showToast('Please sign in to create an event', 'warning');
+            showToast('Please sign in to book a venue', 'warning');
             router.push('/signin');
             return;
         }
-        // Navigate to create event page with venue pre-selected
-        router.push(`/create/event?venue=${venue?._id}`);
+        // Show modal with two booking options
+        setShowBookingOptionsModal(true);
     };
 
     const submitBooking = async () => {
         if (!venue || !user) return;
+
+        // Validation
+        if (!bookingData.date) {
+            showToast('Please select a start date', 'error');
+            return;
+        }
+        if (!bookingData.startTime || !bookingData.endTime) {
+            showToast('Please select start and end times', 'error');
+            return;
+        }
 
         try {
             // Calculate total price
@@ -147,12 +159,13 @@ export default function VenueDetailPage() {
                 purpose: bookingData.purpose,
                 expectedGuests: bookingData.guests,
                 totalAmount,
-                status: 'pending'
+                status: 'pending',
+                bookingType: 'personal'
             });
 
             showToast('Booking request sent! Awaiting owner approval.', 'success');
             setIsBookingModalOpen(false);
-            setBookingData({ date: '', startTime: '', endTime: '', guests: 50, purpose: '' });
+            setBookingData({ date: '', endDate: '', startTime: '', endTime: '', guests: 50, purpose: '' });
         } catch (error) {
             console.error('Booking error:', error);
             showToast('Failed to submit booking request', 'error');
@@ -262,6 +275,19 @@ export default function VenueDetailPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     </svg>
                                     <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
+                                    {venue.locationLink && (
+                                        <a
+                                            href={venue.locationLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="ml-3 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30"
+                                        >
+                                            Open in Maps
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                                            </svg>
+                                        </a>
+                                    )}
                                 </div>
 
                                 {/* Owner Info */}
@@ -545,6 +571,58 @@ export default function VenueDetailPage() {
                 </div>
             </main>
 
+            {/* Booking Options Modal */}
+            <Modal
+                isOpen={showBookingOptionsModal}
+                onClose={() => setShowBookingOptionsModal(false)}
+                title="How would you like to book?"
+                size="md"
+            >
+                <div className="space-y-4">
+                    {/* Create Event Option */}
+                    <button
+                        onClick={() => {
+                            setShowBookingOptionsModal(false);
+                            router.push(`/create/event?venue=${venue?._id}`);
+                        }}
+                        className="w-full p-4 text-left border border-violet-500/30 rounded-lg hover:bg-violet-500/10 transition-colors"
+                    >
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                                <svg className="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-white mb-1">Create an Event</h3>
+                                <p className="text-sm text-gray-400">Plan a full event with invitations, setup details, and more</p>
+                            </div>
+                        </div>
+                    </button>
+
+                    {/* Personal Booking Option */}
+                    <button
+                        onClick={() => {
+                            setShowBookingOptionsModal(false);
+                            setIsBookingModalOpen(true);
+                        }}
+                        className="w-full p-4 text-left border border-pink-500/30 rounded-lg hover:bg-pink-500/10 transition-colors"
+                    >
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                                <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-white mb-1">Book Venue Personally</h3>
+                                <p className="text-sm text-gray-400">Reserve the venue for personal use without creating an event</p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </Modal>
+
             {/* Booking Modal */}
             <Modal
                 isOpen={isBookingModalOpen}
@@ -553,18 +631,30 @@ export default function VenueDetailPage() {
                 size="lg"
             >
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Select Date</label>
-                        <input
-                            type="date"
-                            value={bookingData.date || selectedDate || ''}
-                            onChange={(e) => {
-                                setBookingData({ ...bookingData, date: e.target.value });
-                                setSelectedDate(e.target.value);
-                            }}
-                            min={new Date().toISOString().split('T')[0]}
-                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Start Date</label>
+                            <input
+                                type="date"
+                                value={bookingData.date || selectedDate || ''}
+                                onChange={(e) => {
+                                    setBookingData({ ...bookingData, date: e.target.value });
+                                    setSelectedDate(e.target.value);
+                                }}
+                                min={new Date().toISOString().split('T')[0]}
+                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">End Date</label>
+                            <input
+                                type="date"
+                                value={bookingData.endDate}
+                                onChange={(e) => setBookingData({ ...bookingData, endDate: e.target.value })}
+                                min={bookingData.date || new Date().toISOString().split('T')[0]}
+                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                            />
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -573,7 +663,7 @@ export default function VenueDetailPage() {
                                 type="time"
                                 value={bookingData.startTime}
                                 onChange={(e) => setBookingData({ ...bookingData, startTime: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                             />
                         </div>
                         <div>
@@ -582,7 +672,7 @@ export default function VenueDetailPage() {
                                 type="time"
                                 value={bookingData.endTime}
                                 onChange={(e) => setBookingData({ ...bookingData, endTime: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                             />
                         </div>
                     </div>

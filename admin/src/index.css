@@ -60,6 +60,17 @@ body {
   overflow-y: auto;
 }
 
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .main-content {
+    padding: 1rem;
+    margin-left: 0 !important;
+  }
+}
+
 /* Cards */
 .card {
   background: var(--bg-card);
@@ -177,11 +188,24 @@ body {
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-@media (max-width: 640px) {
-  .grid-2, .grid-3, .grid-4 {
+@media (max-width: 768px) {
+  .grid-2 {
     grid-template-columns: 1fr;
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-4 {
+    grid-template-columns: 1fr;
+    padding-bottom: 80px;
   }
 }
 
@@ -200,6 +224,20 @@ body {
   color: var(--text-secondary);
 }
 
+@media (max-width: 640px) {
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .page-header p {
+    font-size: 0.875rem;
+  }
+}
+
 /* Table */
 .table-container {
   overflow-x: auto;
@@ -210,16 +248,32 @@ table {
   border-collapse: collapse;
 }
 
-th, td {
+th,
+td {
   text-align: left;
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);
+}
+
+@media (max-width: 640px) {
+
+  th,
+  td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.875rem;
+  }
 }
 
 th {
   color: var(--text-secondary);
   font-weight: 500;
   font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  th {
+    font-size: 0.75rem;
+  }
 }
 
 tr:hover {
@@ -277,17 +331,51 @@ tr:hover {
 }
 
 /* Spacing */
-.mt-4 { margin-top: 1rem; }
-.mt-6 { margin-top: 1.5rem; }
-.mt-8 { margin-top: 2rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.gap-4 { gap: 1rem; }
-.gap-6 { gap: 1.5rem; }
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.mt-6 {
+  margin-top: 1.5rem;
+}
+
+.mt-8 {
+  margin-top: 2rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.mb-6 {
+  margin-bottom: 1.5rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.gap-6 {
+  gap: 1.5rem;
+}
 
 /* Flex */
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.flex-1 { flex: 1; }
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.flex-1 {
+  flex: 1;
+}

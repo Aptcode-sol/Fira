@@ -6,20 +6,17 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 
-// Track if navbar has ever animated (persists across component lifecycles)
-let hasNavbarAnimated = false;
-
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
-    const [shouldAnimate] = useState(() => {
-        // Only animate if this is the first time navbar is being shown
-        if (hasNavbarAnimated) return false;
-        hasNavbarAnimated = true;
-        return true;
-    });
+    const [shouldAnimate, setShouldAnimate] = useState(false);
     const { isAuthenticated, isLoading, user } = useAuth();
     const pathname = usePathname();
+
+    // Enable animation only after component mounts (client-side)
+    useEffect(() => {
+        setShouldAnimate(true);
+    }, []);
 
     const navLinks = [
         { href: '/venues', label: 'Venues' },
@@ -48,17 +45,16 @@ export default function Navbar() {
 
     return (
         <>
-            {/* Floating Navbar */}
+            {/* Floating Navbar - Hidden on mobile, visible on desktop */}
             <motion.nav
-                className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] md:w-auto md:max-w-3xl"
-                initial={shouldAnimate ? { scale: 0, opacity: 0 } : false}
-                animate={{ scale: 1, opacity: 1 }}
+                className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] md:w-auto md:max-w-3xl hidden md:block"
+                initial={false}
+                animate={shouldAnimate ? { scale: 1, opacity: 1 } : { scale: 1, opacity: 1 }}
                 transition={{
                     duration: 0.5,
                     ease: [0.25, 0.1, 0.25, 1],
                     opacity: { duration: 0.3 }
                 }}
-                style={{ transformOrigin: 'center center' }}
             >
                 <div className={`px-4 md:px-6 py-2.5 rounded-full border shadow-2xl transition-all duration-300 ${isScrolled
                     ? 'bg-black/70 backdrop-blur-sm border-white/10'
@@ -139,11 +135,94 @@ export default function Navbar() {
                                 </>
                             )}
                         </div>
+                    </div>
+                </div>
+            </motion.nav>
 
-                        {/* Mobile Menu Button */}
+            {/* Mobile Bottom Navigation */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10">
+                <div className="flex items-center justify-around px-2 py-3">
+                    {/* Venues */}
+                    <Link
+                        href="/venues"
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/venues')
+                            ? 'text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <span className="text-xs font-medium">Venues</span>
+                    </Link>
+
+                    {/* Events */}
+                    <Link
+                        href="/events"
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/events')
+                            ? 'text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-xs font-medium">Events</span>
+                    </Link>
+
+                    {/* Brands */}
+                    <Link
+                        href="/brands"
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 relative ${isActive('/brands')
+                            ? 'text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        {navLinks.find(link => link.href === '/brands')?.badge && (
+                            <svg className="absolute top-1 right-1 w-3 h-3 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                        )}
+                        <span className="text-xs font-medium">Brands</span>
+                    </Link>
+
+                    {/* Create Party */}
+                    <Link
+                        href="/create"
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/create')
+                            ? 'text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-xs font-medium">Create</span>
+                    </Link>
+
+                    {/* Profile/Dashboard */}
+                    {isAuthenticated ? (
+                        <Link
+                            href="/dashboard"
+                            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/dashboard')
+                                ? 'text-white'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+                                <span className="text-white text-xs font-semibold">
+                                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </span>
+                            </div>
+                            <span className="text-xs font-medium">You</span>
+                        </Link>
+                    ) : (
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="md:hidden text-white p-1"
+                            className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg text-gray-400 hover:text-white transition-all duration-200"
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 {isMenuOpen ? (
@@ -152,13 +231,14 @@ export default function Navbar() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                                 )}
                             </svg>
+                            <span className="text-xs font-medium">Menu</span>
                         </button>
-                    </div>
+                    )}
                 </div>
-            </motion.nav>
+            </div>
 
-            {/* Mobile Full Screen Menu */}
-            {isMenuOpen && (
+            {/* Mobile Full Screen Menu - Only for non-authenticated users */}
+            {isMenuOpen && !isAuthenticated && (
                 <div className="fixed inset-0 z-40 md:hidden">
                     {/* Backdrop */}
                     <div
@@ -212,41 +292,23 @@ export default function Navbar() {
                         </div>
 
                         {/* Auth Section */}
-                        <div className="px-4 py-6 border-t border-white/10">
-                            {isAuthenticated ? (
+                        <div className="px-4 py-6 border-t border-white/10 mb-20">
+                            <div className="space-y-3">
                                 <Link
-                                    href="/dashboard"
+                                    href="/signin"
                                     onClick={() => setIsMenuOpen(false)}
-                                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 text-white"
+                                    className="block w-full py-3 text-center text-gray-400 hover:text-white transition-colors"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
-                                        <span className="text-white font-semibold">
-                                            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <div className="font-medium">{user?.name || 'User'}</div>
-                                        <div className="text-sm text-gray-400">View Dashboard</div>
-                                    </div>
+                                    Sign In
                                 </Link>
-                            ) : (
-                                <div className="space-y-3">
-                                    <Link
-                                        href="/signin"
-                                        onClick={() => setIsMenuOpen(false)}
-                                        className="block w-full py-3 text-center text-gray-400 hover:text-white transition-colors"
-                                    >
-                                        Sign In
-                                    </Link>
-                                    <Link
-                                        href="/signup"
-                                        onClick={() => setIsMenuOpen(false)}
-                                        className="block w-full py-3 text-center bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors"
-                                    >
-                                        Get Started
-                                    </Link>
-                                </div>
-                            )}
+                                <Link
+                                    href="/signup"
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className="block w-full py-3 text-center bg-white text-black rounded-full font-medium hover:bg-gray-100 transition-colors"
+                                >
+                                    Get Started
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>

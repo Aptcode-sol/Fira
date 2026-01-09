@@ -18,7 +18,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/signin');
+            router.push('/signin?redirect=/dashboard');
         }
     }, [isLoading, isAuthenticated, router]);
 

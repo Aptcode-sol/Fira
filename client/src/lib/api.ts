@@ -1,6 +1,6 @@
 // API Client for FIRA Backend
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface RequestOptions extends RequestInit {
     token?: string;
@@ -41,6 +41,16 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     const data = await response.json();
 
     if (!response.ok) {
+        // Handle 401 Unauthorized (Token expired, Invalid, or User Deleted)
+        if (response.status === 401 && typeof window !== 'undefined') {
+            localStorage.removeItem('fira_token');
+            localStorage.removeItem('fira_user');
+            // Prevent redirect loop if already on login page
+            if (!window.location.pathname.startsWith('/signin')) {
+                window.location.href = '/signin';
+            }
+        }
+
         throw new ApiError(response.status, data.error || 'Something went wrong');
     }
 

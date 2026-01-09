@@ -87,6 +87,23 @@ const venueSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false
+    },
+    deletedAt: {
+        type: Date,
+        default: null
+    },
+    // Optional link to maps for this venue (Google Maps or similar)
+    locationLink: {
+        type: String,
+        default: ''
+    },
+    autoApproveBookings: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

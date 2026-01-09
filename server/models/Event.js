@@ -10,7 +10,14 @@ const eventSchema = new mongoose.Schema({
     venue: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Venue',
-        required: true
+        // Required only when not using a custom venue
+        required: function () {
+            try {
+                return !(this.customVenue && this.customVenue.isCustom);
+            } catch (e) {
+                return true;
+            }
+        }
     },
     booking: {
         type: mongoose.Schema.Types.ObjectId,
@@ -29,20 +36,13 @@ const eventSchema = new mongoose.Schema({
     images: [{
         type: String
     }],
-    date: {
+    // Combined datetime fields - store full date+time together
+    startDateTime: {
         type: Date,
         required: true
     },
-    endDate: {
+    endDateTime: {
         type: Date,
-        default: function () { return this.date; } // Defaults to same day
-    },
-    startTime: {
-        type: String,
-        required: true
-    },
-    endTime: {
-        type: String,
         required: true
     },
     eventType: {
@@ -79,6 +79,30 @@ const eventSchema = new mongoose.Schema({
     tags: [{
         type: String
     }],
+    friendsAndFamilyStay: {
+        type: Boolean,
+        default: false
+    },
+    allowAlcohol: {
+        type: Boolean,
+        default: false
+    },
+    customVenue: {
+        isCustom: {
+            type: Boolean,
+            default: false
+        },
+        name: String,
+        description: String,
+        address: String,
+        city: String,
+        state: String,
+        pincode: String,
+        capacity: Number,
+        images: [String],
+        // Mandatory link to maps when using a custom venue
+        locationLink: String
+    },
     termsAndConditions: {
         type: String,
         default: null
@@ -113,6 +137,14 @@ const eventSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    isDeleted: {
+        type: Boolean,
+        default: false
+    },
+    deletedAt: {
+        type: Date,
+        default: null
+    },
     isFeatured: {
         type: Boolean,
         default: false
@@ -131,7 +163,7 @@ eventSchema.pre('save', async function () {
 // Indexes
 eventSchema.index({ organizer: 1 });
 eventSchema.index({ venue: 1 });
-eventSchema.index({ date: 1 });
+eventSchema.index({ startDateTime: 1 });
 eventSchema.index({ status: 1 });
 eventSchema.index({ eventType: 1 });
 

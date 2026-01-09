@@ -35,10 +35,22 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/venues - Create new venue
 router.post('/', async (req, res) => {
+    console.log('🏢 [VENUE POST] Creating new venue...');
+    console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
+
     try {
         const venue = await venueService.createVenue(req.body);
+        console.log('✅ [VENUE POST] Venue created successfully:', venue._id);
         res.status(201).json(venue);
     } catch (error) {
+        console.error('❌ [VENUE POST] Error creating venue:');
+        console.error('Error Message:', error.message);
+        console.error('Error Stack:', error.stack);
+        console.error('Error Name:', error.name);
+        if (error.errors) {
+            console.error('Validation Errors:', JSON.stringify(error.errors, null, 2));
+        }
+        console.error('Request Body that caused error:', JSON.stringify(req.body, null, 2));
         res.status(400).json({ error: error.message });
     }
 });
@@ -83,11 +95,11 @@ router.put('/:id/status', async (req, res) => {
     }
 });
 
-// POST /api/venues/:id/cancel - Cancel/deactivate venue
+// POST /api/venues/:id/cancel - Delete venue (soft delete)
 router.post('/:id/cancel', async (req, res) => {
     try {
-        const venue = await venueService.updateStatus(req.params.id, 'inactive');
-        res.json({ venue, message: 'Venue has been cancelled successfully' });
+        const result = await venueService.deleteVenue(req.params.id);
+        res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
