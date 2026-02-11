@@ -1104,6 +1104,21 @@ async function seedEvents() {
             const eventDate = new Date();
             eventDate.setDate(eventDate.getDate() + eventData.daysFromNow);
 
+            // Create proper startDateTime and endDateTime
+            const [startHour, startMin] = eventData.startTime.split(':').map(Number);
+            const [endHour, endMin] = eventData.endTime.split(':').map(Number);
+            
+            const startDateTime = new Date(eventDate);
+            startDateTime.setHours(startHour, startMin, 0, 0);
+            
+            const endDateTime = new Date(eventDate);
+            endDateTime.setHours(endHour, endMin, 0, 0);
+            
+            // If end time is before start time, it means the event goes past midnight
+            if (endDateTime <= startDateTime) {
+                endDateTime.setDate(endDateTime.getDate() + 1);
+            }
+
             const organizer = brandUsers[eventData.brandIndex] || fallbackUser;
 
             const event = await Event.create({
@@ -1113,9 +1128,8 @@ async function seedEvents() {
                 description: eventData.description,
                 termsAndConditions: eventData.termsAndConditions,
                 images: eventData.images,
-                date: eventDate,
-                startTime: eventData.startTime,
-                endTime: eventData.endTime,
+                startDateTime: startDateTime,
+                endDateTime: endDateTime,
                 eventType: eventData.eventType,
                 ticketType: eventData.ticketType,
                 ticketPrice: eventData.ticketPrice,
@@ -1123,7 +1137,17 @@ async function seedEvents() {
                 currentAttendees: eventData.currentAttendees,
                 category: eventData.category,
                 tags: [],
-                status: 'upcoming',
+                status: 'approved',
+                venueApproval: {
+                    status: 'approved',
+                    respondedAt: new Date(),
+                    respondedBy: 'system'
+                },
+                adminApproval: {
+                    status: 'approved',
+                    respondedAt: new Date(),
+                    respondedBy: 'system'
+                },
                 isFeatured: eventData.isFeatured
             });
             console.log(`Created event: ${event.name} (by ${organizer.name})`);

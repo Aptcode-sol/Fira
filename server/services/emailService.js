@@ -315,6 +315,84 @@ class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send brand activity notification email
+   * @param {string} email - Recipient email
+   * @param {string} userName - User's name
+   * @param {string} brandName - Brand name
+   * @param {string} activityType - Type of activity (brand_new_event, brand_new_post)
+   * @param {object} data - Activity data (event or post details)
+   * @returns {Promise<boolean>} - Success status
+   */
+  async sendBrandActivityEmail(email, userName, brandName, activityType, data) {
+    try {
+      if (!this.transporter) {
+        console.warn('⚠️ Email service not initialized, skipping brand activity email.');
+        return false;
+      }
+
+      let subject, html;
+      
+      if (activityType === 'brand_new_event') {
+        subject = `🎉 ${brandName} just announced a new event!`;
+        html = emailTemplates.brandNewEvent(userName, brandName, data.extra?.event || data);
+      } else if (activityType === 'brand_new_post') {
+        subject = `📢 New update from ${brandName}`;
+        html = emailTemplates.brandNewPost(userName, brandName, data.extra?.post || data);
+      } else {
+        console.warn('Unknown brand activity type:', activityType);
+        return false;
+      }
+
+      const mailOptions = {
+        from: `"${process.env.SMTP_FROM_NAME || 'Fira - Let\'s Celebrate'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+        to: email,
+        subject,
+        html,
+        text: `Hey ${userName}, ${brandName} has new activity! Check it out on FIRA.`
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Brand activity email sent successfully:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send brand activity email:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Send event reminder email (1 hour before event)
+   * @param {string} email - Recipient email
+   * @param {string} userName - User's name
+   * @param {object} event - Event details
+   * @param {object} ticket - Ticket details
+   * @returns {Promise<boolean>} - Success status
+   */
+  async sendEventReminderEmail(email, userName, event, ticket) {
+    try {
+      if (!this.transporter) {
+        console.warn('⚠️ Email service not initialized, skipping event reminder email.');
+        return false;
+      }
+
+      const mailOptions = {
+        from: `"${process.env.SMTP_FROM_NAME || 'Fira - Let\'s Celebrate'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+        to: email,
+        subject: `⏰ ${event.name} starts in 1 hour!`,
+        html: emailTemplates.eventReminder(userName, event, ticket),
+        text: `Hey ${userName}!\n\nDon't forget - ${event.name} starts in 1 hour!\n\nYour ticket ID: ${ticket.ticketId}\n\nSee you there!\n- FIRA Team`
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Event reminder email sent successfully:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send event reminder email:', error.message);
+      return false;
+    }
+  }
 }
 
 // Create singleton instance

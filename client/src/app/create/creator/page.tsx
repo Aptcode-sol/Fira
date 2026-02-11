@@ -9,13 +9,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { brandsApi, uploadApi } from '@/lib/api';
 
-const brandTypes = [
+const creatorTypes = [
     { value: 'brand', label: 'Brand' },
-    { value: 'band', label: 'Band / Artist' },
+    { value: 'band', label: 'Band' },
     { value: 'organizer', label: 'Event Organizer' },
+    { value: 'artist', label: 'Artist' },
+    { value: 'dj', label: 'DJ' },
+    { value: 'dancer', label: 'Dancer' },
+    { value: 'planner', label: 'Event Planner' },
+    { value: 'musician', label: 'Musician' },
+    { value: 'photographer', label: 'Photographer' },
+    { value: 'caterer', label: 'Caterer' },
 ];
 
-export default function CreateBrandPage() {
+export default function CreateCreatorPage() {
     const router = useRouter();
     const { user, isLoading } = useAuth();
     const [currentStep, setCurrentStep] = useState(1);
@@ -26,7 +33,6 @@ export default function CreateBrandPage() {
         name: '',
         type: 'brand',
         bio: '',
-        address: '',
         instagram: '',
         twitter: '',
         facebook: '',
@@ -40,12 +46,16 @@ export default function CreateBrandPage() {
     const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState('');
 
+    const [cities, setCities] = useState<string[]>([]);
+    const [newCity, setNewCity] = useState('');
+    const [primaryCity, setPrimaryCity] = useState('');
+
     const [members, setMembers] = useState<{ name: string; role: string }[]>([]);
     const [newMember, setNewMember] = useState({ name: '', role: '' });
 
     useEffect(() => {
         if (!isLoading && !user) {
-            router.replace('/signin?redirect=/create/brand');
+            router.replace('/signin?redirect=/create/creator');
         }
     }, [user, isLoading, router]);
 
@@ -59,6 +69,50 @@ export default function CreateBrandPage() {
 
     const { showToast } = useToast();
     if (!user) return null;
+
+    // Check if user is already a verified creator
+    const isCreator = user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge);
+
+    // If already a verified creator, show special message
+    if (isCreator) {
+        return (
+            <>
+                <PartyBackground />
+                <Navbar />
+                <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
+                    <div className="max-w-2xl mx-auto">
+                        <div className="bg-black/70 backdrop-blur-sm border border-white/10 rounded-3xl p-8 md:p-12 text-center">
+                            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-violet-500/20 to-pink-500/20 flex items-center justify-center">
+                                <svg className="w-10 h-10 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                                You&apos;re a <span className="text-violet-400">Verified Creator</span>!
+                            </h1>
+                            <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">
+                                You already have a verified creator profile. Manage your profile and content from your dashboard.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                <Button
+                                    onClick={() => router.push('/dashboard')}
+                                    className="bg-white text-black hover:bg-gray-200 font-bold px-8"
+                                >
+                                    Go to Dashboard
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => router.push('/creators')}
+                                >
+                                    Explore Creators
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </>
+        );
+    }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -129,7 +183,8 @@ export default function CreateBrandPage() {
                 name: formData.name,
                 type: formData.type,
                 bio: formData.bio,
-                address: formData.address,
+                cities: cities.length > 0 ? cities : undefined,
+                primaryCity: primaryCity || (cities.length > 0 ? cities[0] : null),
                 profilePhoto: profilePhotoUrl || undefined,
                 coverPhoto: coverPhotoUrl || undefined,
                 socialLinks: {
@@ -146,7 +201,7 @@ export default function CreateBrandPage() {
             await brandsApi.create(brandData);
             router.push('/dashboard');
         } catch (err: any) {
-            setError(err.message || 'Failed to create brand profile');
+            setError(err.message || 'Failed to create creator profile');
         } finally {
             setIsSubmitting(false);
         }
@@ -169,7 +224,7 @@ export default function CreateBrandPage() {
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                            Create Your <span className="text-cyan-400">Brand</span>
+                            Apply as a <span className="text-violet-400">Creator</span>
                         </h1>
                         <p className="text-gray-400">Build your presence and connect with your audience</p>
                     </div>
@@ -181,9 +236,9 @@ export default function CreateBrandPage() {
                                 key={step.num}
                                 onClick={() => setCurrentStep(step.num)}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${currentStep === step.num
-                                    ? 'bg-cyan-500 text-white'
+                                    ? 'bg-violet-500 text-white'
                                     : currentStep > step.num
-                                        ? 'bg-cyan-500/20 text-cyan-400'
+                                        ? 'bg-violet-500/20 text-violet-400'
                                         : 'bg-white/5 text-gray-500'
                                     }`}
                             >
@@ -208,12 +263,12 @@ export default function CreateBrandPage() {
                         {currentStep === 1 && (
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Brand Name *</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Creator Name *</label>
                                     <Input
                                         name="name"
                                         value={formData.name}
                                         onChange={handleInputChange}
-                                        placeholder="Your brand name"
+                                        placeholder="Your creator name"
                                         className="bg-black/40"
                                     />
                                 </div>
@@ -223,7 +278,7 @@ export default function CreateBrandPage() {
                                     <Select
                                         value={formData.type}
                                         onChange={(val) => setFormData(prev => ({ ...prev, type: val }))}
-                                        options={brandTypes}
+                                        options={creatorTypes}
                                         placeholder="Select type"
                                     />
                                 </div>
@@ -234,21 +289,96 @@ export default function CreateBrandPage() {
                                         name="bio"
                                         value={formData.bio}
                                         onChange={handleInputChange}
-                                        placeholder="Tell us about your brand..."
+                                        placeholder="Tell us about yourself..."
                                         rows={4}
-                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500/50"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Location</label>
-                                    <Input
-                                        name="address"
-                                        value={formData.address}
-                                        onChange={handleInputChange}
-                                        placeholder="City, Country"
-                                        className="bg-black/40"
-                                    />
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Cities / Locations
+                                        <span className="text-gray-500 font-normal ml-2">(Add multiple cities where you operate)</span>
+                                    </label>
+
+                                    {/* City Chips */}
+                                    {cities.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            {cities.map((city, index) => (
+                                                <div
+                                                    key={index}
+                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${primaryCity === city
+                                                        ? 'bg-violet-500/20 border border-violet-500/50 text-violet-400'
+                                                        : 'bg-white/10 border border-white/20 text-white'
+                                                        }`}
+                                                >
+                                                    <span>{city}</span>
+                                                    {primaryCity !== city && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPrimaryCity(city)}
+                                                            className="text-gray-400 hover:text-violet-400 text-xs"
+                                                            title="Set as primary"
+                                                        >
+                                                            ★
+                                                        </button>
+                                                    )}
+                                                    {primaryCity === city && (
+                                                        <span className="text-violet-400 text-xs">★ Primary</span>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCities(prev => prev.filter((_, i) => i !== index));
+                                                            if (primaryCity === city) {
+                                                                setPrimaryCity(cities[0] === city ? (cities[1] || '') : cities[0]);
+                                                            }
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-400"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Add City Input */}
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={newCity}
+                                            onChange={(e) => setNewCity(e.target.value)}
+                                            placeholder="e.g., Mumbai, Delhi, Bangalore..."
+                                            className="bg-black/40 flex-1"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && newCity.trim()) {
+                                                    e.preventDefault();
+                                                    if (!cities.includes(newCity.trim())) {
+                                                        setCities(prev => [...prev, newCity.trim()]);
+                                                        if (!primaryCity) setPrimaryCity(newCity.trim());
+                                                    }
+                                                    setNewCity('');
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => {
+                                                if (newCity.trim() && !cities.includes(newCity.trim())) {
+                                                    setCities(prev => [...prev, newCity.trim()]);
+                                                    if (!primaryCity) setPrimaryCity(newCity.trim());
+                                                    setNewCity('');
+                                                }
+                                            }}
+                                            className="px-4"
+                                        >
+                                            Add
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">Press Enter or click Add to add a city. Click ★ to set as primary.</p>
                                 </div>
                             </div>
                         )}
@@ -403,7 +533,7 @@ export default function CreateBrandPage() {
                                 <Button
                                     type="button"
                                     onClick={() => setCurrentStep(prev => prev + 1)}
-                                    className="bg-cyan-500 hover:bg-cyan-600"
+                                    className="bg-violet-500 hover:bg-violet-600"
                                 >
                                     Continue
                                 </Button>
@@ -412,9 +542,9 @@ export default function CreateBrandPage() {
                                     type="button"
                                     onClick={handleSubmit}
                                     disabled={isSubmitting}
-                                    className="bg-cyan-500 hover:bg-cyan-600"
+                                    className="bg-violet-500 hover:bg-violet-600"
                                 >
-                                    {isSubmitting ? 'Creating...' : 'Create Brand'}
+                                    {isSubmitting ? 'Creating...' : 'Apply as Creator'}
                                 </Button>
                             )}
                         </div>

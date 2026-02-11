@@ -85,6 +85,76 @@ const notificationService = {
 
         await Notification.insertMany(notifications);
         return { message: `Sent ${userIds.length} notifications` };
+    },
+
+    // Notify all followers of a brand
+    async notifyBrandFollowers(brandId, type, notificationData, sendEmail = true) {
+        const User = require('../models/User');
+        const BrandProfile = require('../models/BrandProfile');
+        const emailService = require('./emailService');
+
+        // Get the brand info
+        const brand = await BrandProfile.findById(brandId).select('name profilePhoto');
+        if (!brand) {
+            console.error('Brand not found for notifications:', brandId);
+            return { success: false, message: 'Brand not found' };
+        }
+
+        // Get all users following this brand
+        const followers = await User.find({
+            followingBrands: brandId
+        }).select('_id email name');
+
+        if (followers.length === 0) {
+            return { success: true, notificationsSent: 0, emailsSent: 0 };
+        }
+
+        // Create notifications for all followers
+        const notifications = followers.map(follower => ({
+            user: follower._id,
+            type,
+            title: notificationData.title,
+            message: notificationData.message,
+            data: {
+                referenceId: notificationData.referenceId,
+                referenceModel: notificationData.referenceModel,
+                actionUrl: notificationData.actionUrl,
+                extra: {
+                    brandId: brandId,
+                    brandName: brand.name,
+                    ...notificationData.extra
+                }
+            },
+            channel: sendEmail ? 'all' : 'in_app'
+        }));
+
+        await Notification.insertMany(notifications);
+
+        // Send emails if enabled
+        let emailsSent = 0;
+        if (sendEmail) {
+            for (const follower of followers) {
+                try {
+                    await emailService.sendBrandActivityEmail(
+                        follower.email,
+                        follower.name,
+                        brand.name,
+                        type,
+                        notificationData
+                    );
+                    emailsSent++;
+                } catch (error) {
+                    console.error(`Failed to send brand activity email to ${follower.email}:`, error.message);
+                }
+            }
+        }
+
+        console.log(`✅ Brand notification sent: ${followers.length} notifications, ${emailsSent} emails`);
+        return {
+            success: true,
+            notificationsSent: followers.length,
+            emailsSent
+        };
     }
 };
 

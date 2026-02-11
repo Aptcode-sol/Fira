@@ -93,17 +93,32 @@ function CreateEventForm() {
             showToast('Please select a venue or create a custom venue', 'error');
             return;
         }
-        if (!formData.name || !formData.description || !formData.date || !formData.startTime || !formData.endTime) {
-            showToast('Please fill in all required fields', 'error');
+        if (!formData.name) {
+            showToast('Please enter an event name', 'error');
+            setStep(1);
+            return;
+        }
+        if (!formData.description) {
+            showToast('Please enter an event description', 'error');
+            setStep(1);
+            return;
+        }
+        if (!formData.date) {
+            showToast('Please select a start date', 'error');
+            setStep(2);
+            return;
+        }
+        if (!formData.startTime) {
+            showToast('Please select a start time', 'error');
+            setStep(2);
+            return;
+        }
+        if (!formData.endTime) {
+            showToast('Please select an end time', 'error');
+            setStep(2);
             return;
         }
 
-<<<<<<< HEAD
-        // Validate date/time is not in the past
-        const selectedDateTime = new Date(`${formData.date}T${formData.startTime}`);
-        if (selectedDateTime < new Date()) {
-            showToast('Event date and time cannot be in the past', 'error');
-=======
         // Validate date is not in the past
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -116,7 +131,6 @@ function CreateEventForm() {
         // Validate end date is after start date
         if (formData.endDate && new Date(formData.endDate) < new Date(formData.date)) {
             showToast('End date must be after start date', 'error');
->>>>>>> e2173cd15da1c420521804dd2b4fa226d575abce
             return;
         }
 
@@ -291,17 +305,6 @@ function CreateEventForm() {
                             <div className="space-y-6">
                                 <h2 className="text-xl font-semibold text-white mb-4">Date, Time & Venue</h2>
 
-<<<<<<< HEAD
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Date</label>
-                                    <input
-                                        type="date"
-                                        min={new Date().toISOString().split('T')[0]}
-                                        value={formData.date}
-                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                    />
-=======
                                 {/* Date Warning */}
                                 {formData.date && new Date(formData.date) < new Date(new Date().toDateString()) && (
                                     <div className="flex items-center gap-2 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
@@ -334,7 +337,6 @@ function CreateEventForm() {
                                         />
                                         <p className="mt-1 text-xs text-gray-500">Leave empty for single-day events</p>
                                     </div>
->>>>>>> e2173cd15da1c420521804dd2b4fa226d575abce
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

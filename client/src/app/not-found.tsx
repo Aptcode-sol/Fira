@@ -131,8 +131,8 @@ export default function NotFound() {
                         <Link href="/venues" className="text-gray-500 hover:text-violet-400 transition-colors">
                             Venues
                         </Link>
-                        <Link href="/brands" className="text-gray-500 hover:text-violet-400 transition-colors">
-                            Brands
+                        <Link href="/creators" className="text-gray-500 hover:text-violet-400 transition-colors">
+                            Creators
                         </Link>
                         <Link href="/create" className="text-gray-500 hover:text-violet-400 transition-colors">
                             Create

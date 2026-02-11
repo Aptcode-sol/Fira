@@ -30,12 +30,35 @@ interface BrandCardProps {
 }
 
 export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps) {
-    const [isFollowing, setIsFollowing] = useState(false); // Todo: Init based on actual follow status
+    const { user } = useAuth();
+    const { showToast } = useToast();
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followersCount, setFollowersCount] = useState(brand.stats.followers);
 
-    const handleFollow = (e: React.MouseEvent) => {
+    // Fetch initial follow status when user is logged in
+    useEffect(() => {
+        const checkFollowStatus = async () => {
+            if (user?._id) {
+                try {
+                    const response = await brandsApi.getFollowStatus(brand._id, user._id);
+                    setIsFollowing(response.isFollowing);
+                } catch {
+                    // Silently fail - default to not following
+                }
+            }
+        };
+        checkFollowStatus();
+    }, [user?._id, brand._id]);
+
+    const handleFollow = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!user?._id) return;
+
+        // If not logged in, redirect to signin
+        if (!user?._id) {
+            window.location.href = '/signin?redirect=' + encodeURIComponent('/creators');
+            return;
+        }
 
         // Optimistic update
         const wasFollowing = isFollowing;
@@ -47,14 +70,18 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
         try {
             if (wasFollowing) {
                 await brandsApi.unfollow(brand._id, user._id);
+                showToast(`Unfollowed ${brand.name}`, 'success');
             } else {
                 await brandsApi.follow(brand._id, user._id);
+                showToast(`Now following ${brand.name}!`, 'success');
             }
             if (onFollow) onFollow(brand._id);
-        } catch {
+        } catch (error: unknown) {
             // Revert on error
             setIsFollowing(wasFollowing);
             setFollowersCount(previousCount);
+            const message = error instanceof Error ? error.message : 'Failed to update follow status';
+            showToast(message, 'error');
         }
     };
 
@@ -71,7 +98,7 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
     };
 
     return (
-        <Link href={`/brands/${brand._id}`} className="block">
+        <Link href={`/creators/${brand._id}`} className="block">
             <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -171,7 +198,7 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         </Link>
     );
 }

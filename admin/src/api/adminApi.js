@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/admin';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/admin';
 
 const adminApi = {
     // ================== DASHBOARD ==================
@@ -13,6 +13,12 @@ const adminApi = {
         const query = new URLSearchParams(params).toString();
         const res = await fetch(`${API_BASE}/users?${query}`);
         if (!res.ok) throw new Error('Failed to fetch users');
+        return res.json();
+    },
+
+    async getUserById(userId) {
+        const res = await fetch(`${API_BASE}/users/${userId}`);
+        if (!res.ok) throw new Error('Failed to fetch user');
         return res.json();
     },
 
@@ -80,7 +86,7 @@ const adminApi = {
     async getPendingEventApprovals(params = {}) {
         const query = new URLSearchParams(params).toString();
         // Use main API endpoint for pending events
-        const mainApiBase = import.meta.env.VITE_API_BASE_URL?.replace('/admin', '') || 'http://localhost:4000/api';
+        const mainApiBase = import.meta.env.VITE_API_BASE_URL?.replace('/admin', '') || 'http://localhost:5000/api';
         const res = await fetch(`${mainApiBase}/events/admin-pending?${query}`);
         if (!res.ok) throw new Error('Failed to fetch pending events');
         return res.json();
@@ -88,7 +94,7 @@ const adminApi = {
 
     // Admin approve/reject event
     async adminApproveEvent(eventId, adminId, status, rejectionReason) {
-        const mainApiBase = import.meta.env.VITE_API_BASE_URL?.replace('/admin', '') || 'http://localhost:4000/api';
+        const mainApiBase = import.meta.env.VITE_API_BASE_URL?.replace('/admin', '') || 'http://localhost:5000/api';
         const res = await fetch(`${mainApiBase}/events/${eventId}/admin-approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

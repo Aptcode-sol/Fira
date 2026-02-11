@@ -60,7 +60,7 @@ export default function BrandBandSection() {
                                     </div>
 
                                     <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white">
-                                        Are you a <br /><span className="accent-text">Brand / Band</span>?
+                                        Are you a <br /><span className="accent-text">Creator</span>?
                                     </h2>
 
                                     <p className="text-gray-400 mb-8 leading-relaxed">
@@ -69,7 +69,7 @@ export default function BrandBandSection() {
                                     </p>
 
                                     <Link
-                                        href="/brands"
+                                        href="/creators"
                                         className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
                                     >
                                         Learn more

@@ -34,6 +34,13 @@ const filterOptions = [
     { value: 'Brand', label: 'Brands' },
     { value: 'Band', label: 'Bands' },
     { value: 'Organizer', label: 'Organizers' },
+    { value: 'Artist', label: 'Artists' },
+    { value: 'DJ', label: 'DJs' },
+    { value: 'Dancer', label: 'Dancers' },
+    { value: 'Planner', label: 'Planners' },
+    { value: 'Musician', label: 'Musicians' },
+    { value: 'Photographer', label: 'Photographers' },
+    { value: 'Caterer', label: 'Caterers' },
 ];
 
 const sortOptions = [
@@ -43,10 +50,25 @@ const sortOptions = [
     { value: 'nearby', label: 'Nearby' },
 ];
 
+const cityOptions = [
+    { value: 'All', label: 'All Cities' },
+    { value: 'Mumbai', label: 'Mumbai' },
+    { value: 'Delhi', label: 'Delhi' },
+    { value: 'Bangalore', label: 'Bangalore' },
+    { value: 'Pune', label: 'Pune' },
+    { value: 'Chennai', label: 'Chennai' },
+    { value: 'Hyderabad', label: 'Hyderabad' },
+    { value: 'Kolkata', label: 'Kolkata' },
+    { value: 'Goa', label: 'Goa' },
+    { value: 'Jaipur', label: 'Jaipur' },
+    { value: 'Ahmedabad', label: 'Ahmedabad' },
+];
+
 export default function BrandsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedType, setSelectedType] = useState('All');
     const [selectedSort, setSelectedSort] = useState('recommended');
+    const [selectedCity, setSelectedCity] = useState('All');
     const [isLoading, setIsLoading] = useState(true);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState(false);
@@ -74,13 +96,14 @@ export default function BrandsPage() {
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
 
-    const isFiltered = searchQuery !== '' || selectedType !== 'All' || selectedSort !== 'recommended';
+    const isFiltered = searchQuery !== '' || selectedType !== 'All' || selectedSort !== 'recommended' || selectedCity !== 'All';
     const defaultSort = 'recommended';
 
     const resetFilters = () => {
         setSearchQuery('');
         setSelectedType('All');
         setSelectedSort(defaultSort);
+        setSelectedCity('All');
         setPage(1);
         setGridData([]);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -186,6 +209,7 @@ export default function BrandsPage() {
                     };
 
                     if (selectedType !== 'All') params.type = selectedType;
+                    if (selectedCity !== 'All') params.city = selectedCity;
 
                     if (selectedSort !== 'recommended') {
                         params.sort = selectedSort;
@@ -213,7 +237,8 @@ export default function BrandsPage() {
             const timeoutId = setTimeout(fetchFiltered, 300);
             return () => clearTimeout(timeoutId);
         }
-    }, [searchQuery, selectedType, selectedSort, isFiltered, location]);
+    }, [searchQuery, selectedType, selectedSort, selectedCity, isFiltered, location]);
+
 
     // Infinite scroll observer
     useEffect(() => {
@@ -305,10 +330,10 @@ export default function BrandsPage() {
                     <SlideUp>
                         <div className="text-center mb-12">
                             <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6">
-                                Verified Brands & <span className="text-violet-400">Bands</span>
+                                Discover <span className="text-violet-400">Creators</span>
                             </h1>
                             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                                Discover verified event organizers, bands, and brands.
+                                Find verified event organizers, artists, DJs, bands, and more.
                             </p>
                         </div>
                     </SlideUp>
@@ -319,7 +344,7 @@ export default function BrandsPage() {
                             <div className="flex flex-col md:flex-row gap-4 items-center">
                                 <div className="flex-1 w-full">
                                     <Input
-                                        placeholder="Search brands, bands, organizers..."
+                                        placeholder="Search creators, DJs, bands, organizers..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="bg-black/40 border-white/10 focus:bg-black/60 h-[42px]"
@@ -353,6 +378,20 @@ export default function BrandsPage() {
                                             icon={
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                                </svg>
+                                            }
+                                        />
+                                    </div>
+                                    <div className="w-full md:w-40">
+                                        <Select
+                                            value={selectedCity}
+                                            onChange={setSelectedCity}
+                                            options={cityOptions}
+                                            placeholder="City"
+                                            icon={
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 </svg>
                                             }
                                         />
@@ -408,7 +447,7 @@ export default function BrandsPage() {
                                     <SlideUp>
                                         <div className="relative z-10">
                                             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                                                Are you a Brand, Band, or Organizer?
+                                                Are you a Creator?
                                             </h2>
                                             <p className="text-gray-400 mb-8 max-w-xl mx-auto text-lg">
                                                 Get verified, build your profile, and connect with thousands of fans. Access exclusive tools to manage your events.

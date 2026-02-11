@@ -22,6 +22,15 @@ router.get('/users', async (req, res) => {
     }
 });
 
+router.get('/users/:id', async (req, res) => {
+    try {
+        const user = await adminService.getUserById(req.params.id);
+        res.json(user);
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+});
+
 router.put('/users/:id/block', async (req, res) => {
     try {
         const user = await adminService.blockUser(req.params.id);

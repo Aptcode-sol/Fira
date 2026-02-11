@@ -13,6 +13,46 @@ router.post('/register', async (req, res) => {
     }
 });
 
+// POST /api/auth/register-venue-owner - Register new venue owner
+router.post('/register-venue-owner', async (req, res) => {
+    try {
+        const { 
+            email, 
+            password, 
+            name, 
+            businessName, 
+            businessPhone,
+            govIdType,
+            govIdNumber,
+            govIdDocument,
+            bankAccountName,
+            bankAccountNumber,
+            bankIfscCode,
+            bankName
+        } = req.body;
+        const result = await authService.register({ 
+            email, 
+            password, 
+            name, 
+            role: 'venue_owner',
+            businessName,
+            businessPhone,
+            govIdType,
+            govIdNumber,
+            govIdDocument,
+            bankDetails: {
+                accountName: bankAccountName,
+                accountNumber: bankAccountNumber,
+                ifscCode: bankIfscCode,
+                bankName: bankName
+            }
+        });
+        res.status(201).json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 // POST /api/auth/verify-otp - Verify OTP and activate account
 router.post('/verify-otp', async (req, res) => {
     try {

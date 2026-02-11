@@ -107,6 +107,25 @@ export const authApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    registerVenueOwner: (data: {
+        email: string;
+        password: string;
+        name: string;
+        businessName?: string;
+        businessPhone?: string;
+        govIdType?: string;
+        govIdNumber?: string;
+        govIdDocument?: string;
+        bankAccountName?: string;
+        bankAccountNumber?: string;
+        bankIfscCode?: string;
+        bankName?: string;
+    }) =>
+        request<{ success: boolean; message: string; email: string }>('/auth/register-venue-owner', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 };
 
 // Users API
@@ -125,6 +144,19 @@ export const usersApi = {
         request(`/users/${id}/unfollow`, {
             method: 'POST',
         }),
+    getFollowingBrands: (userId: string) =>
+        request<{
+            brands: {
+                _id: string;
+                name: string;
+                type: string;
+                bio: string;
+                profilePhoto: string | null;
+                stats: { followers: number; events: number };
+                user?: { _id: string; name: string };
+            }[];
+            count: number;
+        }>(`/users/${userId}/following-brands`),
 };
 
 // Brands API
@@ -214,6 +246,7 @@ export const venuesApi = {
         return request(`/venues/nearby?${params}`);
     },
     getUserVenues: (userId: string) => request(`/venues?owner=${userId}`),
+    getMyVenues: () => request(`/venues/my-venues`),
     getById: (id: string) => request(`/venues/${id}`),
     create: (data: unknown) =>
         request('/venues', {
@@ -711,6 +744,87 @@ export const dashboardApi = {
             venuesOwned: number;
             activeBookings: number;
         }>(`/dashboard/stats/${userId}`),
+};
+
+// Messages/Chat API
+export interface Conversation {
+    _id: string;
+    participants: Array<{
+        _id: string;
+        name: string;
+        avatar?: string;
+        email: string;
+    }>;
+    brand?: {
+        _id: string;
+        name: string;
+        profilePhoto?: string;
+        type: string;
+        user?: string;
+    };
+    lastMessage: {
+        content: string;
+        sender: string;
+        timestamp: string;
+    };
+    unreadCount: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Message {
+    _id: string;
+    conversation: string;
+    sender: {
+        _id: string;
+        name: string;
+        avatar?: string;
+    };
+    content: string;
+    messageType: 'text' | 'image' | 'system';
+    imageUrl?: string;
+    isRead: boolean;
+    createdAt: string;
+}
+
+export const messagesApi = {
+    getConversations: () =>
+        request<{ success: boolean; conversations: Conversation[] }>('/messages/conversations'),
+
+    getMessages: (conversationId: string, page = 1, limit = 50) =>
+        request<{
+            success: boolean;
+            conversation: Conversation;
+            messages: Message[];
+            pagination: { page: number; limit: number };
+        }>(`/messages/conversations/${conversationId}?page=${page}&limit=${limit}`),
+
+    sendMessage: (data: {
+        conversationId?: string;
+        receiverId?: string;
+        brandId?: string;
+        content: string;
+        messageType?: string;
+        imageUrl?: string;
+    }) =>
+        request<{ success: boolean; message: Message; conversationId: string }>('/messages/send', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    startBrandEnquiry: (data: { brandId: string; message?: string }) =>
+        request<{ success: boolean; conversation: Conversation }>('/messages/start-brand-enquiry', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    getUnreadCount: () =>
+        request<{ success: boolean; unreadCount: number }>('/messages/unread-count'),
+
+    archiveConversation: (conversationId: string) =>
+        request<{ success: boolean; message: string }>(`/messages/conversations/${conversationId}`, {
+            method: 'DELETE',
+        }),
 };
 
 export { ApiError };

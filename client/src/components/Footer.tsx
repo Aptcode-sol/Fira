@@ -10,7 +10,7 @@ const footerLinks = {
         { label: 'Find Parties', href: '/events' },
         { label: 'Find Venues', href: '/venues' },
         { label: 'Create Event', href: '/create' },
-        { label: 'List Venue', href: '/list-venue' },
+        { label: 'List Venue', href: '/venue-portal/signin' },
     ],
     company: [
         { label: 'About', href: '/about' },
@@ -80,9 +80,20 @@ const linkHoverVariants = {
     hover: { x: 4, transition: { duration: 0.2 } },
 };
 
+// ... social icons commented out as per request
+// const socialLinks = [ ... ];
+
 export default function Footer() {
     const footerRef = useRef(null);
     const isInView = useInView(footerRef, { once: true, amount: 0.2 });
+
+    const legalLinks = [
+        { label: 'Privacy Policy', href: '/privacy' },
+        { label: 'Terms of Service', href: '/terms' },
+        { label: 'Refund Policy', href: '/refund-policy' },
+        { label: 'Community Guidelines', href: '/community-guidelines' },
+        { label: 'Help & Support', href: '/help' },
+    ];
 
     return (
         <motion.footer
@@ -93,47 +104,36 @@ export default function Footer() {
             variants={containerVariants}
         >
             <div className="max-w-6xl mx-auto">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
                     {/* Logo Section */}
                     <motion.div
-                        className="col-span-2 md:col-span-1"
+                        className="col-span-1"
                         variants={itemVariants}
                     >
-                        <Link href="/" className="flex items-center space-x-2 mb-4 group">
-                            <motion.div
-                                className="w-7 h-7 rounded-lg bg-white flex items-center justify-center"
-                                whileHover={{ scale: 1.1, rotate: 5 }}
+                        <Link href="/" className="flex items-center space-x-2 mb-6 group">
+                            <motion.img
+                                src="/logo white.png"
+                                alt="FIRA"
+                                className="w-10 h-10 object-contain"
+                                whileHover={{ scale: 1.1 }}
                                 transition={{ type: "spring", stiffness: 400 }}
-                            >
-                                <span className="text-black font-bold text-xs">F</span>
-                            </motion.div>
-                            <span className="text-lg font-semibold text-white group-hover:text-violet-300 transition-colors">FIRA</span>
+                            />
                         </Link>
-                        <p className="text-gray-600 text-xs mb-4 leading-relaxed">
+                        <p className="text-gray-400 text-sm mb-6 leading-relaxed max-w-sm">
                             Your ultimate platform for discovering venues and creating unforgettable parties.
+                            Connect, celebrate, and make memories with Fira.
                         </p>
+                        {/* Social Icons Commented Out
                         <div className="flex gap-4">
-                            {socialLinks.map((social, i) => (
-                                <motion.a
-                                    key={social.name}
-                                    href={social.href}
-                                    className="text-gray-600 hover:text-white transition-colors"
-                                    whileHover={{ scale: 1.2, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={isInView ? { opacity: 1, y: 0 } : {}}
-                                    transition={{ delay: 0.3 + i * 0.1 }}
-                                >
-                                    {social.icon}
-                                </motion.a>
-                            ))}
+                            {socialLinks.map((social, i) => ( ... ))}
                         </div>
+                        */}
                     </motion.div>
 
                     {/* Product Links */}
-                    <motion.div variants={itemVariants}>
-                        <h4 className="text-white text-sm font-medium mb-4">Product</h4>
-                        <ul className="space-y-2">
+                    <motion.div variants={itemVariants} className="md:pl-12">
+                        <h4 className="text-white text-lg font-bold mb-6">Product</h4>
+                        <ul className="space-y-4">
                             {footerLinks.product.map((link, i) => (
                                 <motion.li
                                     key={link.label}
@@ -143,8 +143,9 @@ export default function Footer() {
                                 >
                                     <Link
                                         href={link.href}
-                                        className="text-gray-600 hover:text-gray-300 text-xs transition-colors inline-flex items-center gap-1"
+                                        className="text-gray-400 hover:text-violet-300 text-sm transition-colors inline-flex items-center gap-2"
                                     >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500/50"></span>
                                         {link.label}
                                     </Link>
                                 </motion.li>
@@ -152,11 +153,11 @@ export default function Footer() {
                         </ul>
                     </motion.div>
 
-                    {/* Company Links */}
+                    {/* Legal Links (Merged Company & Other Pages) */}
                     <motion.div variants={itemVariants}>
-                        <h4 className="text-white text-sm font-medium mb-4">Company</h4>
-                        <ul className="space-y-2">
-                            {footerLinks.company.map((link) => (
+                        <h4 className="text-white text-lg font-bold mb-6">Legal & Support</h4>
+                        <ul className="space-y-4">
+                            {legalLinks.map((link) => (
                                 <motion.li
                                     key={link.label}
                                     initial="rest"
@@ -165,30 +166,9 @@ export default function Footer() {
                                 >
                                     <Link
                                         href={link.href}
-                                        className="text-gray-600 hover:text-gray-300 text-xs transition-colors"
+                                        className="text-gray-400 hover:text-violet-300 text-sm transition-colors inline-flex items-center gap-2"
                                     >
-                                        {link.label}
-                                    </Link>
-                                </motion.li>
-                            ))}
-                        </ul>
-                    </motion.div>
-
-                    {/* Legal Links */}
-                    <motion.div variants={itemVariants}>
-                        <h4 className="text-white text-sm font-medium mb-4">Legal</h4>
-                        <ul className="space-y-2">
-                            {footerLinks.legal.map((link) => (
-                                <motion.li
-                                    key={link.label}
-                                    initial="rest"
-                                    whileHover="hover"
-                                    variants={linkHoverVariants}
-                                >
-                                    <Link
-                                        href={link.href}
-                                        className="text-gray-600 hover:text-gray-300 text-xs transition-colors"
-                                    >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500/50"></span>
                                         {link.label}
                                     </Link>
                                 </motion.li>
@@ -197,34 +177,45 @@ export default function Footer() {
                     </motion.div>
                 </div>
 
-                {/* Bottom Bar with line animation */}
+                {/* Bottom Bar */}
                 <motion.div
-                    className="border-t border-white/5 pt-6 flex flex-col md:flex-row justify-between items-center gap-4"
+                    className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4"
                     variants={itemVariants}
                 >
+                    <div className="text-center md:text-left">
+                        <motion.p
+                            className="text-gray-500 text-sm mb-1"
+                            initial={{ opacity: 0 }}
+                            animate={isInView ? { opacity: 1 } : {}}
+                            transition={{ delay: 0.6 }}
+                        >
+                            © {new Date().getFullYear()} FIRA. All rights reserved.
+                        </motion.p>
+                        <motion.p
+                            className="text-gray-600 text-xs font-medium"
+                            initial={{ opacity: 0 }}
+                            animate={isInView ? { opacity: 1 } : {}}
+                            transition={{ delay: 0.65 }}
+                        >
+                            <span className="text-violet-500/80">Owned and Protected by</span> Sure Phanindra Kumar
+                        </motion.p>
+                    </div>
+
                     <motion.p
-                        className="text-gray-600 text-xs"
-                        initial={{ opacity: 0 }}
-                        animate={isInView ? { opacity: 1 } : {}}
-                        transition={{ delay: 0.6 }}
-                    >
-                        © {new Date().getFullYear()} FIRA. All rights reserved.
-                    </motion.p>
-                    <motion.p
-                        className="text-gray-700 text-xs flex items-center gap-1"
+                        className="text-gray-600 text-sm flex items-center gap-1.5"
                         initial={{ opacity: 0 }}
                         animate={isInView ? { opacity: 1 } : {}}
                         transition={{ delay: 0.7 }}
                     >
                         Made with{' '}
                         <motion.span
-                            className="text-red-500"
+                            className="text-red-500 text-lg"
                             animate={{ scale: [1, 1.2, 1] }}
                             transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
                         >
                             ♥
                         </motion.span>
-                        {' '}for party lovers
+                        {' '}for party loveers, letsfira.
                     </motion.p>
                 </motion.div>
             </div>

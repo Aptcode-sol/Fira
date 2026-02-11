@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
-import PartyBackground from '@/components/PartyBackground';
 import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { venuesApi, uploadApi } from '@/lib/api';
+import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
+import { SlideUp, FadeIn } from '@/components/animations';
 
 const amenitiesList = ['Parking', 'WiFi', 'AC', 'Sound System', 'Lighting', 'Stage', 'Kitchen', 'Bar', 'Security', 'Projector', 'Restrooms', 'Wheelchair Access'];
 
-export default function CreateVenuePage() {
+export default function VenuePortalCreateVenuePage() {
     const router = useRouter();
     const { isAuthenticated, isLoading, user } = useAuth();
     const { showToast } = useToast();
@@ -37,9 +37,15 @@ export default function CreateVenuePage() {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.replace('/signin?redirect=/create/venue');
+            router.push('/venue-portal/signin');
+            return;
         }
-    }, [isLoading, isAuthenticated, router]);
+
+        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+            router.push('/dashboard');
+            return;
+        }
+    }, [isLoading, isAuthenticated, user, router]);
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -131,14 +137,14 @@ export default function CreateVenuePage() {
                 locationLink: formData.locationLink,
                 location: {
                     type: 'Point',
-                    coordinates: [77.2090, 28.6139], // Default Delhi coordinates - can be enhanced with geocoding
+                    coordinates: [77.2090, 28.6139], // Default Delhi coordinates
                 },
                 status: 'pending',
             };
 
             await venuesApi.create(venueData);
             showToast('Venue submitted for review!', 'success');
-            router.push('/dashboard/venues');
+            router.push('/venue-portal/venues');
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to create venue';
             showToast(errorMessage, 'error');
@@ -149,45 +155,31 @@ export default function CreateVenuePage() {
 
     if (isLoading) {
         return (
-            <>
-                <PartyBackground />
-                <Navbar />
-                <main className="min-h-screen flex items-center justify-center">
+            <VenueDashboardLayout>
+                <div className="min-h-screen flex items-center justify-center">
                     <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
-                </main>
-            </>
+                </div>
+            </VenueDashboardLayout>
         );
     }
 
-    if (!isAuthenticated) {
-        return (
-            <>
-                <PartyBackground />
-                <Navbar />
-                <main className="min-h-screen flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-gray-400 mb-4">Redirecting to sign in...</p>
-                        <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full mx-auto" />
-                    </div>
-                </main>
-            </>
-        );
+    if (!isAuthenticated || user?.role !== 'venue_owner') {
+        return null;
     }
 
     return (
-        <>
-            <PartyBackground />
-            <Navbar />
-
-            <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
-                <div className="max-w-2xl mx-auto">
-                    {/* Header */}
+        <VenueDashboardLayout>
+            <div className="p-6 lg:p-8">
+                {/* Header */}
+                <SlideUp>
                     <div className="text-center mb-8">
-                        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">List Your Venue</h1>
+                        <h1 className="text-3xl font-bold text-white mb-2">List Your Venue</h1>
                         <p className="text-gray-400">Share your space with event organizers</p>
                     </div>
+                </SlideUp>
 
-                    {/* Progress Steps */}
+                {/* Progress Steps */}
+                <FadeIn delay={0.1}>
                     <div className="flex items-center justify-center gap-2 mb-8">
                         {[1, 2, 3, 4].map((s) => (
                             <div key={s} className="flex items-center">
@@ -198,9 +190,11 @@ export default function CreateVenuePage() {
                             </div>
                         ))}
                     </div>
+                </FadeIn>
 
-                    {/* Form Card */}
-                    <div className="bg-black/70 backdrop-blur-sm border border-white/10 rounded-2xl p-6 md:p-8">
+                {/* Form Card */}
+                <FadeIn delay={0.2}>
+                    <div className="max-w-2xl mx-auto bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 md:p-8">
                         {/* Step 1: Basic Info */}
                         {step === 1 && (
                             <div className="space-y-6">
@@ -244,7 +238,7 @@ export default function CreateVenuePage() {
                                 </div>
 
                                 <div className="flex justify-end">
-                                    <Button onClick={() => setStep(2)}>Next</Button>
+                                    <Button variant="violet" onClick={() => setStep(2)}>Next</Button>
                                 </div>
                             </div>
                         )}
@@ -285,7 +279,7 @@ export default function CreateVenuePage() {
 
                                 <div className="flex justify-between">
                                     <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
-                                    <Button onClick={() => setStep(3)}>Next</Button>
+                                    <Button variant="violet" onClick={() => setStep(3)}>Next</Button>
                                 </div>
                             </div>
                         )}
@@ -364,7 +358,7 @@ export default function CreateVenuePage() {
 
                                 <div className="flex justify-between">
                                     <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
-                                    <Button onClick={() => setStep(4)}>Next</Button>
+                                    <Button variant="violet" onClick={() => setStep(4)}>Next</Button>
                                 </div>
                             </div>
                         )}
@@ -416,13 +410,13 @@ export default function CreateVenuePage() {
 
                                 <div className="flex justify-between pt-4">
                                     <Button variant="secondary" onClick={() => setStep(3)}>Back</Button>
-                                    <Button onClick={handleSubmit} isLoading={isSubmitting}>Submit Venue</Button>
+                                    <Button variant="violet" onClick={handleSubmit} isLoading={isSubmitting}>Submit Venue</Button>
                                 </div>
                             </div>
                         )}
                     </div>
-                </div>
-            </main>
-        </>
+                </FadeIn>
+            </div>
+        </VenueDashboardLayout>
     );
 }

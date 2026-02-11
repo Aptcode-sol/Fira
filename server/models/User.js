@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user'],
+    enum: ['user', 'venue_owner', 'admin'],
     default: 'user'
   },
   isVerified: {
@@ -114,6 +114,34 @@ const userSchema = new mongoose.Schema({
   isBlocked: {
     type: Boolean,
     default: false
+  },
+  // Government ID fields (for venue owners)
+  govIdType: {
+    type: String,
+    enum: ['aadhar', 'pan', 'driving_license', 'passport', 'voter_id'],
+    default: null
+  },
+  govIdNumber: {
+    type: String,
+    default: null
+  },
+  govIdDocument: {
+    type: String,  // URL to uploaded document
+    default: null
+  },
+  govIdVerified: {
+    type: Boolean,
+    default: false
+  },
+  // Business details (for venue owners)
+  businessName: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  businessPhone: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

@@ -84,7 +84,7 @@ export default function VenueOwnerSection() {
                                     </p>
 
                                     <Link
-                                        href="/list-venue"
+                                        href="/venue-portal/signin"
                                         className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
                                     >
                                         Start listing

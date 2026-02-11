@@ -10,6 +10,9 @@ const Refund = require('./Refund');
 const Notification = require('./Notification');
 const VerificationRequest = require('./VerificationRequest');
 const PrivateEventAccess = require('./PrivateEventAccess');
+const Conversation = require('./Conversation');
+const Message = require('./Message');
+const BrandProfile = require('./BrandProfile');
 
 module.exports = {
     User,
@@ -22,5 +25,8 @@ module.exports = {
     Refund,
     Notification,
     VerificationRequest,
-    PrivateEventAccess
+    PrivateEventAccess,
+    Conversation,
+    Message,
+    BrandProfile
 };

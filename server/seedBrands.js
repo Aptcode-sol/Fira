@@ -397,7 +397,9 @@ mongoose.connect(process.env.MONGODB_URI)
                     coverPhoto: coverPhotoUrl,
                     profilePhoto: profilePhotoUrl,
                     socialLinks: brandData.socialLinks || {},
-                    members: brandData.members || []
+                    members: brandData.members || [],
+                    status: 'approved',
+                    isActive: true
                 });
                 console.log(`  Created Profile`);
             }

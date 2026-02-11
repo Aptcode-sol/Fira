@@ -73,7 +73,7 @@ const eventSchema = new mongoose.Schema({
     },
     category: {
         type: String,
-        enum: ['party', 'concert', 'wedding', 'corporate', 'birthday', 'festival', 'other'],
+        enum: ['party', 'concert', 'wedding', 'corporate', 'birthday', 'festival', 'music', 'dance', 'dj', 'clubbing', 'fitness', 'other'],
         default: 'party'
     },
     tags: [{

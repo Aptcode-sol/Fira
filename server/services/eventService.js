@@ -4,10 +4,17 @@ const PrivateEventAccess = require('../models/PrivateEventAccess');
 const eventService = {
     // Get all events
     async getAllEvents(query = {}) {
-        const { page = 1, limit = 10, eventType, status, category, organizer, sort, search, showCompleted } = query;
+        const { page = 1, limit = 10, eventType, status, category, organizer, sort, search, showCompleted, todayOnly, weekend, ticketType, dateFilter } = query;
         const filter = { isDeleted: { $ne: true } }; // Always exclude deleted events
         if (eventType) filter.eventType = eventType;
         if (category && category !== 'All') filter.category = category;
+
+        // Ticket type filter (free/paid)
+        if (ticketType === 'free') {
+            filter.ticketType = 'free';
+        } else if (ticketType === 'paid') {
+            filter.ticketType = 'paid';
+        }
 
         // If querying by organizer (dashboard), show their events excluding deleted
         // Otherwise, only show approved/upcoming and active events (public listing)
@@ -23,6 +30,63 @@ const eventService = {
             filter.status = 'approved';
             filter.isActive = { $ne: false };
             filter.startDateTime = { $gte: new Date() }; // Only future events
+        }
+
+        // Today Only filter (events within next 24 hours)
+        if (todayOnly === 'true' || todayOnly === true) {
+            const now = new Date();
+            const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            filter.startDateTime = { $gte: now, $lte: in24Hours };
+        }
+
+        // Weekend filter (Friday 6PM to Sunday midnight)
+        if (weekend === 'true' || weekend === true) {
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+            
+            // Calculate next Friday 6PM
+            let fridayStart = new Date(now);
+            const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+            if (daysUntilFriday === 0 && now.getHours() >= 18) {
+                // It's Friday after 6PM, use today
+            } else if (daysUntilFriday === 0) {
+                // It's Friday before 6PM, use today at 6PM
+            } else {
+                fridayStart.setDate(now.getDate() + daysUntilFriday);
+            }
+            fridayStart.setHours(18, 0, 0, 0);
+
+            // Calculate Sunday midnight (end of Sunday)
+            let sundayEnd = new Date(fridayStart);
+            sundayEnd.setDate(fridayStart.getDate() + (7 - fridayStart.getDay()) % 7); // Move to Sunday
+            if (sundayEnd <= fridayStart) {
+                sundayEnd.setDate(sundayEnd.getDate() + 7);
+            }
+            sundayEnd.setHours(23, 59, 59, 999);
+
+            // If we're already past Sunday, get next weekend
+            if (now > sundayEnd) {
+                fridayStart.setDate(fridayStart.getDate() + 7);
+                sundayEnd.setDate(sundayEnd.getDate() + 7);
+            }
+
+            filter.startDateTime = { $gte: fridayStart, $lte: sundayEnd };
+        }
+
+        // Date filter (today, tomorrow, thisWeek)
+        if (dateFilter === 'today') {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+            filter.startDateTime = { $gte: todayStart, $lte: todayEnd };
+        } else if (dateFilter === 'tomorrow') {
+            const tomorrowStart = new Date();
+            tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+            tomorrowStart.setHours(0, 0, 0, 0);
+            const tomorrowEnd = new Date(tomorrowStart);
+            tomorrowEnd.setHours(23, 59, 59, 999);
+            filter.startDateTime = { $gte: tomorrowStart, $lte: tomorrowEnd };
         }
 
         if (search) {
@@ -405,6 +469,56 @@ const eventService = {
             type: 'system',
             data: { referenceId: event._id, referenceModel: 'Event' }
         });
+
+        // If event is approved, notify brand followers
+        console.log(`🔍 Debug: Admin status=${status}, Event status=${event.status}, Organizer=${event.organizer}`);
+        if (status === 'approved' && event.status === 'approved') {
+            console.log('✅ Event fully approved, checking for brand profile...');
+            try {
+                const BrandProfile = require('../models/BrandProfile');
+                const notificationService = require('./notificationService');
+
+                // Check if organizer has a brand profile
+                const brandProfile = await BrandProfile.findOne({ user: event.organizer });
+                console.log(`🔍 Brand profile found: ${brandProfile ? brandProfile.name : 'NONE'}`);
+                
+                if (brandProfile) {
+                    // Populate event with venue for email
+                    const populatedEvent = await Event.findById(event._id).populate('venue', 'name address');
+                    
+                    const result = await notificationService.notifyBrandFollowers(
+                        brandProfile._id,
+                        'brand_new_event',
+                        {
+                            title: `${brandProfile.name} New Event`,
+                            message: `${brandProfile.name} just announced "${populatedEvent.name}"! Get your tickets now.`,
+                            referenceId: populatedEvent._id,
+                            referenceModel: 'Event',
+                            actionUrl: `/events/${populatedEvent._id}`,
+                            extra: {
+                                event: {
+                                    _id: populatedEvent._id,
+                                    name: populatedEvent.name,
+                                    date: populatedEvent.startDateTime,
+                                    startDateTime: populatedEvent.startDateTime,
+                                    images: populatedEvent.images,
+                                    ticketPrice: populatedEvent.ticketPrice,
+                                    venue: populatedEvent.venue
+                                }
+                            }
+                        },
+                        true // send email
+                    );
+                    console.log(`✅ Notified ${brandProfile.name}'s followers about new event:`, result);
+                } else {
+                    console.log('⚠️ Organizer does not have a brand profile - no followers to notify');
+                }
+            } catch (notifErr) {
+                console.error('Failed to notify brand followers:', notifErr.message);
+            }
+        } else {
+            console.log(`⚠️ Event not fully approved: admin status=${status}, event.status=${event.status}`);
+        }
 
         return event;
     },

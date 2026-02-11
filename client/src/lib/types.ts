@@ -12,6 +12,7 @@ export interface User {
     emailVerified: boolean;
     emailVerifiedAt?: string;
     verificationBadge: 'none' | 'brand' | 'band' | 'organizer';
+    creatorApplicationStatus?: 'pending' | 'rejected' | null;
     socialLinks: {
         instagram: string | null;
         twitter: string | null;

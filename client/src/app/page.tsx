@@ -1,10 +1,13 @@
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
 import PartiesSection from '@/components/PartiesSection';
+import ReadyToGoSection from '@/components/ReadyToGoSection';
+import FollowingFeedSection from '@/components/FollowingFeedSection';
 import CreatePartySection from '@/components/CreatePartySection';
 import BrandBandSection from '@/components/BrandBandSection';
 import VenueOwnerSection from '@/components/VenueOwnerSection';
 import CTASection from '@/components/CTASection';
+
 
 
 export default function Home() {
@@ -47,6 +50,8 @@ export default function Home() {
         <Navbar />
         <Hero />
         <PartiesSection />
+        <ReadyToGoSection />
+        <FollowingFeedSection />
         <CreatePartySection />
         <BrandBandSection />
         <VenueOwnerSection />
