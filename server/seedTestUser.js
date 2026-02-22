@@ -427,7 +427,7 @@ async function seedTestUser() {
             await Event.deleteMany({ organizer: existingUser._id });
             await Venue.deleteMany({ owner: existingUser._id });
             await BrandProfile.deleteMany({ user: existingUser._id });
-            await User.deleteById ? User.deleteById(existingUser._id) : User.findByIdAndDelete(existingUser._id);
+            await User.findByIdAndDelete(existingUser._id);
             console.log('   ✓ Existing data cleaned\n');
         }
 
@@ -471,8 +471,17 @@ async function seedTestUser() {
         // Create events
         console.log('🎉 Creating events...');
         for (const eventData of testUserEvents) {
-            const eventDate = new Date();
-            eventDate.setDate(eventDate.getDate() + eventData.daysFromNow);
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() + eventData.daysFromNow);
+            const [startHour, startMin] = eventData.startTime.split(':').map(Number);
+            startDate.setHours(startHour, startMin, 0, 0);
+
+            const endDate = new Date(startDate);
+            const [endHour, endMin] = eventData.endTime.split(':').map(Number);
+            if (endHour < startHour) {
+                endDate.setDate(endDate.getDate() + 1);
+            }
+            endDate.setHours(endHour, endMin, 0, 0);
 
             await Event.create({
                 organizer: testUser._id,
@@ -480,9 +489,8 @@ async function seedTestUser() {
                 name: eventData.name,
                 description: eventData.description,
                 images: eventData.images,
-                date: eventDate,
-                startTime: eventData.startTime,
-                endTime: eventData.endTime,
+                startDateTime: startDate,
+                endDateTime: endDate,
                 eventType: eventData.eventType,
                 ticketType: eventData.ticketType,
                 ticketPrice: eventData.ticketPrice,

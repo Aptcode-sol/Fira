@@ -108,7 +108,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         checkUserAssets();
     }, [user?._id]);
 
-    const isVenueOwner = user?.role === 'venue_owner' || user?.role === 'admin' || hasVenues;
+    const isVenueOwner = user?.role === 'venue_owner' || user?.role === 'admin';
 
     const getIcon = (name: string) => {
         const icons: Record<string, React.ReactNode> = {

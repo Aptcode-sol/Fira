@@ -34,8 +34,8 @@ export default function PrivacyPolicy() {
                             <ul className="list-disc pl-5 space-y-2">
                                 <li><strong>Identity Data:</strong> includes first name, last name, username or similar identifier.</li>
                                 <li><strong>Contact Data:</strong> includes billing address, delivery address, email address and telephone numbers.</li>
-                                <li><strong>Financial Data:</strong> includes bank account and payment card details.</li>
-                                <li><strong>Transaction Data:</strong> includes details about payments to and from you and other details of products and services you have purchased from us.</li>
+                                <li><strong>Financial Data:</strong> Payments for events and venue bookings are securely processed via Razorpay. We do not store full credit card details on our servers.</li>
+                                <li><strong>Transaction Data:</strong> includes details about payments to and from you, including advance payments for bookings and details of products and services you have purchased from us.</li>
                             </ul>
                         </section>
 
@@ -62,10 +62,14 @@ export default function PrivacyPolicy() {
 
                         <section>
                             <h2 className="text-xl font-semibold text-white mb-4">5. Contact Us</h2>
-                            <p>
+                            <p className="mb-2">
                                 If you have any questions about this privacy policy or our privacy practices, please contact us at:
-                                <a href="mailto:support@letsfira.com" className="text-violet-400 hover:text-violet-300 ml-1">support@letsfira.com</a>
                             </p>
+                            <ul className="list-disc pl-5 space-y-2">
+                                <li><strong>Email:</strong> <a href="mailto:support@letsfira.com" className="text-violet-400 hover:text-violet-300">support@letsfira.com</a></li>
+                                <li><strong>Phone:</strong> +91 93468 63962</li>
+                                <li><strong>Registered Address:</strong> Vellore Institute of Technology (VIT) AP University, Amaravati - 522237, Andhra Pradesh, India</li>
+                            </ul>
                         </section>
 
                         <div className="pt-8 border-t border-white/10 text-sm text-gray-500">

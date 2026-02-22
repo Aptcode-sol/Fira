@@ -105,23 +105,7 @@ export default function DashboardPage() {
             icon: 'ticket',
             color: 'green',
             href: '/dashboard/tickets'
-        },
-        {
-            label: 'Venues',
-            value: stats?.venuesOwned ?? 0,
-            subValue: null,
-            icon: 'building',
-            color: 'blue',
-            href: '/dashboard/venues'
-        },
-        {
-            label: 'Total Attendees',
-            value: stats?.totalAttendees ?? 0,
-            subValue: stats?.totalRevenue ? `₹${(stats.totalRevenue / 1000).toFixed(1)}K revenue` : null,
-            icon: 'users',
-            color: 'pink',
-            href: '/dashboard/analytics'
-        },
+        }
     ];
 
     const getIcon = (name: string) => {
@@ -452,58 +436,7 @@ export default function DashboardPage() {
                     </FadeIn>
                 </div>
 
-                {/* Your Venues Section */}
-                {dashboardData?.venues && dashboardData.venues.length > 0 && (
-                    <FadeIn>
-                        <div className="mt-6 bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-white">Your Venues</h2>
-                                <Link href="/dashboard/venues" className="text-sm text-violet-400 hover:text-violet-300">
-                                    View all →
-                                </Link>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {dashboardData.venues.slice(0, 3).map((venue) => (
-                                    <Link key={venue._id} href={`/venues/${venue._id}`}>
-                                        <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] overflow-hidden hover:bg-white/[0.04] transition-colors cursor-pointer">
-                                            <div className="h-32 bg-gradient-to-br from-violet-500/20 to-pink-500/20 relative">
-                                                {venue.images?.[0] && (
-                                                    <img
-                                                        src={venue.images[0]}
-                                                        alt={venue.name}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                )}
-                                                <span className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs ${venue.status === 'approved'
-                                                    ? 'bg-green-500/20 text-green-400'
-                                                    : 'bg-yellow-500/20 text-yellow-400'
-                                                    }`}>
-                                                    {venue.status}
-                                                </span>
-                                            </div>
-                                            <div className="p-4">
-                                                <h3 className="font-medium text-white truncate">{venue.name}</h3>
-                                                <p className="text-xs text-gray-400 mt-1">
-                                                    {venue.address?.city}, {venue.address?.state}
-                                                </p>
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <span className="text-sm text-gray-400">
-                                                        ₹{venue.pricing?.basePrice?.toLocaleString()}
-                                                    </span>
-                                                    {venue.rating?.average > 0 && (
-                                                        <span className="text-sm text-yellow-400">
-                                                            ⭐ {venue.rating.average.toFixed(1)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-                    </FadeIn>
-                )}
+
 
                 {/* Creator Profile Card */}
                 {dashboardData?.brandProfile && (

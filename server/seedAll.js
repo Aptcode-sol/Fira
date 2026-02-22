@@ -997,16 +997,15 @@ async function seedAll() {
                  // Create a pending event
                  await Event.create({
                     name: 'Pending Approval Concert',
-                    date: new Date(Date.now() + 86400000 * 20), // 20 days later
-                    startTime: '20:00',
-                    endTime: '23:00',
+                    startDateTime: new Date(Date.now() + 86400000 * 20), // 20 days later
+                    endDateTime: new Date(Date.now() + 86400000 * 20 + 3 * 3600000), // +3 hours
                     venue: createdVenues[0]._id, // Use first venue
                     organizer: organizer._id,
                     description: 'This event is waiting for admin approval.',
                     images: [eventImages[0]],
                     maxAttendees: 500,
                     ticketPrice: 999,
-                    category: 'Music',
+                    category: 'music',
                     status: 'upcoming', // Not approved yet
                     isFeatured: false,
                     adminApproval: {

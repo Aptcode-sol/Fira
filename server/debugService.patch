@@ -1,0 +1,16 @@
+--- services/dashboardService.js
++++ services/dashboardService.js
+@@ -98,12 +98,17 @@
+         ]);
+ 
++        console.log("DEBUG EVENT", userTickets.map(t => typeof t.event + " " + (t.event ? t.event.date : "null")));
++
+         // Process tickets
+         const activeTickets = userTickets.filter(t => t.status === 'active');
+         const upcomingTickets = activeTickets.filter(t =>
+             t.event && new Date(t.event.date) >= now
+         );
++        
++        console.log("DEBUG ACTIVE", activeTickets.length, "UPCOMING", upcomingTickets.length);
+ 
+         // Process bookings

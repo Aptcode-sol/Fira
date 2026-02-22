@@ -242,8 +242,8 @@ const bookingService = {
             throw new Error('Unauthorized: This booking belongs to another user');
         }
 
-        if (booking.status !== 'accepted') {
-            throw new Error('Booking must be accepted before payment');
+        if (booking.status !== 'accepted' && booking.status !== 'pending') {
+            throw new Error('Booking must be pending or accepted before payment');
         }
 
         if (booking.paymentStatus === 'paid') {
@@ -310,8 +310,9 @@ const bookingService = {
         });
 
         if (result.success) {
-            // Update booking payment status
+            // Update booking payment status and set booking to accepted since advance is paid
             booking.paymentStatus = 'paid';
+            booking.status = 'accepted'; // Transition from pending to accepted
             booking.payment = payment._id;
             await booking.save();
 

@@ -41,15 +41,15 @@ export default function RefundPolicy() {
                         <section>
                             <h2 className="text-xl font-semibold text-white mb-4">3. Venue Booking Cancellations</h2>
                             <p className="mb-4">
-                                For venue bookings, the cancellation policy is determined by the Venue Owner. Common policies include:
+                                A 10% non-refundable advance payment is required to secure any venue booking through FIRA. For the remaining balance, the cancellation policy is determined by the Venue Owner. Common policies include:
                             </p>
                             <ul className="list-disc pl-5 space-y-2">
-                                <li><strong>Flexible:</strong> Full refund 24 hours prior to booking.</li>
-                                <li><strong>Moderate:</strong> Full refund 5 days prior to booking.</li>
-                                <li><strong>Strict:</strong> 50% refund up until 1 week prior to booking.</li>
+                                <li><strong>Flexible:</strong> Full refund of balance 24 hours prior to booking.</li>
+                                <li><strong>Moderate:</strong> Full refund of balance 5 days prior to booking.</li>
+                                <li><strong>Strict:</strong> 50% refund of balance up until 1 week prior to booking.</li>
                             </ul>
                             <p className="mt-4">
-                                The specific policy applicable to your booking will be displayed during the checkout process.
+                                The specific policy applicable to your booking will be displayed during the checkout process. Please note that the initial 10% advance payment processed via Razorpay is strictly non-refundable in the event of a cancellation by the user.
                             </p>
                         </section>
 
@@ -60,14 +60,21 @@ export default function RefundPolicy() {
                                 item. If a refund is applicable, you will see a "Cancel & Refund" button. For disputes, please contact
                                 our support team.
                             </p>
+                            <p className="mt-4">
+                                <strong>Refund Processing Time:</strong> Once a refund is approved by the Event Organizer or Venue Owner, FIRA will initiate the refund via our payment gateway partner, Razorpay. The refunded amount will be credited back to your original method of payment within 5-7 business days, depending on your bank's processing timelines.
+                            </p>
                         </section>
 
                         <section>
                             <h2 className="text-xl font-semibold text-white mb-4">5. Contact Us</h2>
-                            <p>
+                            <p className="mb-2">
                                 If you have issues with a refund or believe a charge was made in error, please contact us at:
-                                <a href="mailto:support@letsfira.com" className="text-green-400 hover:text-green-300 ml-1">support@letsfira.com</a>
                             </p>
+                            <ul className="list-disc pl-5 space-y-2">
+                                <li><strong>Email:</strong> <a href="mailto:support@letsfira.com" className="text-green-400 hover:text-green-300">support@letsfira.com</a></li>
+                                <li><strong>Phone:</strong> +91 93468 63962</li>
+                                <li><strong>Registered Address:</strong> Vellore Institute of Technology (VIT) AP University, Amaravati - 522237, Andhra Pradesh, India</li>
+                            </ul>
                         </section>
 
                         <div className="pt-8 border-t border-white/10 text-sm text-gray-500">

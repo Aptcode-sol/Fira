@@ -112,14 +112,7 @@ export default function EventDetailPage() {
     const purchaseTickets = async () => {
         if (!user?._id || !event?._id) return;
 
-        // Check if paid ticket - show coming soon message
-        if (event.ticketType === 'paid' || (event.ticketPrice && event.ticketPrice > 0)) {
-            showToast('Payments coming soon! Stay tuned.', 'info');
-            setIsTicketModalOpen(false);
-            return;
-        }
-
-        // Free ticket flow - keep existing code
+        // Start purchase flow
         setIsPurchasing(true);
         try {
             // 1. Initiate purchase request
@@ -175,6 +168,7 @@ export default function EventDetailPage() {
                                 setPurchasedTicket(finalTicketResult.ticket);
                                 setIsTicketModalOpen(false);
                                 fetchEvent(event._id!); // Refresh spots
+                                router.push('/dashboard/tickets');
                             } else {
                                 showToast('Payment verification failed', 'error');
                             }
@@ -210,6 +204,7 @@ export default function EventDetailPage() {
                 setIsTicketModalOpen(false);
                 fetchEvent(event._id);
                 setIsPurchasing(false);
+                router.push('/dashboard/tickets');
             }
         } catch (err: unknown) {
             const error = err as { message?: string };

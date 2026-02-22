@@ -50,7 +50,17 @@ export default function TermsOfService() {
                         </section>
 
                         <section>
-                            <h2 className="text-xl font-semibold text-white mb-4">4. Intellectual Property</h2>
+                            <h2 className="text-xl font-semibold text-white mb-4">4. Payments and Bookings</h2>
+                            <p>
+                                All payments for event tickets and venue bookings on FIRA are processed securely through our third-party payment gateway, Razorpay. By making a transaction, you agree to Razorpay's terms of service.
+                            </p>
+                            <p className="mt-4">
+                                <strong>Venue Bookings:</strong> To secure a venue booking, a 10% non-refundable advance payment is required at the time of booking. The remaining balance must be settled with the venue owner as per their specific terms.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-semibold text-white mb-4">5. Intellectual Property</h2>
                             <p>
                                 The Service and its original content, features and functionality are and will remain the exclusive
                                 property of FIRA and its licensors. The Service is protected by copyright, trademark, and other
@@ -59,7 +69,7 @@ export default function TermsOfService() {
                         </section>
 
                         <section>
-                            <h2 className="text-xl font-semibold text-white mb-4">5. Termination</h2>
+                            <h2 className="text-xl font-semibold text-white mb-4">6. Termination</h2>
                             <p>
                                 We may terminate or suspend your account immediately, without prior notice or liability, for any
                                 reason whatsoever, including without limitation if you breach the Terms. Upon termination, your
@@ -68,11 +78,22 @@ export default function TermsOfService() {
                         </section>
 
                         <section>
-                            <h2 className="text-xl font-semibold text-white mb-4">6. Contact Us</h2>
+                            <h2 className="text-xl font-semibold text-white mb-4">7. Shipping and Delivery Policy</h2>
                             <p>
-                                If you have any questions about these Terms, please create a support ticket or contact us at:
-                                <a href="mailto:support@letsfira.com" className="text-blue-400 hover:text-blue-300 ml-1">support@letsfira.com</a>
+                                FIRA provides digital services (event tickets and venue booking confirmations). Upon successful payment processing through Razorpay, your digital ticket or booking confirmation will be delivered immediately to your registered email address and will be instantly accessible on our platform via your Dashboard. No physical goods are shipped or delivered.
                             </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-semibold text-white mb-4">8. Contact Us</h2>
+                            <p className="mb-2">
+                                For any questions, grievances, or support requests regarding these Terms, please contact us at:
+                            </p>
+                            <ul className="list-disc pl-5 space-y-2">
+                                <li><strong>Email:</strong> <a href="mailto:support@letsfira.com" className="text-blue-400 hover:text-blue-300">support@letsfira.com</a></li>
+                                <li><strong>Phone:</strong> +91 93468 63962</li>
+                                <li><strong>Registered Address:</strong> Vellore Institute of Technology (VIT) AP University, Amaravati - 522237, Andhra Pradesh, India</li>
+                            </ul>
                         </section>
 
                         <div className="pt-8 border-t border-white/10 text-sm text-gray-500">
