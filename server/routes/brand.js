@@ -16,6 +16,30 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/brands/sections - Fetch all homepage sections in one call
+router.get('/sections', async (req, res) => {
+    try {
+        const limit = req.query.limit || '4';
+        const [bands, brands, organizers, trending, top] = await Promise.all([
+            brandService.getBrands({ type: 'Band', limit }),
+            brandService.getBrands({ type: 'Brand', limit }),
+            brandService.getBrands({ type: 'Organizer', limit }),
+            brandService.getBrands({ sort: 'trending', limit }),
+            brandService.getBrands({ sort: 'top', limit }),
+        ]);
+        res.json({
+            bands: bands.brands || [],
+            brands: brands.brands || [],
+            organizers: organizers.brands || [],
+            trending: trending.brands || [],
+            top: top.brands || [],
+        });
+    } catch (error) {
+        console.error('Error fetching brand sections:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/brands/my-profile - Get current user's brand profile
 router.get('/my-profile', auth, async (req, res) => {
     try {

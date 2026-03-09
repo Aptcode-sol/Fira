@@ -5,7 +5,8 @@ const notificationService = {
     async getUserNotifications(userId, limit = 50) {
         const notifications = await Notification.find({ user: userId })
             .sort({ createdAt: -1 })
-            .limit(limit);
+            .limit(limit)
+            .lean();
         return notifications;
     },
 

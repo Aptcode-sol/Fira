@@ -38,6 +38,12 @@ const dashboardService = {
 
             // Event statistics for organizer
             eventStats,
+
+            // Organized events (upcoming)
+            organizedEvents,
+
+            // User's venues
+            venues,
         ] = await Promise.all([
             // Total events organized
             Event.countDocuments({ organizer: userId, isDeleted: { $ne: true } }),
@@ -93,7 +99,26 @@ const dashboardService = {
                         }
                     }
                 }
-            ])
+            ]),
+
+            // Organized events (upcoming) - previously sequential
+            Event.find({
+                organizer: userId,
+                date: { $gte: now },
+                status: { $ne: 'cancelled' },
+                isDeleted: { $ne: true }
+            })
+                .populate('venue', 'name address images')
+                .sort({ date: 1 })
+                .limit(5)
+                .lean(),
+
+            // User's venues - previously sequential
+            Venue.find({ owner: userId, isDeleted: { $ne: true } })
+                .select('name images address status capacity pricing rating')
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .lean()
         ]);
 
         // Process tickets
@@ -130,25 +155,6 @@ const dashboardService = {
             quantity: ticket.quantity,
             purchasedAt: ticket.createdAt
         }));
-
-        // Get user's organized events (upcoming)
-        const organizedEvents = await Event.find({
-            organizer: userId,
-            date: { $gte: now },
-            status: { $ne: 'cancelled' },
-            isDeleted: { $ne: true }
-        })
-            .populate('venue', 'name address images')
-            .sort({ date: 1 })
-            .limit(5)
-            .lean();
-
-        // Get user's venues
-        const venues = await Venue.find({ owner: userId, isDeleted: { $ne: true } })
-            .select('name images address status capacity pricing rating')
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .lean();
 
         // Calculate event statistics
         const eventStatistics = eventStats[0] || {

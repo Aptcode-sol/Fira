@@ -57,7 +57,8 @@ const venueService = {
             .populate('owner', 'name email')
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .sort(sortOption);
+            .sort(sortOption)
+            .lean();
 
         const total = await Venue.countDocuments(filter);
 
@@ -74,7 +75,7 @@ const venueService = {
         const venues = await Venue.find({ 
             owner: ownerId, 
             isDeleted: { $ne: true } 
-        }).sort({ createdAt: -1 });
+        }).sort({ createdAt: -1 }).lean();
         return venues;
     },
 
@@ -93,14 +94,14 @@ const venueService = {
             status: 'approved',
             isActive: true,
             isDeleted: { $ne: true }
-        }).populate('owner', 'name email');
+        }).populate('owner', 'name email').lean();
 
         return venues;
     },
 
     // Get venue by ID
     async getVenueById(id) {
-        const venue = await Venue.findById(id).populate('owner', 'name email avatar');
+        const venue = await Venue.findById(id).populate('owner', 'name email avatar').lean();
         if (!venue) {
             throw new Error('Venue not found');
         }

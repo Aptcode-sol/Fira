@@ -14,7 +14,8 @@ const bookingService = {
             .populate('venue', 'name address')
             .limit(limit * 1)
             .skip((page - 1) * limit)
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const total = await Booking.countDocuments(filter);
 
@@ -30,7 +31,8 @@ const bookingService = {
     async getUserBookings(userId) {
         const bookings = await Booking.find({ user: userId })
             .populate('venue', 'name address images')
-            .sort({ bookingDate: -1 });
+            .sort({ bookingDate: -1 })
+            .lean();
         return bookings;
     },
 
@@ -38,7 +40,8 @@ const bookingService = {
     async getVenueBookings(venueId) {
         const bookings = await Booking.find({ venue: venueId })
             .populate('user', 'name email phone')
-            .sort({ bookingDate: -1 });
+            .sort({ bookingDate: -1 })
+            .lean();
         return bookings;
     },
 

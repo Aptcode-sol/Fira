@@ -83,7 +83,8 @@ const brandService = {
             .populate('user', 'name email verificationBadge')
             .sort(sortOption)
             .limit(limitNum)
-            .skip(skip);
+            .skip(skip)
+            .lean();
 
         const total = await BrandProfile.countDocuments(filter);
 
@@ -131,26 +132,23 @@ const brandService = {
     async followBrand(userId, brandId) {
         const User = require('../models/User');
 
-        const brand = await BrandProfile.findById(brandId);
+        const [brand, user] = await Promise.all([
+            BrandProfile.findById(brandId).select('_id').lean(),
+            User.findById(userId).select('followingBrands').lean()
+        ]);
         if (!brand) throw new Error('Brand not found');
-
-        const user = await User.findById(userId);
         if (!user) throw new Error('User not found');
 
         // Check if already following
-        if (user.followingBrands.includes(brandId)) {
+        if (user.followingBrands.some(id => id.toString() === brandId.toString())) {
             throw new Error('Already following this brand');
         }
 
-        // Add brand to user's followingBrands
-        await User.findByIdAndUpdate(userId, {
-            $addToSet: { followingBrands: brandId }
-        });
-
-        // Increment brand's follower count
-        await BrandProfile.findByIdAndUpdate(brandId, {
-            $inc: { 'stats.followers': 1 }
-        });
+        // Add brand to user's followingBrands + increment follower count in parallel
+        await Promise.all([
+            User.findByIdAndUpdate(userId, { $addToSet: { followingBrands: brandId } }),
+            BrandProfile.findByIdAndUpdate(brandId, { $inc: { 'stats.followers': 1 } })
+        ]);
 
         return { success: true, message: 'Now following this brand' };
     },
@@ -159,23 +157,19 @@ const brandService = {
     async unfollowBrand(userId, brandId) {
         const User = require('../models/User');
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select('followingBrands').lean();
         if (!user) throw new Error('User not found');
 
         // Check if actually following
-        if (!user.followingBrands.includes(brandId)) {
+        if (!user.followingBrands.some(id => id.toString() === brandId.toString())) {
             throw new Error('Not following this brand');
         }
 
-        // Remove brand from user's followingBrands
-        await User.findByIdAndUpdate(userId, {
-            $pull: { followingBrands: brandId }
-        });
-
-        // Decrement brand's follower count (minimum 0)
-        await BrandProfile.findByIdAndUpdate(brandId, {
-            $inc: { 'stats.followers': -1 }
-        });
+        // Remove from followingBrands + decrement follower count in parallel
+        await Promise.all([
+            User.findByIdAndUpdate(userId, { $pull: { followingBrands: brandId } }),
+            BrandProfile.findByIdAndUpdate(brandId, { $inc: { 'stats.followers': -1 } })
+        ]);
 
         return { success: true, message: 'Unfollowed this brand' };
     },
@@ -184,10 +178,10 @@ const brandService = {
     async isFollowingBrand(userId, brandId) {
         const User = require('../models/User');
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select('followingBrands').lean();
         if (!user) return { isFollowing: false };
 
-        return { isFollowing: user.followingBrands.includes(brandId) };
+        return { isFollowing: user.followingBrands.some(id => id.toString() === brandId.toString()) };
     }
 };
 

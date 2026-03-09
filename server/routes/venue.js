@@ -13,6 +13,25 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/venues/sections - Fetch all homepage sections in one call
+router.get('/sections', async (req, res) => {
+    try {
+        const [topRated, inDemand, latest] = await Promise.all([
+            venueService.getAllVenues({ status: 'approved', sort: 'topRated' }),
+            venueService.getAllVenues({ status: 'approved', sort: 'inDemand' }),
+            venueService.getAllVenues({ status: 'approved', sort: 'latest' }),
+        ]);
+        res.json({
+            topRated: topRated.venues || [],
+            inDemand: inDemand.venues || [],
+            latest: latest.venues || [],
+        });
+    } catch (error) {
+        console.error('Error fetching venue sections:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/venues/nearby - Get nearby venues (public)
 router.get('/nearby', async (req, res) => {
     try {

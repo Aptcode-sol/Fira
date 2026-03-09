@@ -11,7 +11,8 @@ const userService = {
             .select('-password')
             .limit(limit * 1)
             .skip((page - 1) * limit)
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const total = await User.countDocuments(filter);
 
@@ -136,7 +137,7 @@ const userService = {
 
     // Get user by ID
     async getUserById(id) {
-        const user = await User.findById(id).select('-password');
+        const user = await User.findById(id).select('-password').lean();
         if (!user) {
             throw new Error('User not found');
         }

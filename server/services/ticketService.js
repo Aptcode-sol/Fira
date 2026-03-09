@@ -16,7 +16,8 @@ const ticketService = {
             .populate('event', 'name date venue')
             .limit(limit * 1)
             .skip((page - 1) * limit)
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const total = await Ticket.countDocuments(filter);
 
@@ -36,7 +37,8 @@ const ticketService = {
                 select: 'name date startTime images venue',
                 populate: { path: 'venue', select: 'name address' }
             })
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
         return tickets;
     },
 
@@ -44,7 +46,8 @@ const ticketService = {
     async getEventTickets(eventId) {
         const tickets = await Ticket.find({ event: eventId })
             .populate('user', 'name email')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
         return tickets;
     },
 

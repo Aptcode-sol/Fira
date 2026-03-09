@@ -151,5 +151,6 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ location: '2dsphere' });
 userSchema.index({ verificationBadge: 1 });
 userSchema.index({ isVerified: 1 });
+userSchema.index({ followingBrands: 1 });
 
 module.exports = mongoose.model('User', userSchema);

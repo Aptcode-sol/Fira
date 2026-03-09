@@ -21,25 +21,23 @@ export default function Navbar() {
         setShouldAnimate(true);
     }, []);
 
-    // Fetch unread notifications
+    // Fetch unread notification count using a lightweight endpoint
     useEffect(() => {
         const fetchUnreadCount = async () => {
             if (!user?._id) return;
             try {
-                const notifications = await notificationsApi.getUserNotifications(user._id);
-                // Type assertion as the API response type might be vague
-                const unread = (notifications as any[]).filter(n => !n.isRead).length;
-                setUnreadCount(unread);
+                const data = await notificationsApi.getUnreadCount(user._id);
+                setUnreadCount(data.count);
             } catch (error) {
-                console.error('Failed to fetch notifications:', error);
+                console.error('Failed to fetch unread count:', error);
             }
         };
 
         if (isAuthenticated && user?._id) {
             fetchUnreadCount();
 
-            // Optional: Poll every 30 seconds
-            const interval = setInterval(fetchUnreadCount, 30000);
+            // Poll every 60 seconds (reduced from 30s to lower load)
+            const interval = setInterval(fetchUnreadCount, 60000);
             return () => clearInterval(interval);
         }
     }, [isAuthenticated, user?._id]);
