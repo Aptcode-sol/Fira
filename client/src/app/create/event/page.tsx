@@ -93,8 +93,29 @@ function CreateEventForm() {
             showToast('Please select a venue or create a custom venue', 'error');
             return;
         }
-        if (!formData.name || !formData.description || !formData.date || !formData.startTime || !formData.endTime) {
-            showToast('Please fill in all required fields', 'error');
+        if (!formData.name) {
+            showToast('Please enter an event name', 'error');
+            setStep(1);
+            return;
+        }
+        if (!formData.description) {
+            showToast('Please enter an event description', 'error');
+            setStep(1);
+            return;
+        }
+        if (!formData.date) {
+            showToast('Please select a start date', 'error');
+            setStep(2);
+            return;
+        }
+        if (!formData.startTime) {
+            showToast('Please select a start time', 'error');
+            setStep(2);
+            return;
+        }
+        if (!formData.endTime) {
+            showToast('Please select an end time', 'error');
+            setStep(2);
             return;
         }
 
@@ -507,24 +528,24 @@ function CreateEventForm() {
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, eventType: 'public' })}
-                                            className={`p-4 rounded-xl border text-left transition-all ${formData.eventType === 'public'
-                                                ? 'bg-violet-500/10 border-violet-500/50 text-white'
-                                                : 'bg-white/5 border-white/10 text-gray-400'
+                                            className={`p-4 rounded-xl border-2 text-left transition-all ${formData.eventType === 'public'
+                                                ? 'bg-violet-500/20 border-violet-500 text-white shadow-lg shadow-violet-500/20'
+                                                : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-80'
                                                 }`}
                                         >
                                             <div className="font-medium mb-1">Public</div>
-                                            <div className="text-xs text-gray-500">Anyone can discover & join</div>
+                                            <div className="text-xs opacity-70">Anyone can discover & join</div>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, eventType: 'private' })}
-                                            className={`p-4 rounded-xl border text-left transition-all ${formData.eventType === 'private'
-                                                ? 'bg-violet-500/10 border-violet-500/50 text-white'
-                                                : 'bg-white/5 border-white/10 text-gray-400'
+                                            className={`p-4 rounded-xl border-2 text-left transition-all ${formData.eventType === 'private'
+                                                ? 'bg-violet-500/20 border-violet-500 text-white shadow-lg shadow-violet-500/20'
+                                                : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-80'
                                                 }`}
                                         >
                                             <div className="font-medium mb-1">Private</div>
-                                            <div className="text-xs text-gray-500">Invite only with access code</div>
+                                            <div className="text-xs opacity-70">Invite only with access code</div>
                                         </button>
                                     </div>
                                 </div>

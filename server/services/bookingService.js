@@ -217,21 +217,14 @@ const bookingService = {
         return booking;
     },
 
-    // Cancel booking
-    async cancelBooking(id, reason) {
-        const booking = await Booking.findByIdAndUpdate(
-            id,
-            { $set: { status: 'cancelled', rejectionReason: reason } },
-            { new: true }
-        );
-
-        if (!booking) {
-            throw new Error('Booking not found');
-        }
-
-        // TODO: Process refund if already paid
-
-        return booking;
+    // Cancel booking with refund processing
+    async cancelBooking(id, userId, reason = 'User requested cancellation') {
+        const refundService = require('./refundService');
+        
+        // Use refund service for complete cancellation flow
+        const result = await refundService.initiateBookingRefund(id, userId, reason);
+        
+        return result;
     },
 
     // Initiate payment for an accepted booking
@@ -249,8 +242,8 @@ const bookingService = {
             throw new Error('Unauthorized: This booking belongs to another user');
         }
 
-        if (booking.status !== 'accepted') {
-            throw new Error('Booking must be accepted before payment');
+        if (booking.status !== 'accepted' && booking.status !== 'pending') {
+            throw new Error('Booking must be pending or accepted before payment');
         }
 
         if (booking.paymentStatus === 'paid') {
@@ -317,8 +310,9 @@ const bookingService = {
         });
 
         if (result.success) {
-            // Update booking payment status
+            // Update booking payment status and set booking to accepted since advance is paid
             booking.paymentStatus = 'paid';
+            booking.status = 'accepted'; // Transition from pending to accepted
             booking.payment = payment._id;
             await booking.save();
 

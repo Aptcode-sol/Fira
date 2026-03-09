@@ -455,11 +455,6 @@ const emailTemplates = {
           <p style="color: #888; font-size: 14px;">${event.venue.name}</p>
         </div>
       </div>
-      <div style="background: #ffffff; border-radius: 12px; color: #000; padding: 20px; text-align: center; margin-bottom: 30px;">
-        <div style="font-size: 12px; color: #666; text-transform: uppercase;">Ticket ID</div>
-        <div style="font-family: monospace; font-size: 18px; font-weight: bold; margin: 5px 0 15px;">${ticket.ticketId}</div>
-        <img src="${ticket.qrCode}" alt="QR Code" style="width: 180px; height: 180px; display: block; margin: 0 auto;">
-        <div style="margin-top: 15px; font-size: 14px; color: #666;">Admit ${ticket.quantity} • ${ticket.ticketType}</div>
       </div>
     </div>
   </div>
@@ -469,15 +464,14 @@ const emailTemplates = {
   },
 
   /**
-   * Venue Booking Notification Email Template
-   * @param {string} ownerName - Venue owner's name
-   * @param {object} venue - Venue details
-   * @param {object} booking - Booking details
-   * @param {object} booker - Person making the booking
+   * Brand New Event Notification Template
+   * @param {string} userName - User's name
+   * @param {string} brandName - Brand name
+   * @param {object} event - Event details
    * @returns {string} - HTML email template
    */
-  venueBookingNotification(ownerName, venue, booking, booker) {
-    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+  brandNewEvent(userName, brandName, event) {
+    const formattedDate = new Date(event.date || event.startDateTime).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -490,71 +484,35 @@ const emailTemplates = {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Booking Request - FIRA</title>
+  <title>New Event from ${brandName} - FIRA</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
   <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
-    <div style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 30px; text-align: center;">
+    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 30px; text-align: center;">
       <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">FIRA</h1>
-      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">New Booking Request 🎉</p>
+      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Let's Celebrate</p>
     </div>
-    
     <div style="padding: 30px;">
-      <h2 style="margin: 0 0 20px; font-size: 22px;">Hey ${ownerName}!</h2>
-      <p style="color: #a0a0a0; margin-bottom: 25px; line-height: 1.6;">
-        Great news! Someone wants to book your venue <strong style="color: #fff;">${venue.name}</strong>.
+      <h2 style="margin: 0 0 20px; font-size: 24px; text-align: center;">🎉 New Event Alert!</h2>
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${userName}, <strong style="color: #8b5cf6;">${brandName}</strong> just announced a new event!
       </p>
-
-      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 25px;">
-        <h3 style="margin: 0 0 15px; font-size: 16px; color: #ec4899;">Booking Details</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Date</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${formattedDate}</td>
-          </tr>
-          ${booking.startTime ? `
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Time</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${booking.startTime}${booking.endTime ? ` - ${booking.endTime}` : ''}</td>
-          </tr>
-          ` : ''}
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Guest Count</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${booking.guestCount || 'Not specified'}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Total Price</td>
-            <td style="padding: 8px 0; color: #22c55e; text-align: right; font-size: 14px; font-weight: bold;">₹${booking.totalPrice?.toLocaleString() || 'TBD'}</td>
-          </tr>
-        </table>
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden; margin-bottom: 30px;">
+        ${event.images?.[0] ? `<img src="${event.images[0]}" alt="${event.name}" style="width: 100%; height: 200px; object-fit: cover; display: block;">` : ''}
+        <div style="padding: 20px;">
+          <h3 style="margin: 0 0 10px; font-size: 20px; color: #fff;">${event.name}</h3>
+          <p style="color: #ccc; margin: 5px 0;">📅 ${formattedDate}</p>
+          ${event.venue?.name ? `<p style="color: #888; font-size: 14px;">📍 ${event.venue.name}</p>` : ''}
+          ${event.ticketPrice > 0 ? `<p style="color: #22c55e; font-weight: bold;">₹${event.ticketPrice}</p>` : '<p style="color: #22c55e; font-weight: bold;">FREE</p>'}
+        </div>
       </div>
-
-      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 25px;">
-        <h3 style="margin: 0 0 15px; font-size: 16px; color: #8b5cf6;">Booker Information</h3>
-        <p style="color: #fff; margin: 5px 0;"><strong>${booker.name}</strong></p>
-        <p style="color: #888; margin: 5px 0; font-size: 14px;">${booker.email}</p>
-        ${booker.phone ? `<p style="color: #888; margin: 5px 0; font-size: 14px;">${booker.phone}</p>` : ''}
-      </div>
-
-      ${booking.message ? `
-      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 25px;">
-        <h3 style="margin: 0 0 10px; font-size: 16px; color: #f59e0b;">Message from Booker</h3>
-        <p style="color: #ccc; font-size: 14px; margin: 0; font-style: italic;">"${booking.message}"</p>
-      </div>
-      ` : ''}
-
-      <div style="text-align: center; margin-top: 30px;">
-        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/requests" 
-           style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">
-          View & Respond
+      <div style="text-align: center;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/events/${event._id}" 
+           style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">
+          Get Tickets Now
         </a>
       </div>
-
-      <p style="color: #666; font-size: 13px; text-align: center; margin-top: 25px;">
-        Log in to your dashboard to accept or decline this booking request.
-      </p>
     </div>
-
     <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
       <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
     </div>
@@ -565,94 +523,101 @@ const emailTemplates = {
   },
 
   /**
-   * Event Request Notification Email Template (for venue owners)
-   * @param {string} ownerName - Venue owner's name
-   * @param {object} venue - Venue details
-   * @param {object} event - Event details
-   * @param {object} organizer - Event organizer info
+   * Brand New Post Notification Template
+   * @param {string} userName - User's name
+   * @param {string} brandName - Brand name
+   * @param {object} post - Post details
    * @returns {string} - HTML email template
    */
-  eventRequestNotification(ownerName, venue, event, organizer) {
-    // Format datetime as "12 Dec 2025 12:00"
-    const formatDateTime = (dateTime) => {
-      const dt = new Date(dateTime);
-      const day = dt.getDate();
-      const month = dt.toLocaleString('en-US', { month: 'short' });
-      const year = dt.getFullYear();
-      const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-      return `${day} ${month} ${year} ${time}`;
-    };
-
-    const formattedStart = formatDateTime(event.startDateTime);
-    const formattedEnd = formatDateTime(event.endDateTime);
-
+  brandNewPost(userName, brandName, post) {
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Event Request - FIRA</title>
+  <title>New Post from ${brandName} - FIRA</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
   <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
     <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 30px; text-align: center;">
       <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">FIRA</h1>
-      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">New Event Request 🎉</p>
+      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Let's Celebrate</p>
     </div>
-    
     <div style="padding: 30px;">
-      <h2 style="margin: 0 0 20px; font-size: 22px;">Hey ${ownerName}!</h2>
-      <p style="color: #a0a0a0; margin-bottom: 25px; line-height: 1.6;">
-        Someone wants to host an event at your venue <strong style="color: #fff;">${venue.name}</strong>. Please review and approve or reject this request.
+      <h2 style="margin: 0 0 20px; font-size: 24px; text-align: center;">📢 New Update!</h2>
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${userName}, <strong style="color: #8b5cf6;">${brandName}</strong> just shared something new!
       </p>
-
-      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 25px;">
-        <h3 style="margin: 0 0 15px; font-size: 16px; color: #8b5cf6;">Event Details</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Event Name</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${event.name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">From</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${formattedStart}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">To</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${formattedEnd}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Category</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px; text-transform: capitalize;">${event.category}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #888; font-size: 14px;">Expected Attendees</td>
-            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${event.maxAttendees}</td>
-          </tr>
-        </table>
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 30px;">
+        <p style="color: #fff; line-height: 1.6; margin: 0;">${post.content?.substring(0, 200)}${post.content?.length > 200 ? '...' : ''}</p>
+        ${post.images?.[0] ? `<img src="${post.images[0]}" alt="Post image" style="width: 100%; border-radius: 8px; margin-top: 15px;">` : ''}
       </div>
-
-      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 25px;">
-        <h3 style="margin: 0 0 15px; font-size: 16px; color: #ec4899;">Organizer Information</h3>
-        <p style="color: #fff; margin: 5px 0;"><strong>${organizer.name}</strong></p>
-        <p style="color: #888; margin: 5px 0; font-size: 14px;">${organizer.email}</p>
-      </div>
-
-      <div style="text-align: center; margin-top: 30px;">
-        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/requests" 
+      <div style="text-align: center;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/brands/${post.brandId}" 
            style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">
-          Review Request
+          View Full Post
         </a>
       </div>
-
-      <p style="color: #666; font-size: 13px; text-align: center; margin-top: 25px;">
-        Log in to your dashboard to approve or reject this event request.
-      </p>
     </div>
-
     <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
       <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  },
+
+  /**
+   * Event Reminder Template (1 hour before)
+   * @param {string} userName - User's name
+   * @param {object} event - Event details
+   * @param {object} ticket - Ticket details
+   * @returns {string} - HTML email template
+   */
+  eventReminder(userName, event, ticket) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Starting Soon! - FIRA</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
+  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">⏰ REMINDER</h1>
+      <p style="margin: 10px 0 0; font-size: 18px; font-weight: bold;">Starting in 1 Hour!</p>
+    </div>
+    <div style="padding: 30px;">
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${userName}, don't forget - your event is about to start!
+      </p>
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden; margin-bottom: 30px;">
+        ${event.images?.[0] ? `<img src="${event.images[0]}" alt="${event.name}" style="width: 100%; height: 200px; object-fit: cover; display: block;">` : ''}
+        <div style="padding: 20px;">
+          <h3 style="margin: 0 0 10px; font-size: 20px; color: #fff;">${event.name}</h3>
+          <p style="color: #f59e0b; font-weight: bold; margin: 10px 0;">🕐 Starting at ${event.startTime || 'soon'}</p>
+          ${event.venue?.name ? `<p style="color: #888; font-size: 14px;">📍 ${event.venue.name}</p>` : ''}
+          ${event.venue?.address?.street ? `<p style="color: #666; font-size: 12px;">${event.venue.address.street}, ${event.venue.address.city}</p>` : ''}
+        </div>
+      </div>
+      <div style="background: #ffffff; border-radius: 12px; color: #000; padding: 20px; text-align: center; margin-bottom: 30px;">
+        <div style="font-size: 12px; color: #666; text-transform: uppercase;">Your Ticket</div>
+        <div style="font-family: monospace; font-size: 18px; font-weight: bold; margin: 5px 0;">${ticket.ticketId}</div>
+        <p style="font-size: 14px; color: #666; margin-top: 10px;">Admit ${ticket.quantity} person(s)</p>
+      </div>
+      <div style="text-align: center;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/tickets" 
+           style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">
+          View My Ticket
+        </a>
+      </div>
+    </div>
+    <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
+      <p style="color: #444; font-size: 12px; margin: 0;">Have a great time! 🎉</p>
     </div>
   </div>
 </body>

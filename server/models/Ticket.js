@@ -58,6 +58,10 @@ const ticketSchema = new mongoose.Schema({
         type: String,
         enum: ['active', 'used', 'cancelled', 'expired'],
         default: 'active'
+    },
+    reminderSent: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

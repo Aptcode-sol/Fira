@@ -45,6 +45,17 @@ export default function VenueDetailPage() {
     });
     const [hoveredDate, setHoveredDate] = useState<string | null>(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date());
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const loadRazorpay = () => {
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
 
     // Get availability info for tooltip - returns all slots
     const getDateAvailability = (date: Date) => {
@@ -132,8 +143,10 @@ export default function VenueDetailPage() {
     const submitBooking = async () => {
         if (!venue || !user) return;
 
+        const finalStartDate = bookingData.date || selectedDate;
+
         // Validation
-        if (!bookingData.date) {
+        if (!finalStartDate) {
             showToast('Please select a start date', 'error');
             return;
         }
@@ -143,6 +156,7 @@ export default function VenueDetailPage() {
         }
 
         try {
+            setIsSubmitting(true);
             // Calculate total price
             const startHour = parseInt(bookingData.startTime.split(':')[0]);
             const endHour = parseInt(bookingData.endTime.split(':')[0]);
@@ -150,10 +164,11 @@ export default function VenueDetailPage() {
             const hourlyRate = venue.pricing.pricePerHour || 0;
             const totalAmount = venue.pricing.basePrice + (hours * hourlyRate);
 
-            await bookingsApi.create({
+            // 1. Create pending booking
+            const bookingResult = await bookingsApi.create({
                 user: user._id,
                 venue: venue._id,
-                bookingDate: bookingData.date,
+                bookingDate: finalStartDate,
                 startTime: bookingData.startTime,
                 endTime: bookingData.endTime,
                 purpose: bookingData.purpose,
@@ -163,12 +178,79 @@ export default function VenueDetailPage() {
                 bookingType: 'personal'
             });
 
-            showToast('Booking request sent! Awaiting owner approval.', 'success');
-            setIsBookingModalOpen(false);
-            setBookingData({ date: '', endDate: '', startTime: '', endTime: '', guests: 50, purpose: '' });
-        } catch (error) {
+            // Depending on how backend returns (direct object or nested under "booking")
+            const bookingId = (bookingResult as any)._id || ((bookingResult as any).booking && (bookingResult as any).booking._id) || (bookingResult as any).id;
+
+            if (!bookingId) {
+                throw new Error("Failed to create booking");
+            }
+
+            // 2. Initiate payment for the 10% advance
+            const paymentResult = await bookingsApi.initiatePayment(bookingId, user._id!);
+
+            // 3. Load Razorpay and open modal
+            const isLoaded = await loadRazorpay();
+            if (!isLoaded) {
+                showToast('Razorpay SDK failed to load. Are you online?', 'error');
+                setIsSubmitting(false);
+                return;
+            }
+
+            const options = {
+                key: paymentResult.keyId,
+                amount: paymentResult.amount,
+                currency: paymentResult.currency,
+                name: "Firaa Venues",
+                description: `Advance for ${venue.name}`,
+                order_id: paymentResult.gatewayOrderId,
+                handler: async function (response: any) {
+                    try {
+                        const verifyResult = await bookingsApi.verifyPayment(bookingId, {
+                            gatewayOrderId: response.razorpay_order_id,
+                            gatewayPaymentId: response.razorpay_payment_id,
+                            gatewaySignature: response.razorpay_signature
+                        }) as { success: boolean };
+
+                        if (verifyResult.success) {
+                            showToast('Booking confirmed successfully!', 'success');
+                            setIsBookingModalOpen(false);
+                            setBookingData({ date: '', endDate: '', startTime: '', endTime: '', guests: 50, purpose: '' });
+                            fetchVenue(venue._id); // Refresh availability
+                            // Redirect to bookings dashboard
+                            router.push('/dashboard/bookings');
+                        } else {
+                            showToast('Payment verification failed', 'error');
+                        }
+                    } catch (err: any) {
+                        console.error(err);
+                        showToast(err.message || 'Payment verification failed', 'error');
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                },
+                prefill: {
+                    name: user.name,
+                    email: user.email,
+                    contact: user.phone || ''
+                },
+                theme: {
+                    color: "#8b5cf6"
+                },
+                modal: {
+                    ondismiss: function () {
+                        setIsSubmitting(false);
+                        showToast('Payment cancelled. Booking remains pending.', 'warning');
+                    }
+                }
+            };
+
+            const paymentObject = new (window as any).Razorpay(options);
+            paymentObject.open();
+
+        } catch (error: any) {
             console.error('Booking error:', error);
-            showToast('Failed to submit booking request', 'error');
+            showToast(error.message || 'Failed to submit booking request', 'error');
+            setIsSubmitting(false);
         }
     };
 
@@ -559,11 +641,11 @@ export default function VenueDetailPage() {
                                 </div>
 
                                 <Button className="w-full" size="lg" onClick={handleBooking}>
-                                    Request Booking
+                                    Book Now
                                 </Button>
 
                                 <p className="text-xs text-gray-500 text-center mt-4">
-                                    You won&apos;t be charged until the owner accepts your request
+                                    A 10% advance payment is required to secure your booking
                                 </p>
                             </div>
                         </div>
@@ -697,12 +779,54 @@ export default function VenueDetailPage() {
                             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                         />
                     </div>
+
+                    {/* Price Calculation and 10% Advance Notice */}
+                    {bookingData.startTime && bookingData.endTime && venue && (
+                        <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-4 mt-2">
+                            <h4 className="text-violet-300 font-medium mb-3">Booking Cost Summary</h4>
+                            {(() => {
+                                const startHour = parseInt(bookingData.startTime.split(':')[0]);
+                                const endHour = parseInt(bookingData.endTime.split(':')[0]);
+                                const hours = endHour > startHour ? endHour - startHour : 0;
+                                const hourlyRate = venue.pricing.pricePerHour || 0;
+                                const totalAmount = venue.pricing.basePrice + (hours * hourlyRate);
+                                const advanceAmount = totalAmount * 0.10;
+
+                                return (
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>Base Price</span>
+                                            <span>{formatPrice(venue.pricing.basePrice)}</span>
+                                        </div>
+                                        {hours > 0 && hourlyRate > 0 && (
+                                            <div className="flex justify-between text-gray-400">
+                                                <span>Hourly Rate ({hours} hours)</span>
+                                                <span>{formatPrice(hours * hourlyRate)}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between text-white font-medium pt-2 border-t border-white/10">
+                                            <span>Total Price</span>
+                                            <span>{formatPrice(totalAmount)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-violet-400 font-bold pt-2">
+                                            <span>Required 10% Advance</span>
+                                            <span>{formatPrice(advanceAmount)}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-2 block">
+                                            * You are only paying the 10% non-refundable advance today to secure this booking. The remainder will be settled with the venue owner directly.
+                                        </p>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+
                     <div className="flex gap-3 pt-4">
-                        <Button variant="secondary" className="flex-1" onClick={() => setIsBookingModalOpen(false)}>
+                        <Button variant="secondary" className="flex-1" onClick={() => setIsBookingModalOpen(false)} disabled={isSubmitting}>
                             Cancel
                         </Button>
-                        <Button className="flex-1" onClick={submitBooking}>
-                            Submit Request
+                        <Button className="flex-1" onClick={submitBooking} disabled={isSubmitting}>
+                            {isSubmitting ? 'Processing...' : 'Proceed to Payment (10%)'}
                         </Button>
                     </div>
                 </div>

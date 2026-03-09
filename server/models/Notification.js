@@ -17,6 +17,7 @@ const notificationSchema = new mongoose.Schema({
             'payment_failed',
             'refund_processed',
             'event_reminder',
+            'event_reminder_1h',
             'event_cancelled',
             'new_event',
             'ticket_purchased',
@@ -27,6 +28,9 @@ const notificationSchema = new mongoose.Schema({
             'private_event_rejected',
             'new_follower',
             'payout_completed',
+            'brand_new_event',
+            'brand_new_post',
+            'event_new_post',
             'system'
         ],
         required: true

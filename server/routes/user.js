@@ -80,4 +80,17 @@ router.post('/:id/unfollow', auth, async (req, res) => {
     }
 });
 
+// GET /api/users/:id/following-brands - Get brands the user is following
+router.get('/:id/following-brands', auth, async (req, res) => {
+    try {
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        const brands = await userService.getFollowingBrands(req.params.id);
+        res.json(brands);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

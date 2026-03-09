@@ -14,7 +14,7 @@ const brandProfileSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['brand', 'band', 'organizer'],
+        enum: ['brand', 'band', 'organizer', 'artist', 'dj', 'dancer', 'planner', 'musician', 'photographer', 'caterer'],
         required: true
     },
     bio: {
@@ -41,6 +41,17 @@ const brandProfileSchema = new mongoose.Schema({
             default: [0, 0] // [longitude, latitude]
         }
     },
+    // Multi-city support
+    cities: [{
+        type: String,
+        trim: true
+    }],
+    primaryCity: {
+        type: String,
+        trim: true,
+        default: null
+    },
+    // Legacy field (kept for backward compatibility)
     address: {
         type: String,
         default: null

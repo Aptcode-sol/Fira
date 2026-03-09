@@ -13,6 +13,7 @@ const dashboardService = {
      */
     async getOverviewStats(userId) {
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
 
         // Run all queries in parallel for better performance
         const [
@@ -56,7 +57,7 @@ const dashboardService = {
             Ticket.find({ user: userId })
                 .populate({
                     path: 'event',
-                    select: 'name date startTime endTime images status',
+                    select: 'name date startDateTime startTime endTime images status',
                     populate: { path: 'venue', select: 'name address' }
                 })
                 .sort({ createdAt: -1 })
@@ -97,17 +98,31 @@ const dashboardService = {
 
         // Process tickets
         const activeTickets = userTickets.filter(t => t.status === 'active');
-        const upcomingTickets = activeTickets.filter(t =>
-            t.event && new Date(t.event.date) >= now
-        );
+        const upcomingTickets = activeTickets.filter(t => {
+            if (!t.event) return false;
+            const eventDate = t.event.startDateTime || t.event.date;
+            return eventDate && new Date(eventDate) >= now;
+        });
 
         // Process bookings
         const activeBookings = userBookings.filter(b =>
             ['pending', 'confirmed'].includes(b.status)
         );
 
+        // Get unique events user is attending (from tickets)
+        const uniqueUpcomingTickets = [];
+        const seenEventIds = new Set();
+        for (const ticket of upcomingTickets) {
+            if (!ticket.event || !ticket.event._id) continue;
+            const eventId = ticket.event._id.toString();
+            if (!seenEventIds.has(eventId)) {
+                seenEventIds.add(eventId);
+                uniqueUpcomingTickets.push(ticket);
+            }
+        }
+
         // Get upcoming events user is attending (from tickets)
-        const upcomingEventsAttending = upcomingTickets.slice(0, 5).map(ticket => ({
+        const upcomingEventsAttending = uniqueUpcomingTickets.slice(0, 5).map(ticket => ({
             _id: ticket._id,
             ticketId: ticket._id,
             event: ticket.event,
@@ -147,7 +162,7 @@ const dashboardService = {
             stats: {
                 eventsOrganizing: eventsOrganized,
                 upcomingEventsOrganizing: upcomingEventsOrganized,
-                eventsAttending: upcomingTickets.length,
+                eventsAttending: uniqueUpcomingTickets.length,
                 activeTickets: activeTickets.length,
                 venuesOwned: venuesOwned,
                 activeBookings: activeBookings.length,
@@ -206,6 +221,7 @@ const dashboardService = {
      */
     async getQuickStats(userId) {
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
 
         const [
             eventsOrganizing,

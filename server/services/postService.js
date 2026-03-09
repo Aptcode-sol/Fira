@@ -17,6 +17,35 @@ const postService = {
             images: data.images || []
         });
 
+        // Notify brand followers about the new post
+        try {
+            const notificationService = require('./notificationService');
+            
+            await notificationService.notifyBrandFollowers(
+                brandId,
+                'brand_new_post',
+                {
+                    title: `New post from ${brand.name}`,
+                    message: post.content.substring(0, 100) + (post.content.length > 100 ? '...' : ''),
+                    referenceId: post._id,
+                    referenceModel: 'Post',
+                    actionUrl: `/brands/${brandId}`,
+                    extra: {
+                        post: {
+                            _id: post._id,
+                            content: post.content,
+                            images: post.images,
+                            brandId: brandId
+                        }
+                    }
+                },
+                true // send email
+            );
+            console.log(`✅ Notified ${brand.name}'s followers about new post`);
+        } catch (notifErr) {
+            console.error('Failed to notify brand followers about post:', notifErr.message);
+        }
+
         return post;
     },
 
@@ -95,6 +124,47 @@ const postService = {
             content: data.content,
             images: data.images || []
         });
+
+        // Notify all ticket holders about the new post
+        try {
+            const Ticket = require('../models/Ticket');
+            const Notification = require('../models/Notification');
+            
+            // Find all active tickets for this event
+            const tickets = await Ticket.find({ 
+                event: eventId, 
+                status: { $in: ['active', 'used'] } 
+            }).select('user');
+            
+            // Get unique user IDs (exclude the organizer)
+            const userIds = [...new Set(tickets.map(t => t.user.toString()))]
+                .filter(uid => uid !== userId);
+            
+            if (userIds.length > 0) {
+                // Create notifications for all ticket holders
+                const notifications = userIds.map(uid => ({
+                    user: uid,
+                    type: 'event_new_post',
+                    title: `New update from ${event.name}`,
+                    message: post.content.substring(0, 100) + (post.content.length > 100 ? '...' : ''),
+                    data: {
+                        referenceId: post._id,
+                        referenceModel: 'Post',
+                        actionUrl: `/events/${eventId}`,
+                        extra: {
+                            eventId: eventId,
+                            eventName: event.name,
+                            postId: post._id
+                        }
+                    }
+                }));
+                
+                await Notification.insertMany(notifications);
+                console.log(`✅ Notified ${userIds.length} ticket holders about new event post for "${event.name}"`);
+            }
+        } catch (notifErr) {
+            console.error('Failed to notify ticket holders about event post:', notifErr.message);
+        }
 
         return post;
     },

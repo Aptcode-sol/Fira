@@ -16,7 +16,7 @@ const authService = {
     /**
      * Register new user and send OTP
      */
-    async register({ email, password, name, role = 'user' }) {
+    async register({ email, password, name, role = 'user', city = null, businessName = null, businessPhone = null, govIdType = null, govIdNumber = null, govIdDocument = null, bankDetails = null }) {
         // Validate password strength
         const passwordCheck = passwordValidator.validate(password);
         if (!passwordCheck.isValid) {
@@ -40,14 +40,30 @@ const authService = {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create user (not verified yet)
-        const user = await User.create({
+        // Prepare user data
+        const userData = {
             email,
             password: hashedPassword,
             name,
             role,
+            city,
             emailVerified: false
-        });
+        };
+
+        // Add venue owner specific fields
+        if (role === 'venue_owner') {
+            userData.businessName = businessName;
+            userData.businessPhone = businessPhone;
+            userData.govIdType = govIdType;
+            userData.govIdNumber = govIdNumber;
+            userData.govIdDocument = govIdDocument;
+            if (bankDetails) {
+                userData.bankDetails = bankDetails;
+            }
+        }
+
+        // Create user (not verified yet)
+        const user = await User.create(userData);
 
         // Generate OTP
         const otpCode = this.generateOTP();

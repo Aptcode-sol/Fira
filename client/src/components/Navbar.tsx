@@ -6,10 +6,13 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 
+import { notificationsApi } from '@/lib/api';
+
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const [shouldAnimate, setShouldAnimate] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const { isAuthenticated, isLoading, user } = useAuth();
     const pathname = usePathname();
 
@@ -18,11 +21,33 @@ export default function Navbar() {
         setShouldAnimate(true);
     }, []);
 
+    // Fetch unread notifications
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            if (!user?._id) return;
+            try {
+                const notifications = await notificationsApi.getUserNotifications(user._id);
+                // Type assertion as the API response type might be vague
+                const unread = (notifications as any[]).filter(n => !n.isRead).length;
+                setUnreadCount(unread);
+            } catch (error) {
+                console.error('Failed to fetch notifications:', error);
+            }
+        };
+
+        if (isAuthenticated && user?._id) {
+            fetchUnreadCount();
+
+            // Optional: Poll every 30 seconds
+            const interval = setInterval(fetchUnreadCount, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, user?._id]);
+
     const navLinks = [
         { href: '/venues', label: 'Venues' },
         { href: '/events', label: 'Events' },
-        { href: '/brands', label: 'Brands', badge: true },
-        { href: '/create', label: 'Create' },
+        { href: '/creators', label: 'Creators', badge: true },
     ];
 
     const isActive = (path: string) => {
@@ -115,22 +140,38 @@ export default function Navbar() {
                             {isLoading ? (
                                 <div className="w-20 h-8 bg-white/10 rounded-full animate-pulse" />
                             ) : isAuthenticated ? (
-                                <Link
-                                    href="/dashboard"
-                                    className="relative text-sm px-4 py-1.5 rounded-full transition-colors overflow-hidden"
-                                >
-                                    {/* Animated background - visible only for dashboard */}
-                                    {isActive('/dashboard') && (
-                                        <motion.div
-                                            layoutId="navbar-indicator"
-                                            className="absolute inset-0 bg-white rounded-full"
-                                            transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                                        />
-                                    )}
-                                    <span className={`relative z-10 ${isActive('/dashboard') ? 'text-black font-medium' : 'text-gray-400 hover:text-white'}`}>
+                                <>
+                                    {/* Messages */}
+                                    <Link
+                                        href="/messages"
+                                        className="relative text-gray-400 hover:text-white transition-colors p-1"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    </Link>
+                                    {/* Notification Bell */}
+                                    <Link
+                                        href="/dashboard/notifications"
+                                        className="relative text-gray-400 hover:text-white transition-colors p-1"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                        </svg>
+                                        {unreadCount > 0 && (
+                                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 rounded-full"></span>
+                                        )}
+                                    </Link>
+                                    <Link
+                                        href="/dashboard"
+                                        className={`relative text-sm transition-colors pb-0.5 ${isActive('/dashboard')
+                                            ? 'text-white font-semibold after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-3/5 after:h-0.5 after:bg-white after:rounded-full'
+                                            : 'text-gray-400 hover:text-white'
+                                            }`}
+                                    >
                                         Dashboard
-                                    </span>
-                                </Link>
+                                    </Link>
+                                </>
                             ) : (
                                 <>
                                     <Link href="/signin" className="text-gray-400 hover:text-white transition-colors text-sm">
@@ -179,8 +220,8 @@ export default function Navbar() {
 
                     {/* Brands */}
                     <Link
-                        href="/brands"
-                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 relative ${isActive('/brands')
+                        href="/creators"
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 relative ${isActive('/creators')
                             ? 'text-white'
                             : 'text-gray-400 hover:text-white'
                             }`}
@@ -188,27 +229,31 @@ export default function Navbar() {
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                         </svg>
-                        {navLinks.find(link => link.href === '/brands')?.badge && (
+                        {navLinks.find(link => link.href === '/creators')?.badge && (
                             <svg className="absolute top-1 right-1 w-3 h-3 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                         )}
-                        <span className="text-xs font-medium">Brands</span>
+                        <span className="text-xs font-medium">Creators</span>
                     </Link>
 
-                    {/* Create Party */}
-                    <Link
-                        href="/create"
-                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/create')
-                            ? 'text-white'
-                            : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span className="text-xs font-medium">Create</span>
-                    </Link>
+                    {/* Notification Bell - Mobile */}
+                    {isAuthenticated && (
+                        <Link
+                            href="/dashboard/notifications"
+                            className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-white"
+                        >
+                            <div className="relative">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-violet-500 rounded-full"></span>
+                                )}
+                            </div>
+                            <span className="text-xs font-medium">Alerts</span>
+                        </Link>
+                    )}
 
                     {/* Profile/Dashboard */}
                     {isAuthenticated ? (

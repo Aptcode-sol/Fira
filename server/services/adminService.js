@@ -79,6 +79,25 @@ const adminService = {
         };
     },
 
+    async getUserById(id) {
+        const user = await User.findById(id).select('-password');
+        if (!user) throw new Error('User not found');
+
+        const tickets = await Ticket.find({ user: id }).populate('event', 'name date venue');
+        const bookings = await Booking.find({ user: id }).populate('venue', 'name address');
+
+        return {
+            ...user.toObject(),
+            tickets,
+            bookings,
+            stats: {
+                totalTickets: tickets.length,
+                totalBookings: bookings.length,
+                totalSpent: tickets.reduce((sum, t) => sum + (t.price || 0), 0) + bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
+            }
+        };
+    },
+
     async blockUser(userId) {
         const user = await User.findByIdAndUpdate(
             userId,

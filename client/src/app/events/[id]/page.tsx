@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { Button, Modal, Input } from '@/components/ui';
-import { eventsApi, ticketsApi } from '@/lib/api';
+import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
 import { formatSingleDateTime } from '@/lib/dateUtils';
 import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,6 +31,14 @@ export default function EventDetailPage() {
     const [isTermsExpanded, setIsTermsExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState('about');
     const [posts, setPosts] = useState<any[]>([]);
+
+    // Post creation state
+    const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+    const [newPostContent, setNewPostContent] = useState('');
+    const [newPostImages, setNewPostImages] = useState<string[]>([]);
+    const [isCreatingPost, setIsCreatingPost] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [isUploadingGalleryImage, setIsUploadingGalleryImage] = useState(false);
 
     useEffect(() => {
         if (params.id) {
@@ -104,14 +112,7 @@ export default function EventDetailPage() {
     const purchaseTickets = async () => {
         if (!user?._id || !event?._id) return;
 
-        // Check if paid ticket - show coming soon message
-        if (event.ticketType === 'paid' || (event.ticketPrice && event.ticketPrice > 0)) {
-            showToast('Payments coming soon! Stay tuned.', 'info');
-            setIsTicketModalOpen(false);
-            return;
-        }
-
-        // Free ticket flow - keep existing code
+        // Start purchase flow
         setIsPurchasing(true);
         try {
             // 1. Initiate purchase request
@@ -167,6 +168,7 @@ export default function EventDetailPage() {
                                 setPurchasedTicket(finalTicketResult.ticket);
                                 setIsTicketModalOpen(false);
                                 fetchEvent(event._id!); // Refresh spots
+                                router.push('/dashboard/tickets');
                             } else {
                                 showToast('Payment verification failed', 'error');
                             }
@@ -202,6 +204,7 @@ export default function EventDetailPage() {
                 setIsTicketModalOpen(false);
                 fetchEvent(event._id);
                 setIsPurchasing(false);
+                router.push('/dashboard/tickets');
             }
         } catch (err: unknown) {
             const error = err as { message?: string };
@@ -226,6 +229,84 @@ export default function EventDetailPage() {
             currency: 'INR',
             maximumFractionDigits: 0,
         }).format(price);
+    };
+
+    // Check if current user is the event organizer
+    const isOrganizer = user?._id && event?.organizer &&
+        (typeof event.organizer === 'object'
+            ? (event.organizer as User)._id === user._id
+            : event.organizer === user._id);
+
+    // Handle image upload for posts
+    const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadingImage(true);
+        try {
+            const result = await uploadApi.single(file, 'posts') as { url: string };
+            setNewPostImages(prev => [...prev, result.url]);
+            showToast('Image uploaded successfully', 'success');
+        } catch (error) {
+            showToast('Failed to upload image', 'error');
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
+
+    // Create a new post
+    const handleCreatePost = async () => {
+        if (!newPostContent.trim() || !user?._id || !event?._id) {
+            showToast('Please write something for your post', 'warning');
+            return;
+        }
+
+        setIsCreatingPost(true);
+        try {
+            await eventsApi.createPost(event._id, {
+                content: newPostContent,
+                images: newPostImages,
+                userId: user._id
+            });
+            showToast('Post created! Ticket holders have been notified.', 'success');
+            setNewPostContent('');
+            setNewPostImages([]);
+            setIsCreatePostModalOpen(false);
+            fetchPosts(); // Refresh posts
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to create post', 'error');
+        } finally {
+            setIsCreatingPost(false);
+        }
+    };
+
+    // Handle gallery image upload
+    const handleGalleryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0 || !event?._id) return;
+
+        setIsUploadingGalleryImage(true);
+        try {
+            const uploadedUrls: string[] = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const result = await uploadApi.single(files[i], 'events') as { url: string };
+                uploadedUrls.push(result.url);
+            }
+
+            // Update event with new images
+            const updatedImages = [...(event.images || []), ...uploadedUrls];
+            await eventsApi.update(event._id, { images: updatedImages });
+
+            showToast(`${uploadedUrls.length} photo(s) added to gallery!`, 'success');
+            fetchEvent(event._id); // Refresh event to show new images
+        } catch (error) {
+            showToast('Failed to upload image', 'error');
+        } finally {
+            setIsUploadingGalleryImage(false);
+            // Reset the input
+            e.target.value = '';
+        }
     };
 
     if (isLoading) {
@@ -339,7 +420,7 @@ export default function EventDetailPage() {
 
                             {/* Tabs */}
                             <div className="flex gap-6 border-b border-white/10">
-                                {['about', 'posts'].map((tab) => (
+                                {['about', 'posts', 'gallery'].map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
@@ -470,13 +551,96 @@ export default function EventDetailPage() {
 
                             {/* Posts Tab */}
                             {activeTab === 'posts' && (
-                                <div>
+                                <div className="space-y-6">
+                                    {/* Create Post Button - Organizer Only */}
+                                    {isOrganizer && (
+                                        <button
+                                            onClick={() => setIsCreatePostModalOpen(true)}
+                                            className="w-full p-4 border-2 border-dashed border-white/20 rounded-xl text-gray-400 hover:text-white hover:border-violet-500/50 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Create a Post
+                                        </button>
+                                    )}
+
                                     {posts.length === 0 ? (
                                         <div className="text-center py-20 text-gray-400">
+                                            <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                                            </svg>
                                             <p>No posts yet for this event</p>
+                                            {isOrganizer && <p className="text-sm mt-2">Share updates with your ticket holders!</p>}
                                         </div>
                                     ) : (
                                         posts.map(post => <PostCard key={post._id} post={post} type="event" parentId={params.id as string} />)
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Gallery Tab */}
+                            {activeTab === 'gallery' && (
+                                <div className="space-y-6">
+                                    {/* Add Photos Button - Organizer Only */}
+                                    {isOrganizer && (
+                                        <label className="w-full p-4 border-2 border-dashed border-white/20 rounded-xl text-gray-400 hover:text-white hover:border-violet-500/50 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                onChange={handleGalleryImageUpload}
+                                                className="hidden"
+                                                disabled={isUploadingGalleryImage}
+                                            />
+                                            {isUploadingGalleryImage ? (
+                                                <>
+                                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                    </svg>
+                                                    Uploading...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    Add Photos to Gallery
+                                                </>
+                                            )}
+                                        </label>
+                                    )}
+
+                                    {event.images && event.images.length > 0 ? (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                            {event.images.map((image, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
+                                                    onClick={() => window.open(image, '_blank')}
+                                                >
+                                                    <img
+                                                        src={image}
+                                                        alt={`${event.name} - Image ${index + 1}`}
+                                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-20 text-gray-400">
+                                            <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <p>No gallery images yet for this event</p>
+                                            {isOrganizer && <p className="text-sm mt-2">Add photos to share event moments!</p>}
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -633,6 +797,91 @@ export default function EventDetailPage() {
                         onClose={() => setPurchasedTicket(null)}
                     />
                 )}
+            </Modal>
+
+            {/* Create Post Modal - Organizer Only */}
+            <Modal
+                isOpen={isCreatePostModalOpen}
+                onClose={() => {
+                    setIsCreatePostModalOpen(false);
+                    setNewPostContent('');
+                    setNewPostImages([]);
+                }}
+                title="Create a Post"
+                size="md"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-400 text-sm">Share an update with your ticket holders. They will be notified about this post.</p>
+
+                    {/* Text Content */}
+                    <textarea
+                        value={newPostContent}
+                        onChange={(e) => setNewPostContent(e.target.value)}
+                        placeholder="What would you like to share about your event?"
+                        className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                    />
+
+                    {/* Image Upload */}
+                    <div>
+                        <label className="text-sm text-gray-400 mb-2 block">Add Images (optional)</label>
+                        <div className="flex flex-wrap gap-2">
+                            {newPostImages.map((img, idx) => (
+                                <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden group">
+                                    <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => setNewPostImages(prev => prev.filter((_, i) => i !== idx))}
+                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                    >
+                                        <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ))}
+                            <label className="w-20 h-20 border-2 border-dashed border-white/20 rounded-lg flex items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePostImageUpload}
+                                    className="hidden"
+                                    disabled={isUploadingImage}
+                                />
+                                {isUploadingImage ? (
+                                    <svg className="w-5 h-5 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                        <Button
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() => {
+                                setIsCreatePostModalOpen(false);
+                                setNewPostContent('');
+                                setNewPostImages([]);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            className="flex-1"
+                            onClick={handleCreatePost}
+                            disabled={isCreatingPost || !newPostContent.trim()}
+                        >
+                            {isCreatingPost ? 'Posting...' : 'Post Update'}
+                        </Button>
+                    </div>
+                </div>
             </Modal>
         </>
     );

@@ -48,6 +48,34 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
     const [newComment, setNewComment] = useState('');
     const [isLiking, setIsLiking] = useState(false);
     const [isCommenting, setIsCommenting] = useState(false);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const container = e.currentTarget;
+        const scrollPosition = container.scrollLeft;
+        const width = container.offsetWidth;
+        const index = Math.round(scrollPosition / width);
+        setCurrentImageIndex(index);
+    };
+
+    const scrollPrev = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (scrollContainerRef.current) {
+            const width = scrollContainerRef.current.offsetWidth;
+            scrollContainerRef.current.scrollBy({ left: -width, behavior: 'smooth' });
+        }
+    };
+
+    const scrollNext = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (scrollContainerRef.current) {
+            const width = scrollContainerRef.current.offsetWidth;
+            scrollContainerRef.current.scrollBy({ left: width, behavior: 'smooth' });
+        }
+    };
 
     const isLiked = user?._id ? likes.includes(user._id) : false;
 
@@ -133,12 +161,70 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
             <p className="text-gray-200 mb-4 whitespace-pre-wrap">{post.content}</p>
 
             {post.images && post.images.length > 0 && (
-                <div className={`grid gap-2 mb-4 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                    {post.images.map((img, idx) => (
-                        <div key={idx} className="relative w-full h-64 rounded-lg overflow-hidden">
-                            <Image src={img} alt="Post content" fill className="object-cover" />
+                <div className="relative mb-4 group">
+                    {post.images.length === 1 ? (
+                        <div className="w-full bg-black rounded-lg overflow-hidden flex justify-center items-center">
+                            <img
+                                src={post.images[0]}
+                                alt="Post content"
+                                className="w-full h-auto max-h-[600px] object-contain"
+                            />
                         </div>
-                    ))}
+                    ) : (
+                        <div
+                            ref={scrollContainerRef}
+                            onScroll={handleScroll}
+                            className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide aspect-square max-h-[600px] bg-black rounded-lg [&::-webkit-scrollbar]:hidden"
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        >
+                            {post.images.map((img, idx) => (
+                                <div key={idx} className="w-full h-full flex-shrink-0 snap-center flex items-center justify-center relative">
+                                    <img
+                                        src={img}
+                                        alt={`Post content ${idx + 1}`}
+                                        className="max-w-full max-h-full object-contain"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Pagination Dots */}
+                    {post.images.length > 1 && (
+                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-10">
+                            {post.images.map((_, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
+                                        ? 'bg-white scale-150'
+                                        : 'bg-white/50 hover:bg-white/75'
+                                        }`}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Navigation Arrows (visible on hover for desktop) */}
+                    {post.images.length > 1 && (
+                        <>
+                            <div
+                                onClick={scrollPrev}
+                                className={`absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-20 hover:bg-black/70 ${currentImageIndex === 0 ? 'invisible' : ''}`}
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </div>
+                            <div
+                                onClick={scrollNext}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-20 hover:bg-black/70 ${currentImageIndex === post.images.length - 1 ? 'invisible' : ''}`}
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 

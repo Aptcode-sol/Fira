@@ -200,6 +200,29 @@ const userService = {
         ]);
 
         return { message: 'Successfully unfollowed user' };
+    },
+
+    // Get brands the user is following
+    async getFollowingBrands(userId) {
+        const BrandProfile = require('../models/BrandProfile');
+        
+        const user = await User.findById(userId).select('followingBrands');
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (!user.followingBrands || user.followingBrands.length === 0) {
+            return { brands: [], count: 0 };
+        }
+
+        const brands = await BrandProfile.find({
+            _id: { $in: user.followingBrands }
+        }).select('name type bio profilePhoto stats').populate('user', 'name');
+
+        return {
+            brands,
+            count: brands.length
+        };
     }
 };
 

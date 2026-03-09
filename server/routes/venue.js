@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const venueService = require('../services/venueService');
+const { venueOwnerAuth, requireAuth } = require('../middleware/venueOwnerAuth');
 
-// GET /api/venues - Get all venues
+// GET /api/venues - Get all venues (public)
 router.get('/', async (req, res) => {
     try {
         const venues = await venueService.getAllVenues(req.query);
@@ -12,7 +13,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/venues/nearby - Get nearby venues
+// GET /api/venues/nearby - Get nearby venues (public)
 router.get('/nearby', async (req, res) => {
     try {
         const { lat, lng, radius } = req.query;
@@ -23,7 +24,17 @@ router.get('/nearby', async (req, res) => {
     }
 });
 
-// GET /api/venues/:id - Get venue by ID
+// GET /api/venues/my-venues - Get venues owned by current user (venue owner only)
+router.get('/my-venues', venueOwnerAuth, async (req, res) => {
+    try {
+        const venues = await venueService.getVenuesByOwner(req.user._id);
+        res.json(venues);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/venues/:id - Get venue by ID (public)
 router.get('/:id', async (req, res) => {
     try {
         const venue = await venueService.getVenueById(req.params.id);
@@ -33,13 +44,18 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/venues - Create new venue
-router.post('/', async (req, res) => {
+// POST /api/venues - Create new venue (venue owner only)
+router.post('/', venueOwnerAuth, async (req, res) => {
     console.log('🏢 [VENUE POST] Creating new venue...');
     console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
 
     try {
-        const venue = await venueService.createVenue(req.body);
+        // Add owner from authenticated user
+        const venueData = {
+            ...req.body,
+            owner: req.user._id
+        };
+        const venue = await venueService.createVenue(venueData);
         console.log('✅ [VENUE POST] Venue created successfully:', venue._id);
         res.status(201).json(venue);
     } catch (error) {
@@ -55,9 +71,14 @@ router.post('/', async (req, res) => {
     }
 });
 
-// PUT /api/venues/:id - Update venue
-router.put('/:id', async (req, res) => {
+// PUT /api/venues/:id - Update venue (venue owner only, must own the venue)
+router.put('/:id', venueOwnerAuth, async (req, res) => {
     try {
+        // Verify ownership
+        const existingVenue = await venueService.getVenueById(req.params.id);
+        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'You do not own this venue' });
+        }
         const venue = await venueService.updateVenue(req.params.id, req.body);
         res.json(venue);
     } catch (error) {
@@ -65,9 +86,14 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// DELETE /api/venues/:id - Delete venue
-router.delete('/:id', async (req, res) => {
+// DELETE /api/venues/:id - Delete venue (venue owner only, must own the venue)
+router.delete('/:id', venueOwnerAuth, async (req, res) => {
     try {
+        // Verify ownership
+        const existingVenue = await venueService.getVenueById(req.params.id);
+        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'You do not own this venue' });
+        }
         await venueService.deleteVenue(req.params.id);
         res.json({ message: 'Venue deleted successfully' });
     } catch (error) {
@@ -75,9 +101,14 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// PUT /api/venues/:id/availability - Update venue availability
-router.put('/:id/availability', async (req, res) => {
+// PUT /api/venues/:id/availability - Update venue availability (venue owner only)
+router.put('/:id/availability', venueOwnerAuth, async (req, res) => {
     try {
+        // Verify ownership
+        const existingVenue = await venueService.getVenueById(req.params.id);
+        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'You do not own this venue' });
+        }
         const venue = await venueService.updateAvailability(req.params.id, req.body);
         res.json(venue);
     } catch (error) {
@@ -85,7 +116,7 @@ router.put('/:id/availability', async (req, res) => {
     }
 });
 
-// PUT /api/venues/:id/status - Update venue status (admin)
+// PUT /api/venues/:id/status - Update venue status (admin only - keep for future)
 router.put('/:id/status', async (req, res) => {
     try {
         const venue = await venueService.updateStatus(req.params.id, req.body.status);
@@ -95,9 +126,14 @@ router.put('/:id/status', async (req, res) => {
     }
 });
 
-// POST /api/venues/:id/cancel - Delete venue (soft delete)
-router.post('/:id/cancel', async (req, res) => {
+// POST /api/venues/:id/cancel - Delete venue (venue owner only)
+router.post('/:id/cancel', venueOwnerAuth, async (req, res) => {
     try {
+        // Verify ownership
+        const existingVenue = await venueService.getVenueById(req.params.id);
+        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ error: 'You do not own this venue' });
+        }
         const result = await venueService.deleteVenue(req.params.id);
         res.json(result);
     } catch (error) {
@@ -106,3 +142,4 @@ router.post('/:id/cancel', async (req, res) => {
 });
 
 module.exports = router;
+

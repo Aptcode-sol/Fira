@@ -25,13 +25,33 @@ const categories = [
     { value: 'wedding', label: 'Wedding' },
     { value: 'festival', label: 'Festival' },
     { value: 'corporate', label: 'Corporate' },
+    { value: 'music', label: 'Music' },
+    { value: 'dance', label: 'Dance' },
+    { value: 'dj', label: 'DJ Night' },
+    { value: 'clubbing', label: 'Clubbing' },
+    { value: 'fitness', label: 'Fitness' },
+    { value: 'birthday', label: 'Birthday' },
 ];
 
 const sortOptions = [
     { value: 'upcoming', label: 'Upcoming' },
-    { value: 'top', label: 'Top Events' },
+    { value: 'top', label: 'Popular' },
+    { value: 'featured', label: 'Featured' },
     { value: 'latest', label: 'Latest' },
     { value: 'nearby', label: 'Near You' },
+];
+
+const ticketTypeOptions = [
+    { value: 'all', label: 'All Tickets' },
+    { value: 'free', label: 'Free' },
+    { value: 'paid', label: 'Paid' },
+];
+
+const dateFilterOptions = [
+    { value: 'all', label: 'Any Date' },
+    { value: 'today', label: 'Today' },
+    { value: 'tomorrow', label: 'Tomorrow' },
+    { value: 'weekend', label: 'This Weekend' },
 ];
 
 export default function EventsPage() {
@@ -64,8 +84,10 @@ export default function EventsPage() {
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [showAllMode, setShowAllMode] = useState(false);
+    const [selectedTicketType, setSelectedTicketType] = useState('all');
+    const [selectedDateFilter, setSelectedDateFilter] = useState('all');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedSort !== 'upcoming';
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedSort !== 'upcoming' || selectedTicketType !== 'all' || selectedDateFilter !== 'all';
     const defaultSort = 'upcoming';
 
     // Reset filters
@@ -73,6 +95,8 @@ export default function EventsPage() {
         setSearchQuery('');
         setSelectedCategory('All');
         setSelectedSort(defaultSort);
+        setSelectedTicketType('all');
+        setSelectedDateFilter('all');
         setShowAllMode(false);
         setPage(1);
         setGridData([]);
@@ -94,9 +118,9 @@ export default function EventsPage() {
                 }
 
                 const [upcomingRes, topRes, latestRes] = await Promise.all([
-                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming', limit: '4' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'top', limit: '4' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ eventType: 'public', sort: 'latest', limit: '4' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ eventType: 'public', sort: 'latest' }) as Promise<EventsResponse>,
                 ]);
 
                 setSections({
@@ -129,6 +153,13 @@ export default function EventsPage() {
             };
             if (searchQuery) params.search = searchQuery;
             if (selectedCategory !== 'All') params.category = selectedCategory;
+            if (selectedTicketType !== 'all') params.ticketType = selectedTicketType;
+            if (selectedDateFilter === 'today') params.dateFilter = 'today';
+            else if (selectedDateFilter === 'tomorrow') params.dateFilter = 'tomorrow';
+            else if (selectedDateFilter === 'weekend') params.weekend = 'true';
+
+            // Featured filter
+            if (selectedSort === 'featured') params.featured = 'true';
 
             const res = await eventsApi.getAll(params) as EventsResponse;
             const newEvents = res.events || [];
@@ -146,7 +177,7 @@ export default function EventsPage() {
             setIsLoading(false);
             setIsLoadingMore(false);
         }
-    }, [searchQuery, selectedCategory, selectedSort]);
+    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter]);
 
     // Fetch when filters change
     useEffect(() => {
@@ -155,7 +186,7 @@ export default function EventsPage() {
             const timeout = setTimeout(() => fetchFiltered(1, false), 300);
             return () => clearTimeout(timeout);
         }
-    }, [searchQuery, selectedCategory, selectedSort, isFiltered, fetchFiltered]);
+    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter, isFiltered, fetchFiltered]);
 
     // Infinite scroll observer
     useEffect(() => {
@@ -262,7 +293,8 @@ export default function EventsPage() {
                     {/* Search & Filter */}
                     <FadeIn delay={0.2}>
                         <div className="relative z-30 bg-black/70 backdrop-blur-sm border border-white/10 rounded-2xl p-4 mb-12">
-                            <div className="flex flex-col md:flex-row gap-4 items-center">
+                            {/* First row: Search and primary filters */}
+                            <div className="flex flex-col md:flex-row gap-4 items-center mb-4">
                                 <div className="flex-1 w-full">
                                     <Input
                                         placeholder="Search events..."
@@ -276,8 +308,8 @@ export default function EventsPage() {
                                         }
                                     />
                                 </div>
-                                <div className="flex gap-4 w-full md:w-auto">
-                                    <div className="w-full md:w-40">
+                                <div className="flex gap-3 w-full md:w-auto flex-wrap">
+                                    <div className="w-[calc(50%-6px)] md:w-36">
                                         <Select
                                             value={selectedCategory}
                                             onChange={setSelectedCategory}
@@ -285,7 +317,7 @@ export default function EventsPage() {
                                             placeholder="Category"
                                         />
                                     </div>
-                                    <div className="w-full md:w-40">
+                                    <div className="w-[calc(50%-6px)] md:w-32">
                                         <Select
                                             value={selectedSort}
                                             onChange={setSelectedSort}
@@ -293,12 +325,55 @@ export default function EventsPage() {
                                             placeholder="Sort by"
                                         />
                                     </div>
-                                    {isFiltered && (
-                                        <Button variant="ghost" onClick={resetFilters} className="text-violet-400 whitespace-nowrap">
-                                            Reset
-                                        </Button>
-                                    )}
                                 </div>
+                            </div>
+                            {/* Second row: Additional filters */}
+                            <div className="flex flex-wrap gap-3 items-center">
+                                {/* Ticket Type Filter (Free/Paid) */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 text-sm hidden md:inline">Ticket:</span>
+                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden">
+                                        {ticketTypeOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                onClick={() => setSelectedTicketType(option.value)}
+                                                className={`px-3 py-1.5 text-xs font-medium transition-all ${selectedTicketType === option.value
+                                                    ? 'bg-violet-500 text-white'
+                                                    : 'text-gray-400 hover:text-white'
+                                                    }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Date Filter */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 text-sm hidden md:inline">When:</span>
+                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden">
+                                        {dateFilterOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                onClick={() => setSelectedDateFilter(option.value)}
+                                                className={`px-3 py-1.5 text-xs font-medium transition-all ${selectedDateFilter === option.value
+                                                    ? 'bg-violet-500 text-white'
+                                                    : 'text-gray-400 hover:text-white'
+                                                    }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Reset button */}
+                                {isFiltered && (
+                                    <Button variant="ghost" onClick={resetFilters} className="text-violet-400 whitespace-nowrap text-sm ml-auto">
+                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Reset
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </FadeIn>

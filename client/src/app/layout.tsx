@@ -4,6 +4,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import Footer from '@/components/Footer';
 import ScrollToTop from '@/components/ScrollToTop';
+import FloatingActionButton from '@/components/FloatingActionButton';
+import ClientLayout from './ClientLayout';
 
 import { Fascinate } from 'next/font/google';
 
@@ -50,8 +52,9 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <ScrollToTop />
-            {children}
-            <Footer />
+            <ClientLayout>
+              {children}
+            </ClientLayout>
           </ToastProvider>
         </AuthProvider>
       </body>

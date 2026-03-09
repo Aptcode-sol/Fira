@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from './ui';
+import { useToast } from './ui/Toast';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { brandsApi } from '@/lib/api';
@@ -30,27 +31,34 @@ interface BrandCardProps {
 
 export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps) {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [isFollowing, setIsFollowing] = useState(false);
     const [followersCount, setFollowersCount] = useState(brand.stats.followers);
 
+    // Fetch initial follow status when user is logged in
     useEffect(() => {
-        const initFollowStatus = async () => {
-            try {
-                if (!user?._id) return;
-                const status = await brandsApi.getFollowStatus(brand._id, user._id);
-                setIsFollowing(!!status.isFollowing);
-            } catch {
-                // ignore
+        const checkFollowStatus = async () => {
+            if (user?._id) {
+                try {
+                    const response = await brandsApi.getFollowStatus(brand._id, user._id);
+                    setIsFollowing(response.isFollowing);
+                } catch {
+                    // Silently fail - default to not following
+                }
             }
         };
-        initFollowStatus();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        checkFollowStatus();
     }, [user?._id, brand._id]);
 
     const handleFollow = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!user?._id) return;
+
+        // If not logged in, redirect to signin
+        if (!user?._id) {
+            window.location.href = '/signin?redirect=' + encodeURIComponent('/creators');
+            return;
+        }
 
         // Optimistic update
         const wasFollowing = isFollowing;
@@ -62,14 +70,18 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
         try {
             if (wasFollowing) {
                 await brandsApi.unfollow(brand._id, user._id);
+                showToast(`Unfollowed ${brand.name}`, 'success');
             } else {
                 await brandsApi.follow(brand._id, user._id);
+                showToast(`Now following ${brand.name}!`, 'success');
             }
             if (onFollow) onFollow(brand._id);
-        } catch {
+        } catch (error: unknown) {
             // Revert on error
             setIsFollowing(wasFollowing);
             setFollowersCount(previousCount);
+            const message = error instanceof Error ? error.message : 'Failed to update follow status';
+            showToast(message, 'error');
         }
     };
 
@@ -79,8 +91,14 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
         return count.toString();
     };
 
+    const handleEnquiry = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast('Visit the brand page to view contact details', 'info');
+    };
+
     return (
-        <Link href={`/brands/${brand._id}`} className="block">
+        <Link href={`/creators/${brand._id}`} className="block">
             <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -159,14 +177,24 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
                                 <span>{brand.stats.events} Events</span>
                             </div>
 
-                            <Button
-                                size="sm"
-                                variant={isFollowing ? "secondary" : "primary"}
-                                className={`h-8 px-4 text-xs ${isFollowing ? 'bg-transparent border border-white/10 text-white hover:bg-neutral-800' : ''}`}
-                                onClick={handleFollow}
-                            >
-                                {isFollowing ? 'Following' : 'Follow'}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-8 px-3 text-xs bg-transparent border border-white/10 text-white hover:bg-neutral-800"
+                                    onClick={handleEnquiry}
+                                >
+                                    Enquiry
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant={isFollowing ? "secondary" : "primary"}
+                                    className={`h-8 px-3 text-xs ${isFollowing ? 'bg-transparent border border-white/10 text-white hover:bg-neutral-800' : ''}`}
+                                    onClick={handleFollow}
+                                >
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

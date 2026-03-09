@@ -3,7 +3,7 @@ const Venue = require('../models/Venue');
 const venueService = {
     // Get all venues
     async getAllVenues(query = {}) {
-        const { page = 1, limit = 10, status, city, sort, search, owner } = query;
+        const { page = 1, limit = 10, status, city, sort, search, owner, venueType, minCapacity, maxCapacity, minPrice, maxPrice } = query;
         const filter = { isDeleted: { $ne: true } }; // Always exclude deleted venues
 
         // If querying by owner (dashboard), allow all statuses but exclude deleted
@@ -18,6 +18,26 @@ const venueService = {
         }
 
         if (city && city !== 'All') filter['address.city'] = new RegExp(city, 'i');
+        
+        // Venue type filter
+        if (venueType && venueType !== 'all') {
+            filter.venueType = venueType;
+        }
+
+        // Capacity range filter
+        if (minCapacity || maxCapacity) {
+            filter['capacity.max'] = {};
+            if (minCapacity) filter['capacity.max'].$gte = parseInt(minCapacity);
+            if (maxCapacity) filter['capacity.max'].$lte = parseInt(maxCapacity);
+        }
+
+        // Price range filter
+        if (minPrice || maxPrice) {
+            filter['pricing.basePrice'] = {};
+            if (minPrice) filter['pricing.basePrice'].$gte = parseInt(minPrice);
+            if (maxPrice) filter['pricing.basePrice'].$lte = parseInt(maxPrice);
+        }
+
         if (search) {
             filter.$or = [
                 { name: new RegExp(search, 'i') },
@@ -30,6 +50,8 @@ const venueService = {
         if (sort === 'topRated') sortOption = { 'rating.average': -1 };
         else if (sort === 'inDemand') sortOption = { 'rating.count': -1 };
         else if (sort === 'latest') sortOption = { createdAt: -1 };
+        else if (sort === 'priceAsc') sortOption = { 'pricing.basePrice': 1 };
+        else if (sort === 'priceDesc') sortOption = { 'pricing.basePrice': -1 };
 
         const venues = await Venue.find(filter)
             .populate('owner', 'name email')
@@ -45,6 +67,15 @@ const venueService = {
             currentPage: parseInt(page),
             total
         };
+    },
+
+    // Get venues by owner (for venue owner dashboard)
+    async getVenuesByOwner(ownerId) {
+        const venues = await Venue.find({ 
+            owner: ownerId, 
+            isDeleted: { $ne: true } 
+        }).sort({ createdAt: -1 });
+        return venues;
     },
 
     // Get nearby venues

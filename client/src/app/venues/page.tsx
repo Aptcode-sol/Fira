@@ -27,7 +27,40 @@ const sortOptions = [
     { value: 'topRated', label: 'Top Rated' },
     { value: 'inDemand', label: 'In Demand' },
     { value: 'latest', label: 'Latest' },
+    { value: 'priceAsc', label: 'Price: Low to High' },
+    { value: 'priceDesc', label: 'Price: High to Low' },
     { value: 'nearby', label: 'Near You' },
+];
+
+const venueTypeOptions = [
+    { value: 'all', label: 'All Types' },
+    { value: 'banquet', label: 'Banquet' },
+    { value: 'hall', label: 'Hall' },
+    { value: 'outdoor', label: 'Outdoor' },
+    { value: 'restaurant', label: 'Restaurant' },
+    { value: 'club', label: 'Club' },
+    { value: 'resort', label: 'Resort' },
+    { value: 'farmhouse', label: 'Farmhouse' },
+    { value: 'rooftop', label: 'Rooftop' },
+    { value: 'garden', label: 'Garden' },
+    { value: 'beach', label: 'Beach' },
+];
+
+const capacityOptions = [
+    { value: 'all', label: 'Any Capacity' },
+    { value: '50', label: 'Up to 50' },
+    { value: '100', label: 'Up to 100' },
+    { value: '200', label: 'Up to 200' },
+    { value: '500', label: 'Up to 500' },
+    { value: '1000', label: 'Up to 1000' },
+];
+
+const priceOptions = [
+    { value: 'all', label: 'Any Price' },
+    { value: '25000', label: 'Under ₹25K' },
+    { value: '50000', label: 'Under ₹50K' },
+    { value: '100000', label: 'Under ₹1L' },
+    { value: '200000', label: 'Under ₹2L' },
 ];
 
 interface VenuesResponse {
@@ -67,8 +100,12 @@ export default function VenuesPage() {
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [showAllMode, setShowAllMode] = useState(false);
+    const [selectedVenueType, setSelectedVenueType] = useState('all');
+    const [selectedCapacity, setSelectedCapacity] = useState('all');
+    const [selectedPrice, setSelectedPrice] = useState('all');
+    const [availabilityDate, setAvailabilityDate] = useState('');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCity !== 'All' || selectedSort !== 'topRated';
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCity !== 'All' || selectedSort !== 'topRated' || selectedVenueType !== 'all' || selectedCapacity !== 'all' || selectedPrice !== 'all' || availabilityDate !== '';
     const defaultSort = 'topRated';
 
     // Reset filters
@@ -76,6 +113,10 @@ export default function VenuesPage() {
         setSearchQuery('');
         setSelectedCity('All');
         setSelectedSort(defaultSort);
+        setSelectedVenueType('all');
+        setSelectedCapacity('all');
+        setSelectedPrice('all');
+        setAvailabilityDate('');
         setShowAllMode(false);
         setPage(1);
         setGridData([]);
@@ -98,9 +139,9 @@ export default function VenuesPage() {
                 }
 
                 const [topRatedRes, inDemandRes, latestRes] = await Promise.all([
-                    venuesApi.getAll({ status: 'approved', sort: 'topRated', limit: '4' }) as Promise<VenuesResponse>,
-                    venuesApi.getAll({ status: 'approved', sort: 'inDemand', limit: '4' }) as Promise<VenuesResponse>,
-                    venuesApi.getAll({ status: 'approved', sort: 'latest', limit: '4' }) as Promise<VenuesResponse>,
+                    venuesApi.getAll({ status: 'approved', sort: 'topRated' }) as Promise<VenuesResponse>,
+                    venuesApi.getAll({ status: 'approved', sort: 'inDemand' }) as Promise<VenuesResponse>,
+                    venuesApi.getAll({ status: 'approved', sort: 'latest' }) as Promise<VenuesResponse>,
                 ]);
 
                 setSections({
@@ -145,6 +186,10 @@ export default function VenuesPage() {
             };
             if (searchQuery) params.search = searchQuery;
             if (selectedCity !== 'All') params.city = selectedCity;
+            if (selectedVenueType !== 'all') params.venueType = selectedVenueType;
+            if (selectedCapacity !== 'all') params.maxCapacity = selectedCapacity;
+            if (selectedPrice !== 'all') params.maxPrice = selectedPrice;
+            if (availabilityDate) params.availableOn = availabilityDate;
 
             const res = await venuesApi.getAll(params) as VenuesResponse;
             const newVenues = res.venues || [];
@@ -162,7 +207,7 @@ export default function VenuesPage() {
             setIsLoading(false);
             setIsLoadingMore(false);
         }
-    }, [searchQuery, selectedCity, selectedSort]);
+    }, [searchQuery, selectedCity, selectedSort, selectedVenueType, selectedCapacity, selectedPrice, availabilityDate]);
 
     // Fetch when filters change
     useEffect(() => {
@@ -171,7 +216,7 @@ export default function VenuesPage() {
             const timeout = setTimeout(() => fetchFiltered(1, false), 300);
             return () => clearTimeout(timeout);
         }
-    }, [searchQuery, selectedCity, selectedSort, isFiltered, fetchFiltered]);
+    }, [searchQuery, selectedCity, selectedSort, selectedVenueType, selectedCapacity, selectedPrice, isFiltered, fetchFiltered]);
 
     // Infinite scroll observer
     useEffect(() => {
@@ -278,7 +323,8 @@ export default function VenuesPage() {
                     {/* Search & Filter Bar */}
                     <FadeIn delay={0.2}>
                         <div className="relative z-30 bg-black/70 backdrop-blur-sm border border-white/10 rounded-2xl p-4 mb-12 shadow-2xl">
-                            <div className="flex flex-col md:flex-row gap-4 items-center">
+                            {/* First row: Search and primary filters */}
+                            <div className="flex flex-col md:flex-row gap-4 items-center mb-4">
                                 <div className="flex-1 w-full">
                                     <Input
                                         placeholder="Search venues, locations, amenities..."
@@ -292,43 +338,83 @@ export default function VenuesPage() {
                                         }
                                     />
                                 </div>
-                                <div className="flex gap-4 w-full md:w-auto">
-                                    <div className="w-full md:w-40">
+                                <div className="flex gap-3 w-full md:w-auto flex-wrap">
+                                    <div className="w-[calc(33%-8px)] md:w-32">
                                         <Select
                                             value={selectedCity}
                                             onChange={setSelectedCity}
                                             options={cities}
                                             placeholder="City"
-                                            icon={
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                </svg>
-                                            }
                                         />
                                     </div>
-                                    <div className="w-full md:w-40">
+                                    <div className="w-[calc(33%-8px)] md:w-36">
                                         <Select
                                             value={selectedSort}
                                             onChange={setSelectedSort}
                                             options={sortOptions}
                                             placeholder="Sort by"
-                                            icon={
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                                                </svg>
-                                            }
                                         />
                                     </div>
-                                    {isFiltered && (
-                                        <Button
-                                            variant="ghost"
-                                            onClick={resetFilters}
-                                            className="text-violet-400 hover:text-violet-300 whitespace-nowrap"
-                                        >
-                                            Reset
-                                        </Button>
-                                    )}
+                                    {/* Availability Date - moved here */}
+                                    <div className="w-[calc(33%-8px)] md:w-44 relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <input
+                                            type="date"
+                                            value={availabilityDate}
+                                            onChange={(e) => setAvailabilityDate(e.target.value)}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            className="w-full h-[42px] pl-9 pr-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-violet-500/50 cursor-pointer [color-scheme:dark]"
+                                            title="Check venue availability"
+                                        />
+                                    </div>
                                 </div>
+                            </div>
+                            {/* Second row: Additional filters */}
+                            <div className="flex flex-wrap gap-3 items-center">
+                                {/* Venue Type */}
+                                <div className="w-[calc(33%-8px)] md:w-32">
+                                    <Select
+                                        value={selectedVenueType}
+                                        onChange={setSelectedVenueType}
+                                        options={venueTypeOptions}
+                                        placeholder="Type"
+                                    />
+                                </div>
+                                {/* Capacity */}
+                                <div className="w-[calc(33%-8px)] md:w-36">
+                                    <Select
+                                        value={selectedCapacity}
+                                        onChange={setSelectedCapacity}
+                                        options={capacityOptions}
+                                        placeholder="Capacity"
+                                    />
+                                </div>
+                                {/* Price */}
+                                <div className="w-[calc(33%-8px)] md:w-32">
+                                    <Select
+                                        value={selectedPrice}
+                                        onChange={setSelectedPrice}
+                                        options={priceOptions}
+                                        placeholder="Budget"
+                                    />
+                                </div>
+                                {/* Reset button */}
+                                {isFiltered && (
+                                    <Button
+                                        variant="ghost"
+                                        onClick={resetFilters}
+                                        className="text-violet-400 hover:text-violet-300 whitespace-nowrap text-sm ml-auto"
+                                    >
+                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Reset
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </FadeIn>
@@ -367,7 +453,7 @@ export default function VenuesPage() {
                                             <p className="text-gray-400 mb-8 max-w-xl mx-auto text-lg">
                                                 Partner with us and reach thousands of event organizers.
                                             </p>
-                                            <Link href="/create/venue">
+                                            <Link href="/venue-portal/signin">
                                                 <Button size="lg" className="bg-white text-black hover:bg-gray-200 font-bold px-8">
                                                     List Your Venue
                                                 </Button>

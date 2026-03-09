@@ -11,6 +11,11 @@ const venueSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    venueType: {
+        type: String,
+        enum: ['banquet', 'hall', 'outdoor', 'restaurant', 'club', 'resort', 'farmhouse', 'rooftop', 'garden', 'beach', 'other'],
+        default: 'other'
+    },
     description: {
         type: String,
         required: true

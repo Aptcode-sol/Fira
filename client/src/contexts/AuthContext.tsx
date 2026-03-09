@@ -9,7 +9,7 @@ interface AuthContextType {
     token: string | null;
     isLoading: boolean;
     isAuthenticated: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<{ user: User; token: string }>;
     register: (data: { email: string; password: string; name: string; role?: string }) => Promise<{ success: boolean; message: string; email: string }>;
     logout: () => void;
     updateUser: (user: User) => void;
@@ -61,6 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(authToken);
         localStorage.setItem('fira_token', authToken);
         localStorage.setItem('fira_user', JSON.stringify(userData));
+
+        return { user: userData, token: authToken };
     }, []);
 
     const register = useCallback(async (data: { email: string; password: string; name: string; role?: string }) => {

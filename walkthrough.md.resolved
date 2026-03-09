@@ -1,0 +1,98 @@
+# Event Cancellation and Refund Feature - Walkthrough
+
+## Summary
+
+Implemented comprehensive cancellation and refund functionality for events, including:
+- **Event Cancellation**: Organizers can cancel events with automatic refunds to all ticket holders
+- **Ticket Cancellation**: Users can cancel individual tickets with time-based refund policy
+- **Booking Cancellation**: Venue booking cancellations with advance payment refunds
+
+---
+
+## Changes Made
+
+### Backend
+
+#### New Files
+
+| File | Description |
+|------|-------------|
+| [refundService.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/refundService.js) | Core refund logic with Razorpay integration, time-based policy, and bulk refund processing |
+
+#### Modified Files
+
+| File | Changes |
+|------|---------|
+| [eventService.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/eventService.js) | [cancelEvent()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/eventService.js#101-114) now triggers automatic refunds for all ticket holders |
+| [ticketService.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/ticketService.js) | [cancelTicket()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/ticketService.js#243-252) processes refunds with eligibility check; added [checkRefundEligibility()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/client/src/lib/api.ts#313-323) |
+| [bookingService.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/bookingService.js) | [cancelBooking()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/services/bookingService.js#137-146) processes advance payment refunds |
+| [payment.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/routes/payment.js) | Added refund endpoints: `GET /refunds`, `GET /refunds/user/:userId`, `GET /refunds/:id`, `POST /refunds/:id/process` |
+| [ticket.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/routes/ticket.js) | Added `GET /:id/refund-eligibility`, updated cancel endpoint |
+| [event.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/routes/event.js) | Updated cancel endpoint to include reason |
+| [booking.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/routes/booking.js) | Updated cancel endpoint to require userId |
+| [emailTemplates.js](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/utils/emailTemplates.js) | Added [eventCancellation()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/utils/emailTemplates.js#471-538), [ticketCancellation()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/utils/emailTemplates.js#539-602), [refundProcessed()](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/server/utils/emailTemplates.js#603-663) templates |
+
+---
+
+### Frontend
+
+#### New Files
+
+| File | Description |
+|------|-------------|
+| [CancellationModal.tsx](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/client/src/components/CancellationModal.tsx) | Modal for ticket cancellation with refund eligibility check and confirmation |
+
+#### Modified Files
+
+| File | Changes |
+|------|---------|
+| [api.ts](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/client/src/lib/api.ts) | Added `ticketsApi.checkRefundEligibility()`, updated cancel methods, added `paymentsApi.getUserRefunds()` |
+| [tickets/page.tsx](file:///c:/Users/VARSHITHA/Desktop/Aptcode/Firaa/client/src/app/dashboard/tickets/page.tsx) | Added "Cancel Ticket" button and CancellationModal integration |
+
+---
+
+## Refund Policy
+
+| Time Before Event | Refund Percentage |
+|-------------------|-------------------|
+| 48+ hours | 100% (Full refund) |
+| 24-48 hours | 50% (Partial refund) |
+| Less than 24 hours | 0% (No refund) |
+| Event cancelled by organizer | 100% (Always full refund) |
+
+---
+
+## API Endpoints
+
+### Refunds
+
+```
+GET  /api/payments/refunds              # Get all refunds (admin)
+GET  /api/payments/refunds/user/:userId # Get user's refund history
+GET  /api/payments/refunds/:id          # Get refund details
+POST /api/payments/refunds/:id/process  # Admin: Process pending refund
+```
+
+### Tickets
+
+```
+GET  /api/tickets/:id/refund-eligibility  # Check if ticket is eligible for refund
+POST /api/tickets/:id/cancel              # Cancel ticket (requires userId)
+```
+
+---
+
+## Testing
+
+To test the implementation:
+
+1. **Purchase a ticket** for an event scheduled more than 48 hours away
+2. **Navigate to Dashboard → Tickets**
+3. **Click "Cancel Ticket"** on an active ticket
+4. **Verify** the refund eligibility modal shows correct policy
+5. **Confirm cancellation** and verify ticket status changes to "Cancelled"
+
+For event cancellation (organizer flow):
+1. Create or use an existing event with ticket holders
+2. Call `POST /api/events/:id/cancel` with reason
+3. Verify all tickets are cancelled and refunds are initiated

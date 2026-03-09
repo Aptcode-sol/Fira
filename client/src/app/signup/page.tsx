@@ -24,7 +24,15 @@ export default function SignUpPage() {
         email: '',
         password: '',
         confirmPassword: '',
+        city: '',
     });
+
+    // Major Indian cities for selection
+    const cities = [
+        'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
+        'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow',
+        'Chandigarh', 'Goa', 'Kochi', 'Indore', 'Nagpur'
+    ];
 
     // Countdown timer for OTP expiry
     useEffect(() => {
@@ -68,7 +76,8 @@ export default function SignUpPage() {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
-            });
+                city: formData.city,
+            }) as { message?: string };
 
             // Move to OTP verification step
             setStep('verify');
@@ -266,6 +275,34 @@ export default function SignUpPage() {
                                                 </span>
                                             </div>
                                         )}
+                                    </div>
+
+                                    {/* City Selection */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">City</label>
+                                        <div className="relative">
+                                            <select
+                                                value={formData.city}
+                                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                                required
+                                                className="w-full px-4 py-3 pl-11 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer"
+                                            >
+                                                <option value="" className="bg-[#1a1a1a]">Select your city</option>
+                                                {cities.map((city) => (
+                                                    <option key={city} value={city} className="bg-[#1a1a1a]">{city}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </div>
+                                            <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">We'll show you events and venues near you</p>
                                     </div>
 
 

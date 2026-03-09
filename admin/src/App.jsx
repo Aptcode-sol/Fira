@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
+import AdminDashboardLayout from './components/AdminDashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Venues from './pages/Venues';
 import VenueDetail from './pages/VenueDetail';
@@ -9,6 +9,7 @@ import EventDetail from './pages/EventDetail';
 import Brands from './pages/Brands';
 import BrandDetail from './pages/BrandDetail';
 import Users from './pages/Users';
+import UserDetail from './pages/UserDetail';
 import Login from './pages/Login';
 import './index.css';
 
@@ -86,22 +87,20 @@ function App() {
 
   return (
     <Router>
-      <div className="app-container">
-        <Sidebar onLogout={handleLogout} />
-        <main className="main-content" style={{ marginLeft: '260px' }}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/venues" element={<Venues />} />
-            <Route path="/venues/:id" element={<VenueDetail />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/events/:id" element={<EventDetail />} />
-            <Route path="/brands" element={<Brands />} />
-            <Route path="/brands/:id" element={<BrandDetail />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
-      </div>
+      <AdminDashboardLayout onLogout={handleLogout}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/venues" element={<Venues />} />
+          <Route path="/venues/:id" element={<VenueDetail />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/brands" element={<Brands />} />
+          <Route path="/brands/:id" element={<BrandDetail />} />
+          <Route path="/users" element={<Users />} />
+          <Route path="/users/:id" element={<UserDetail />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </AdminDashboardLayout>
     </Router>
   );
 }

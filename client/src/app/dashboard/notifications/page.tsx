@@ -13,17 +13,18 @@ type NotificationCategory = 'all' | 'events' | 'bookings' | 'payments' | 'system
 
 interface Notification {
     _id: string;
-    category: string;
+    category: NotificationCategory;
+    type: string;
     title: string;
     message: string;
     createdAt: string;
     read: boolean;
+    data?: any;
 }
 
 export default function NotificationsPage() {
     const router = useRouter();
     const { isAuthenticated, isLoading, user } = useAuth();
-    const [categoryFilter, setCategoryFilter] = useState<NotificationCategory>('all');
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -34,13 +35,40 @@ export default function NotificationsPage() {
         }
     }, [isLoading, isAuthenticated, router]);
 
+    const getCategoryFromType = (type: string): NotificationCategory => {
+        if (!type) return 'system';
+
+        if (type.includes('booking')) return 'bookings';
+        if (type.includes('payment') || type.includes('refund') || type.includes('payout')) return 'payments';
+        if (type.includes('event') || type.includes('ticket')) return 'events';
+        // Treat brand posts as system updates for now, or events if we prefer
+        if (type === 'brand_new_post') return 'system';
+
+        return 'system';
+    };
+
     useEffect(() => {
         const fetchNotifications = async () => {
             if (!user?._id) return;
             try {
                 setLoading(true);
-                const data = await notificationsApi.getUserNotifications(user._id) as Notification[];
-                setNotifications(data);
+                // Fetch raw data which has 'type' and 'isRead'
+                const response = await notificationsApi.getUserNotifications(user._id);
+                const rawData = response as any[];
+
+                // Map to frontend interface
+                const mappedData: Notification[] = rawData.map(n => ({
+                    _id: n._id,
+                    type: n.type,
+                    category: getCategoryFromType(n.type),
+                    title: n.title,
+                    message: n.message,
+                    createdAt: n.createdAt,
+                    read: n.isRead === true, // Backend uses isRead
+                    data: n.data
+                }));
+
+                setNotifications(mappedData);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load notifications');
             } finally {
@@ -63,13 +91,10 @@ export default function NotificationsPage() {
         );
     }
 
-    const filteredNotifications = categoryFilter === 'all'
-        ? notifications
-        : notifications.filter((n) => n.category === categoryFilter);
-
     const unreadCount = notifications.filter((n) => !n.read).length;
 
-    const markAsRead = async (id: string) => {
+    const markAsRead = async (id: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
         try {
             await notificationsApi.markAsRead(id);
             setNotifications((prev) =>
@@ -103,11 +128,53 @@ export default function NotificationsPage() {
         return date.toLocaleDateString();
     };
 
-    const getCategoryIcon = (category: string) => {
-        switch (category) {
+    const getIcon = (notification: Notification) => {
+        // Check for profile image in data.extra
+        const extra = notification.data?.extra;
+        // Check for various potential keys where user/brand info might be stored
+        const profileImage = extra?.actor?.avatar ||
+            extra?.user?.avatar ||
+            extra?.brand?.profilePhoto ||
+            extra?.brand?.logo ||
+            // Sometimes directly on data if flattened
+            notification.data?.avatar ||
+            notification.data?.profilePhoto;
+
+        if (profileImage) {
+            return (
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0 border border-white/10">
+                    <img src={profileImage} alt="Notification Source" className="w-full h-full object-cover" />
+                </div>
+            );
+        }
+
+        // Special case for brand posts (if no image found above)
+        if (notification.type === 'brand_new_post') {
+            return (
+                <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+            );
+        }
+
+        // Special case for new followers
+        if (notification.type === 'new_follower') {
+            return (
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                </div>
+            );
+        }
+
+        // Fallback to category icons
+        switch (notification.category) {
             case 'events':
                 return (
-                    <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0">
                         <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -115,7 +182,7 @@ export default function NotificationsPage() {
                 );
             case 'bookings':
                 return (
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                         <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16" />
                         </svg>
@@ -123,7 +190,7 @@ export default function NotificationsPage() {
                 );
             case 'payments':
                 return (
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                         <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -132,7 +199,7 @@ export default function NotificationsPage() {
             case 'system':
             default:
                 return (
-                    <div className="w-10 h-10 rounded-xl bg-gray-500/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gray-500/20 flex items-center justify-center flex-shrink-0">
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -161,24 +228,6 @@ export default function NotificationsPage() {
                         )}
                     </div>
                 </SlideUp>
-
-                {/* Category Filters */}
-                <FadeIn delay={0.1}>
-                    <div className="flex gap-2 mb-8 flex-wrap">
-                        {(['all', 'events', 'bookings', 'payments', 'system'] as NotificationCategory[]).map((category) => (
-                            <button
-                                key={category}
-                                onClick={() => setCategoryFilter(category)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium capitalize transition-all duration-200 ${categoryFilter === category
-                                    ? 'bg-white text-black shadow-lg shadow-white/10'
-                                    : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-white border border-white/[0.08]'
-                                    }`}
-                            >
-                                {category}
-                            </button>
-                        ))}
-                    </div>
-                </FadeIn>
 
                 {/* Loading State - Skeleton Cards */}
                 {loading && (
@@ -213,16 +262,16 @@ export default function NotificationsPage() {
                 {/* Notifications List */}
                 {!loading && !error && (
                     <div className="space-y-3">
-                        {filteredNotifications.map((notification) => (
+                        {notifications.map((notification) => (
                             <div
                                 key={notification._id}
-                                onClick={() => markAsRead(notification._id)}
+                                onClick={(e) => !notification.read && markAsRead(notification._id, e)}
                                 className={`bg-white/[0.02] backdrop-blur-sm border rounded-2xl p-4 flex items-start gap-4 cursor-pointer transition-all duration-200 hover:bg-white/[0.04] ${notification.read
                                     ? 'border-white/[0.05]'
                                     : 'border-violet-500/30 bg-violet-500/[0.03]'
                                     }`}
                             >
-                                {getCategoryIcon(notification.category)}
+                                {getIcon(notification)}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
                                         <h3 className={`font-medium ${notification.read ? 'text-white' : 'text-violet-300'}`}>
@@ -241,16 +290,14 @@ export default function NotificationsPage() {
                 )}
 
                 {/* Empty State */}
-                {!loading && !error && filteredNotifications.length === 0 && (
+                {!loading && !error && notifications.length === 0 && (
                     <div className="text-center py-16">
                         <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No notifications</h3>
                         <p className="text-gray-400">
-                            {categoryFilter === 'all'
-                                ? 'You\'re all caught up! Check back later for updates.'
-                                : `No ${categoryFilter} notifications at the moment.`}
+                            You're all caught up! Check back later for updates.
                         </p>
                     </div>
                 )}
