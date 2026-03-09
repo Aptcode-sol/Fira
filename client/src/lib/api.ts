@@ -127,6 +127,9 @@ export const usersApi = {
         }),
 };
 
+const followedBrandsCache: Map<string, Set<string>> = new Map();
+const followStatusPromises: Map<string, Promise<Set<string>>> = new Map();
+
 // Brands API
 export const brandsApi = {
     getAll: (params?: Record<string, string>) => {
@@ -147,18 +150,41 @@ export const brandsApi = {
         }),
 
     // Follow/Unfollow
-    follow: (brandId: string, userId: string) =>
-        request(`/brands/${brandId}/follow`, {
+    follow: async (brandId: string, userId: string) => {
+        const res = await request(`/brands/${brandId}/follow`, {
             method: 'POST',
             body: JSON.stringify({ userId }),
-        }),
-    unfollow: (brandId: string, userId: string) =>
-        request(`/brands/${brandId}/follow`, {
+        });
+        const cache = followedBrandsCache.get(userId);
+        if (cache) cache.add(brandId);
+        return res;
+    },
+    unfollow: async (brandId: string, userId: string) => {
+        const res = await request(`/brands/${brandId}/follow`, {
             method: 'DELETE',
             body: JSON.stringify({ userId }),
-        }),
-    getFollowStatus: (brandId: string, userId: string) =>
-        request<{ isFollowing: boolean }>(`/brands/${brandId}/follow/status?userId=${userId}`),
+        });
+        const cache = followedBrandsCache.get(userId);
+        if (cache) cache.delete(brandId);
+        return res;
+    },
+    getFollowStatus: async (brandId: string, userId: string) => {
+        let cache = followedBrandsCache.get(userId);
+        if (!cache) {
+            let promise = followStatusPromises.get(userId);
+            if (!promise) {
+               // Fetch the user's profile which contains the followingBrands array
+               promise = request<{ followingBrands?: string[] }>(`/users/${userId}`)
+                   .then((u) => new Set(u.followingBrands || []))
+                   .catch(() => new Set<string>()); // fallback on error
+               followStatusPromises.set(userId, promise);
+            }
+            cache = await promise;
+            followedBrandsCache.set(userId, cache);
+            followStatusPromises.delete(userId);
+        }
+        return { isFollowing: cache.has(brandId) };
+    },
 
     // Posts
     getPosts: (id: string, params?: Record<string, string>) => {
