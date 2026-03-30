@@ -4,10 +4,17 @@ const PrivateEventAccess = require('../models/PrivateEventAccess');
 const eventService = {
     // Get all events
     async getAllEvents(query = {}) {
-        const { page = 1, limit = 10, eventType, status, category, organizer, sort, search, showCompleted, todayOnly, weekend, ticketType, dateFilter } = query;
+        const { page = 1, limit = 10, eventType, status, category, organizer, sort, search, city, showCompleted, todayOnly, weekend, ticketType, dateFilter } = query;
         const filter = { isDeleted: { $ne: true } }; // Always exclude deleted events
         if (eventType) filter.eventType = eventType;
         if (category && category !== 'All') filter.category = category;
+
+        if (city && city !== 'All') {
+            const Venue = require('../models/Venue');
+            const cityRegex = new RegExp(`^${city}$`, 'i');
+            const venuesInCity = await Venue.find({ 'address.city': cityRegex }).select('_id');
+            filter.venue = { $in: venuesInCity.map(v => v._id) };
+        }
 
         // Ticket type filter (free/paid)
         if (ticketType === 'free') {

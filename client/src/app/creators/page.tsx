@@ -45,31 +45,17 @@ const filterOptions = [
 ];
 
 const sortOptions = [
-    { value: 'recommended', label: 'Recommended' },
     { value: 'trending', label: 'Trending' },
     { value: 'top', label: 'Top Rated' },
     { value: 'nearby', label: 'Nearby' },
 ];
 
-const cityOptions = [
-    { value: 'All', label: 'All Cities' },
-    { value: 'Mumbai', label: 'Mumbai' },
-    { value: 'Delhi', label: 'Delhi' },
-    { value: 'Bangalore', label: 'Bangalore' },
-    { value: 'Pune', label: 'Pune' },
-    { value: 'Chennai', label: 'Chennai' },
-    { value: 'Hyderabad', label: 'Hyderabad' },
-    { value: 'Kolkata', label: 'Kolkata' },
-    { value: 'Goa', label: 'Goa' },
-    { value: 'Jaipur', label: 'Jaipur' },
-    { value: 'Ahmedabad', label: 'Ahmedabad' },
-];
+// Removed static cityOptions in favor of dynamic LocationFilter
 
 export default function CreatorsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedType, setSelectedType] = useState('All');
-    const [selectedSort, setSelectedSort] = useState('recommended');
-    const [selectedCity, setSelectedCity] = useState('All');
+    const [selectedSort, setSelectedSort] = useState('trending');
     const [isLoading, setIsLoading] = useState(true);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState(false);
@@ -101,14 +87,13 @@ export default function CreatorsPage() {
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
 
-    const isFiltered = searchQuery !== '' || selectedType !== 'All' || selectedSort !== 'recommended' || selectedCity !== 'All';
-    const defaultSort = 'recommended';
+    const isFiltered = searchQuery !== '' || selectedType !== 'All' || selectedSort !== 'trending';
+    const defaultSort = 'trending';
 
     const resetFilters = () => {
         setSearchQuery('');
         setSelectedType('All');
         setSelectedSort(defaultSort);
-        setSelectedCity('All');
         setPage(1);
         setGridData([]);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -214,9 +199,8 @@ export default function CreatorsPage() {
                     };
 
                     if (selectedType !== 'All') params.type = selectedType;
-                    if (selectedCity !== 'All') params.city = selectedCity;
 
-                    if (selectedSort !== 'recommended') {
+                    if (selectedSort !== 'trending') {
                         params.sort = selectedSort;
                         if (selectedSort === 'nearby') {
                             if (location) {
@@ -242,7 +226,7 @@ export default function CreatorsPage() {
             const timeoutId = setTimeout(fetchFiltered, 300);
             return () => clearTimeout(timeoutId);
         }
-    }, [searchQuery, selectedType, selectedSort, selectedCity, isFiltered, location]);
+    }, [searchQuery, selectedType, selectedSort, isFiltered, location]);
 
 
     // Infinite scroll observer
@@ -277,7 +261,7 @@ export default function CreatorsPage() {
                         page: page.toString()
                     };
                     if (selectedType !== 'All') params.type = selectedType;
-                    if (selectedSort !== 'recommended') params.sort = selectedSort;
+                    if (selectedSort !== 'trending') params.sort = selectedSort;
 
                     const res = await brandsApi.getAll(params) as BrandsResponse;
                     setGridData(prev => [...prev, ...res.brands]);
@@ -360,7 +344,7 @@ export default function CreatorsPage() {
                                         }
                                     />
                                 </div>
-                                <div className="flex gap-4 w-full md:w-auto">
+                                <div className="flex gap-3 w-full md:w-auto flex-wrap">
                                     <div className="w-full md:w-48">
                                         <Select
                                             value={selectedType}
@@ -374,41 +358,16 @@ export default function CreatorsPage() {
                                             }
                                         />
                                     </div>
-                                    <div className="w-full md:w-48">
-                                        <Select
-                                            value={selectedSort}
-                                            onChange={setSelectedSort}
-                                            options={sortOptions}
-                                            placeholder="Sort by"
-                                            icon={
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                                                </svg>
-                                            }
-                                        />
-                                    </div>
-                                    <div className="w-full md:w-40">
-                                        <Select
-                                            value={selectedCity}
-                                            onChange={setSelectedCity}
-                                            options={cityOptions}
-                                            placeholder="City"
-                                            icon={
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                            }
-                                        />
-                                    </div>
                                     {isFiltered && (
-                                        <Button
-                                            variant="ghost"
-                                            onClick={resetFilters}
-                                            className="text-violet-400 hover:text-violet-300 whitespace-nowrap"
-                                        >
-                                            Reset
-                                        </Button>
+                                        <div className="w-full md:w-auto flex items-center justify-end md:justify-start">
+                                            <Button
+                                                variant="ghost"
+                                                onClick={resetFilters}
+                                                className="text-violet-400 hover:text-violet-300 whitespace-nowrap"
+                                            >
+                                                Reset
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             </div>

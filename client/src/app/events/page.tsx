@@ -9,7 +9,8 @@ import { EventCardSkeleton, Input, Button, Select } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { Event } from '@/lib/types';
 import { FadeIn, SlideUp } from '@/components/animations';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import LocationFilter from '@/components/LocationFilter';
 
 interface EventsResponse {
     events: Event[];
@@ -42,7 +43,7 @@ const sortOptions = [
 ];
 
 const ticketTypeOptions = [
-    { value: 'all', label: 'All Tickets' },
+    { value: 'all', label: 'All' },
     { value: 'free', label: 'Free' },
     { value: 'paid', label: 'Paid' },
 ];
@@ -86,8 +87,9 @@ export default function EventsPage() {
     const [showAllMode, setShowAllMode] = useState(false);
     const [selectedTicketType, setSelectedTicketType] = useState('all');
     const [selectedDateFilter, setSelectedDateFilter] = useState('all');
+    const [selectedCity, setSelectedCity] = useState('');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedSort !== 'upcoming' || selectedTicketType !== 'all' || selectedDateFilter !== 'all';
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedSort !== 'upcoming' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedCity !== '';
     const defaultSort = 'upcoming';
 
     // Reset filters
@@ -97,6 +99,7 @@ export default function EventsPage() {
         setSelectedSort(defaultSort);
         setSelectedTicketType('all');
         setSelectedDateFilter('all');
+        setSelectedCity('');
         setShowAllMode(false);
         setPage(1);
         setGridData([]);
@@ -157,6 +160,7 @@ export default function EventsPage() {
             if (selectedDateFilter === 'today') params.dateFilter = 'today';
             else if (selectedDateFilter === 'tomorrow') params.dateFilter = 'tomorrow';
             else if (selectedDateFilter === 'weekend') params.weekend = 'true';
+            if (selectedCity) params.city = selectedCity;
 
             // Featured filter
             if (selectedSort === 'featured') params.featured = 'true';
@@ -186,7 +190,7 @@ export default function EventsPage() {
             const timeout = setTimeout(() => fetchFiltered(1, false), 300);
             return () => clearTimeout(timeout);
         }
-    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter, isFiltered, fetchFiltered]);
+    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter, selectedCity, isFiltered, fetchFiltered]);
 
     // Infinite scroll observer
     useEffect(() => {
@@ -328,16 +332,16 @@ export default function EventsPage() {
                                 </div>
                             </div>
                             {/* Second row: Additional filters */}
-                            <div className="flex flex-wrap gap-3 items-center">
-                                {/* Ticket Type Filter (Free/Paid) */}
-                                <div className="flex items-center gap-2">
+                            <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 items-center w-full">
+                                {/* Ticket Type Filter: Left on Mobile, Left on Desktop */}
+                                <div className="col-span-1 md:w-auto flex items-center gap-2">
                                     <span className="text-gray-500 text-sm hidden md:inline">Ticket:</span>
-                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden">
+                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden w-full md:w-auto">
                                         {ticketTypeOptions.map((option) => (
                                             <button
                                                 key={option.value}
                                                 onClick={() => setSelectedTicketType(option.value)}
-                                                className={`px-3 py-1.5 text-xs font-medium transition-all ${selectedTicketType === option.value
+                                                className={`px-3 py-1.5 text-xs font-medium transition-all flex-1 text-center md:flex-none ${selectedTicketType === option.value
                                                     ? 'bg-violet-500 text-white'
                                                     : 'text-gray-400 hover:text-white'
                                                     }`}
@@ -347,10 +351,21 @@ export default function EventsPage() {
                                         ))}
                                     </div>
                                 </div>
-                                {/* Date Filter */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-gray-500 text-sm hidden md:inline">When:</span>
-                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden">
+
+                                {/* Location Filter: Right on Mobile, Far Right on Desktop */}
+                                <div className="col-span-1 flex justify-end md:ml-auto md:order-last">
+                                    <LocationFilter
+                                        selectedCity={selectedCity}
+                                        onCityChange={setSelectedCity}
+                                        variant="select"
+                                        className="w-full md:w-40"
+                                    />
+                                </div>
+
+                                {/* Date Filter: Full width below on mobile, Middle on Desktop */}
+                                <div className="col-span-2 w-full md:w-auto flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 -mb-1 md:pb-0 md:mb-0">
+                                    <span className="text-gray-500 text-sm hidden md:inline shrink-0">When:</span>
+                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0">
                                         {dateFilterOptions.map((option) => (
                                             <button
                                                 key={option.value}
@@ -365,9 +380,10 @@ export default function EventsPage() {
                                         ))}
                                     </div>
                                 </div>
+
                                 {/* Reset button */}
                                 {isFiltered && (
-                                    <Button variant="ghost" onClick={resetFilters} className="text-violet-400 whitespace-nowrap text-sm ml-auto">
+                                    <Button variant="ghost" onClick={resetFilters} className="text-violet-400 whitespace-nowrap text-sm mt-2 md:mt-0 col-span-2 md:col-span-1 flex justify-center w-full md:w-auto md:order-last">
                                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>

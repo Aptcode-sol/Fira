@@ -10,18 +10,7 @@ import { venuesApi } from '@/lib/api';
 import { Venue } from '@/lib/types';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
-
-const cities = [
-    { value: 'All', label: 'All Cities' },
-    { value: 'Mumbai', label: 'Mumbai' },
-    { value: 'Delhi', label: 'Delhi' },
-    { value: 'Bangalore', label: 'Bangalore' },
-    { value: 'Chennai', label: 'Chennai' },
-    { value: 'Hyderabad', label: 'Hyderabad' },
-    { value: 'Pune', label: 'Pune' },
-    { value: 'Kolkata', label: 'Kolkata' },
-    { value: 'North Goa', label: 'Goa' },
-];
+import LocationFilter from '@/components/LocationFilter';
 
 const sortOptions = [
     { value: 'topRated', label: 'Top Rated' },
@@ -92,7 +81,7 @@ export default function VenuesPage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCity, setSelectedCity] = useState('All');
+    const [selectedCity, setSelectedCity] = useState('');
     const [selectedSort, setSelectedSort] = useState('topRated');
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState(false);
@@ -105,13 +94,13 @@ export default function VenuesPage() {
     const [selectedPrice, setSelectedPrice] = useState('all');
     const [availabilityDate, setAvailabilityDate] = useState('');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCity !== 'All' || selectedSort !== 'topRated' || selectedVenueType !== 'all' || selectedCapacity !== 'all' || selectedPrice !== 'all' || availabilityDate !== '';
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCity !== '' || selectedSort !== 'topRated' || selectedVenueType !== 'all' || selectedCapacity !== 'all' || selectedPrice !== 'all' || availabilityDate !== '';
     const defaultSort = 'topRated';
 
     // Reset filters
     const resetFilters = () => {
         setSearchQuery('');
-        setSelectedCity('All');
+        setSelectedCity('');
         setSelectedSort(defaultSort);
         setSelectedVenueType('all');
         setSelectedCapacity('all');
@@ -185,7 +174,7 @@ export default function VenuesPage() {
                 sort: selectedSort,
             };
             if (searchQuery) params.search = searchQuery;
-            if (selectedCity !== 'All') params.city = selectedCity;
+            if (selectedCity) params.city = selectedCity;
             if (selectedVenueType !== 'all') params.venueType = selectedVenueType;
             if (selectedCapacity !== 'all') params.maxCapacity = selectedCapacity;
             if (selectedPrice !== 'all') params.maxPrice = selectedPrice;
@@ -248,7 +237,7 @@ export default function VenuesPage() {
     const handleSeeAll = (sort: string) => {
         setSelectedSort(sort);
         setSearchQuery('');
-        setSelectedCity('All');
+        setSelectedCity('');
         setShowAllMode(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -339,12 +328,12 @@ export default function VenuesPage() {
                                     />
                                 </div>
                                 <div className="flex gap-3 w-full md:w-auto flex-wrap">
-                                    <div className="w-[calc(33%-8px)] md:w-32">
-                                        <Select
-                                            value={selectedCity}
-                                            onChange={setSelectedCity}
-                                            options={cities}
-                                            placeholder="City"
+                                    <div className="w-[calc(33%-8px)] md:w-40">
+                                        <LocationFilter
+                                            selectedCity={selectedCity}
+                                            onCityChange={setSelectedCity}
+                                            variant="select"
+                                            className="w-full"
                                         />
                                     </div>
                                     <div className="w-[calc(33%-8px)] md:w-36">

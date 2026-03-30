@@ -8,6 +8,7 @@ const brandService = {
             limit = 12,
             type,
             search,
+            city,
             lat,
             lng,
             sort = 'newest'
@@ -19,13 +20,31 @@ const brandService = {
             filter.type = type.toLowerCase();
         }
 
+        const andConditions = [];
+
         if (search) {
             // Use regex for more reliable search (works without text index)
             const searchRegex = new RegExp(search, 'i');
-            filter.$or = [
-                { name: searchRegex },
-                { bio: searchRegex }
-            ];
+            andConditions.push({
+                $or: [
+                    { name: searchRegex },
+                    { bio: searchRegex }
+                ]
+            });
+        }
+
+        if (city && city !== 'All') {
+            const cityRegex = new RegExp(`^${city}$`, 'i');
+            andConditions.push({
+                $or: [
+                    { primaryCity: cityRegex },
+                    { cities: cityRegex }
+                ]
+            });
+        }
+
+        if (andConditions.length > 0) {
+            filter.$and = andConditions;
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
