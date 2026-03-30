@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
-import { brandsApi } from '@/lib/api';
 
 const navItems = [
     { href: '/dashboard', icon: 'home', label: 'Overview' },
@@ -40,12 +39,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         }
         return false;
     });
-    const [hasBrand, setHasBrand] = useState(false);
-    const [hasVenues, setHasVenues] = useState(false);
-    const [hasEvents, setHasEvents] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
+
+    // Derive sidebar visibility from user context — no API calls needed
+    const hasBrand = !!(user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge));
+    const hasVenues = user?.role === 'venue_owner' || user?.role === 'admin';
+    const hasEvents = hasBrand; // Creators can organize events
 
     // Trigger opening animation
     useEffect(() => {
@@ -71,42 +72,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     useEffect(() => {
         localStorage.setItem('dashboard_sidebar_expanded', String(isExpanded));
     }, [isExpanded]);
-
-    // Check if user has a brand profile or venues
-    useEffect(() => {
-        const checkUserAssets = async () => {
-            if (!user?._id) return;
-
-            // Check for brand
-            try {
-                const brand = await brandsApi.getMyProfile(user._id);
-                setHasBrand(!!brand);
-            } catch {
-                setHasBrand(false);
-            }
-
-            // Check for venues
-            try {
-                const { venuesApi } = await import('@/lib/api');
-                const response = await venuesApi.getUserVenues(user._id) as { venues: any[] };
-                const venues = response?.venues || [];
-                setHasVenues(venues.length > 0);
-            } catch {
-                setHasVenues(false);
-            }
-
-            // Check for organized events
-            try {
-                const { eventsApi } = await import('@/lib/api');
-                const response = await eventsApi.getUserEvents(user._id) as { events?: any[]; data?: any[] };
-                const events = Array.isArray(response) ? response : ((response as { events?: any[]; data?: any[] })?.events || (response as { events?: any[]; data?: any[] })?.data || []);
-                setHasEvents(events.length > 0);
-            } catch {
-                setHasEvents(false);
-            }
-        };
-        checkUserAssets();
-    }, [user?._id]);
 
     const isVenueOwner = user?.role === 'venue_owner' || user?.role === 'admin';
 

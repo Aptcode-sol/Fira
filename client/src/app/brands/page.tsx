@@ -157,20 +157,14 @@ export default function BrandsPage() {
                     setLocationError(true);
                 }
 
-                const [bandsRes, brandsRes, orgRes, trendingRes, topRes] = await Promise.all([
-                    brandsApi.getAll({ type: 'Band', limit: '4' }) as Promise<BrandsResponse>,
-                    brandsApi.getAll({ type: 'Brand', limit: '4' }) as Promise<BrandsResponse>,
-                    brandsApi.getAll({ type: 'Organizer', limit: '4' }) as Promise<BrandsResponse>,
-                    brandsApi.getAll({ sort: 'trending', limit: '4' }) as Promise<BrandsResponse>,
-                    brandsApi.getAll({ sort: 'top', limit: '4' }) as Promise<BrandsResponse>,
-                ]);
-
+                // Single API call instead of 5 separate calls
+                const data = await brandsApi.getSections('4');
                 setSections({
-                    bands: bandsRes.brands,
-                    brands: brandsRes.brands,
-                    organizers: orgRes.brands,
-                    trending: trendingRes.brands,
-                    top: topRes.brands,
+                    bands: data.bands,
+                    brands: data.brands,
+                    organizers: data.organizers,
+                    trending: data.trending,
+                    top: data.top,
                     nearby: []
                 });
             } catch (error) {

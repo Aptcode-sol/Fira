@@ -114,7 +114,8 @@ const eventService = {
             .populate('venue', 'name address images')
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .sort(sortOption);
+            .sort(sortOption)
+            .lean();
 
         const total = await Event.countDocuments(filter);
 
@@ -142,7 +143,8 @@ const eventService = {
             .populate('organizer', 'name verificationBadge')
             .populate('venue', 'name address')
             .limit(limit * 1)
-            .sort({ startDateTime: 1 });
+            .sort({ startDateTime: 1 })
+            .lean();
 
         return events;
     },
@@ -151,7 +153,8 @@ const eventService = {
     async getEventById(id) {
         const event = await Event.findById(id)
             .populate('organizer', 'name email avatar verificationBadge')
-            .populate('venue', 'name description address images capacity');
+            .populate('venue', 'name description address images capacity')
+            .lean();
         if (!event) {
             throw new Error('Event not found');
         }
@@ -360,8 +363,9 @@ const eventService = {
     async getEventsByOrganizer(userId, limit = 10) {
         const events = await Event.find({ organizer: userId, status: { $ne: 'cancelled' } })
             .populate('venue', 'name address images')
-            .sort({ date: 1 }) // Upcoming first
-            .limit(parseInt(limit));
+            .sort({ date: 1 })
+            .limit(parseInt(limit))
+            .lean();
         return events;
     },
 
@@ -549,7 +553,8 @@ const eventService = {
             .populate('venue', 'name address images')
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const total = await Event.countDocuments(filter);
 
@@ -581,7 +586,8 @@ const eventService = {
             .populate('venue', 'name address images owner')
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const total = await Event.countDocuments(filter);
 

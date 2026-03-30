@@ -85,6 +85,7 @@ const bookingSchema = new mongoose.Schema({
 });
 
 // Indexes
+bookingSchema.index({ user: 1 });
 bookingSchema.index({ venue: 1 });
 bookingSchema.index({ bookingDate: 1 });
 bookingSchema.index({ status: 1 });

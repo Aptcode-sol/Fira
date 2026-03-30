@@ -13,48 +13,73 @@ class ApiError extends Error {
     }
 }
 
+const globalRequestCache = new Map<string, { promise: Promise<any>; timestamp: number }>();
+const CACHE_TTL = 15000; // 15-second deduplication window for navigation between dashboard pages
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { token, ...fetchOptions } = options;
+    const isGet = !fetchOptions.method || fetchOptions.method.toUpperCase() === 'GET';
+    
+    // Create a cache key unique to the endpoint and the user's token
+    let userToken = token;
+    if (!userToken && typeof window !== 'undefined') {
+        userToken = localStorage.getItem('fira_token') || undefined;
+    }
+    const cacheKey = `${endpoint}_${userToken || 'unauth'}`;
+
+    // Return cached promise if within TTL bounds
+    if (isGet) {
+        const cached = globalRequestCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            return cached.promise;
+        }
+    }
 
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options.headers,
     };
 
-    if (token) {
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    if (userToken) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${userToken}`;
     }
 
-    // Get token from localStorage if not provided
-    if (!token && typeof window !== 'undefined') {
-        const storedToken = localStorage.getItem('fira_token');
-        if (storedToken) {
-            (headers as Record<string, string>)['Authorization'] = `Bearer ${storedToken}`;
-        }
-    }
+    const fetchPromise = (async () => {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...fetchOptions,
+            headers,
+        });
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...fetchOptions,
-        headers,
-    });
+        const data = await response.json();
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        // Handle 401 Unauthorized (Token expired, Invalid, or User Deleted)
-        if (response.status === 401 && typeof window !== 'undefined') {
-            localStorage.removeItem('fira_token');
-            localStorage.removeItem('fira_user');
-            // Prevent redirect loop if already on login page
-            if (!window.location.pathname.startsWith('/signin')) {
-                window.location.href = '/signin';
+        if (!response.ok) {
+            // Handle 401 Unauthorized
+            if (response.status === 401 && typeof window !== 'undefined') {
+                localStorage.removeItem('fira_token');
+                localStorage.removeItem('fira_user');
+                if (!window.location.pathname.startsWith('/signin')) {
+                    window.location.href = '/signin';
+                }
             }
+
+            throw new ApiError(response.status, data.error || 'Something went wrong');
         }
 
-        throw new ApiError(response.status, data.error || 'Something went wrong');
+        return data as T;
+    })();
+
+    if (isGet) {
+        globalRequestCache.set(cacheKey, { promise: fetchPromise, timestamp: Date.now() });
     }
 
-    return data;
+    try {
+        return await fetchPromise;
+    } catch (error) {
+        if (isGet) {
+            globalRequestCache.delete(cacheKey);
+        }
+        throw error;
+    }
 }
 
 // Auth API
@@ -159,12 +184,19 @@ export const usersApi = {
         }>(`/users/${userId}/following-brands`),
 };
 
+const followedBrandsCache: Map<string, Set<string>> = new Map();
+const followStatusPromises: Map<string, Promise<Set<string>>> = new Map();
+
 // Brands API
 export const brandsApi = {
     getAll: (params?: Record<string, string>) => {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/brands${query}`);
     },
+    getSections: (limit = '4') => request<{
+        bands: any[]; brands: any[]; organizers: any[];
+        trending: any[]; top: any[];
+    }>(`/brands/sections?limit=${limit}`),
     getById: (id: string) => request(`/brands/${id}`),
     getMyProfile: (userId: string) => request(`/brands/my-profile?userId=${userId}`),
     create: (data: unknown) =>
@@ -179,18 +211,41 @@ export const brandsApi = {
         }),
 
     // Follow/Unfollow
-    follow: (brandId: string, userId: string) =>
-        request(`/brands/${brandId}/follow`, {
+    follow: async (brandId: string, userId: string) => {
+        const res = await request(`/brands/${brandId}/follow`, {
             method: 'POST',
             body: JSON.stringify({ userId }),
-        }),
-    unfollow: (brandId: string, userId: string) =>
-        request(`/brands/${brandId}/follow`, {
+        });
+        const cache = followedBrandsCache.get(userId);
+        if (cache) cache.add(brandId);
+        return res;
+    },
+    unfollow: async (brandId: string, userId: string) => {
+        const res = await request(`/brands/${brandId}/follow`, {
             method: 'DELETE',
             body: JSON.stringify({ userId }),
-        }),
-    getFollowStatus: (brandId: string, userId: string) =>
-        request<{ isFollowing: boolean }>(`/brands/${brandId}/follow/status?userId=${userId}`),
+        });
+        const cache = followedBrandsCache.get(userId);
+        if (cache) cache.delete(brandId);
+        return res;
+    },
+    getFollowStatus: async (brandId: string, userId: string) => {
+        let cache = followedBrandsCache.get(userId);
+        if (!cache) {
+            let promise = followStatusPromises.get(userId);
+            if (!promise) {
+               // Fetch the user's profile which contains the followingBrands array
+               promise = request<{ followingBrands?: string[] }>(`/users/${userId}`)
+                   .then((u) => new Set(u.followingBrands || []))
+                   .catch(() => new Set<string>()); // fallback on error
+               followStatusPromises.set(userId, promise);
+            }
+            cache = await promise;
+            followedBrandsCache.set(userId, cache);
+            followStatusPromises.delete(userId);
+        }
+        return { isFollowing: cache.has(brandId) };
+    },
 
     // Posts
     getPosts: (id: string, params?: Record<string, string>) => {
@@ -237,6 +292,9 @@ export const venuesApi = {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/venues${query}`);
     },
+    getSections: () => request<{
+        topRated: any[]; inDemand: any[]; latest: any[];
+    }>('/venues/sections'),
     getNearby: (lat: number, lng: number, radius?: number) => {
         const params = new URLSearchParams({
             lat: lat.toString(),
@@ -285,6 +343,9 @@ export const eventsApi = {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/events${query}`);
     },
+    getSections: () => request<{
+        upcoming: any[]; top: any[]; latest: any[];
+    }>('/events/sections'),
     getUpcoming: (params?: Record<string, string>) => {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/events/upcoming${query}`);

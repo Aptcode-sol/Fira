@@ -14,6 +14,25 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/events/sections - Fetch all homepage sections in one call
+router.get('/sections', async (req, res) => {
+    try {
+        const [upcoming, top, latest] = await Promise.all([
+            eventService.getAllEvents({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }),
+            eventService.getAllEvents({ status: 'upcoming', eventType: 'public', sort: 'top' }),
+            eventService.getAllEvents({ eventType: 'public', sort: 'latest' }),
+        ]);
+        res.json({
+            upcoming: upcoming.events || [],
+            top: top.events || [],
+            latest: latest.events || [],
+        });
+    } catch (error) {
+        console.error('Error fetching event sections:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/events/upcoming - Get upcoming events
 router.get('/upcoming', async (req, res) => {
     try {

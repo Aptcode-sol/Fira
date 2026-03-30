@@ -166,5 +166,9 @@ eventSchema.index({ venue: 1 });
 eventSchema.index({ startDateTime: 1 });
 eventSchema.index({ status: 1 });
 eventSchema.index({ eventType: 1 });
+// Compound indexes for common query patterns
+eventSchema.index({ organizer: 1, status: 1, isDeleted: 1 }); // Dashboard queries
+eventSchema.index({ status: 1, isActive: 1, startDateTime: 1 }); // Public listing
+eventSchema.index({ venue: 1, status: 1, startDateTime: 1, endDateTime: 1 }); // Conflict checks
 
 module.exports = mongoose.model('Event', eventSchema);
