@@ -69,7 +69,7 @@ const authService = {
         const otpCode = this.generateOTP();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // Save OTP to database
+        // Save OTP to MongoDB (works across all cluster workers)
         await OTP.create({
             email,
             code: otpCode,
@@ -201,7 +201,7 @@ const authService = {
         // Delete old OTPs for this email
         await OTP.deleteMany({ email });
 
-        // Create new OTP
+        // Create new OTP in MongoDB
         await OTP.create({
             email,
             code: otpCode,
