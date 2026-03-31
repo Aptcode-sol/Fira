@@ -27,7 +27,7 @@ echo ""
 echo "========================================="
 echo "📥 Step 1: Pulling Latest Code"
 echo "========================================="
-if git pull origin main; then
+if git pull origin master; then
     echo -e "${GREEN}✅ Git pull successful${NC}"
 else
     echo -e "${RED}❌ Git pull failed${NC}"
