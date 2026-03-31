@@ -3,14 +3,15 @@ module.exports = {
         // Backend API - Cluster Mode (multi-core)
         {
             name: 'fira-backend',
-            script: './server/index.js',
-            instances: 'max', // Use all available CPU cores
+            script: 'index.js',
+            instances: '2',
             exec_mode: 'cluster',
+            cwd: './server',
             env: {
                 NODE_ENV: 'production',
                 PORT: 5000
             },
-            watch: false, // Disable watch in production
+            watch: false,
             max_memory_restart: '1G',
             error_file: './logs/backend-error.log',
             out_file: './logs/backend-out.log',
@@ -23,15 +24,16 @@ module.exports = {
             kill_timeout: 5000
         },
 
-        // Admin Dashboard - Fork Mode
+        // Admin Dashboard - Fork Mode (Static served via serve)
         {
             name: 'fira-admin',
-            script: './admin/dist/server.js', // Or use a simple HTTP server
+            script: 'node',
+            args: ['./node_modules/vite/bin/vite.js', 'preview', '--host', '0.0.0.0', '--port', '3001'],
             instances: 1,
             exec_mode: 'fork',
+            cwd: './admin',
             env: {
-                NODE_ENV: 'production',
-                PORT: 3001
+                NODE_ENV: 'production'
             },
             watch: false,
             max_memory_restart: '512M',
