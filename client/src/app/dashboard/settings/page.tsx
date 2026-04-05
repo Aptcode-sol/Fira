@@ -87,7 +87,7 @@ export default function SettingsPage() {
                             <Button
                                 onClick={handleUpdateProfile}
                                 disabled={isUpdating}
-                                className="bg-violet-500 hover:bg-violet-600 text-white mt-4"
+                                className="!bg-violet-500 hover:!bg-violet-600 text-white mt-4"
                             >
                                 {isUpdating ? 'Updating...' : 'Save Changes'}
                             </Button>

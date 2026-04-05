@@ -95,7 +95,7 @@ router.put('/:id', venueOwnerAuth, async (req, res) => {
     try {
         // Verify ownership
         const existingVenue = await venueService.getVenueById(req.params.id);
-        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+        if (existingVenue.owner._id.toString() !== req.user._id.toString()) {
             return res.status(403).json({ error: 'You do not own this venue' });
         }
         const venue = await venueService.updateVenue(req.params.id, req.body);
@@ -110,7 +110,7 @@ router.delete('/:id', venueOwnerAuth, async (req, res) => {
     try {
         // Verify ownership
         const existingVenue = await venueService.getVenueById(req.params.id);
-        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+        if (existingVenue.owner._id.toString() !== req.user._id.toString()) {
             return res.status(403).json({ error: 'You do not own this venue' });
         }
         await venueService.deleteVenue(req.params.id);
@@ -125,7 +125,7 @@ router.put('/:id/availability', venueOwnerAuth, async (req, res) => {
     try {
         // Verify ownership
         const existingVenue = await venueService.getVenueById(req.params.id);
-        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+        if (existingVenue.owner._id.toString() !== req.user._id.toString()) {
             return res.status(403).json({ error: 'You do not own this venue' });
         }
         const venue = await venueService.updateAvailability(req.params.id, req.body);
@@ -150,7 +150,7 @@ router.post('/:id/cancel', venueOwnerAuth, async (req, res) => {
     try {
         // Verify ownership
         const existingVenue = await venueService.getVenueById(req.params.id);
-        if (existingVenue.owner.toString() !== req.user._id.toString()) {
+        if (existingVenue.owner._id.toString() !== req.user._id.toString()) {
             return res.status(403).json({ error: 'You do not own this venue' });
         }
         const result = await venueService.deleteVenue(req.params.id);

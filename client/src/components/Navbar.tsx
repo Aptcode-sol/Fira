@@ -43,6 +43,7 @@ export default function Navbar() {
     }, [isAuthenticated, user?._id]);
 
     const navLinks = [
+        { href: '/', label: 'Home' },
         { href: '/venues', label: 'Venues' },
         { href: '/events', label: 'Events' },
         { href: '/creators', label: 'Creators', badge: true },
@@ -188,6 +189,20 @@ export default function Navbar() {
             {/* Mobile Bottom Navigation */}
             <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10">
                 <div className="flex items-center justify-around px-2 py-3">
+                    {/* Home */}
+                    <Link
+                        href="/"
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/')
+                            ? 'text-white'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                        <span className="text-xs font-medium">Home</span>
+                    </Link>
+
                     {/* Venues */}
                     <Link
                         href="/venues"

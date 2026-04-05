@@ -38,6 +38,7 @@ export default function VenuePortalVenuesPage() {
     const [venues, setVenues] = useState<Venue[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
+    const [filterOpen, setFilterOpen] = useState(false);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -115,20 +116,46 @@ export default function VenuePortalVenuesPage() {
                 <FadeIn delay={0.1}>
                     <div className="mb-6">
                         <div className="relative w-full sm:w-56">
-                            <select
-                                value={filter}
-                                onChange={(e) => setFilter(e.target.value as any)}
-                                className="w-full appearance-none bg-white/[0.04] border border-white/[0.1] text-white text-sm font-medium rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all cursor-pointer hover:bg-white/[0.06]"
-                                style={{ colorScheme: 'dark' }}
+                            <button
+                                onClick={() => setFilterOpen(!filterOpen)}
+                                className="w-full flex items-center justify-between bg-white/[0.04] border border-white/[0.1] text-white text-sm font-medium rounded-xl px-4 py-3 hover:bg-white/[0.08] hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
                             >
-                                <option value="all" className="bg-[#1a1a1a]">All Venues ({venues.length})</option>
-                                <option value="approved" className="bg-[#1a1a1a]">Approved ({venues.filter(v => v.status === 'approved').length})</option>
-                                <option value="pending" className="bg-[#1a1a1a]">Pending ({venues.filter(v => v.status === 'pending').length})</option>
-                                <option value="rejected" className="bg-[#1a1a1a]">Rejected ({venues.filter(v => v.status === 'rejected').length})</option>
-                            </select>
-                            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+                                <span>
+                                    {filter === 'all' && `All Venues (${venues.length})`}
+                                    {filter === 'approved' && `Approved (${venues.filter(v => v.status === 'approved').length})`}
+                                    {filter === 'pending' && `Pending (${venues.filter(v => v.status === 'pending').length})`}
+                                    {filter === 'rejected' && `Rejected (${venues.filter(v => v.status === 'rejected').length})`}
+                                </span>
+                                <svg
+                                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${filterOpen ? 'rotate-180' : ''}`}
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            {filterOpen && (
+                                <div className="absolute top-full left-0 mt-2 w-full z-30 bg-black/90 backdrop-blur-xl border border-white/[0.1] rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+                                    {[
+                                        { value: 'all', label: `All Venues (${venues.length})` },
+                                        { value: 'approved', label: `Approved (${venues.filter(v => v.status === 'approved').length})` },
+                                        { value: 'pending', label: `Pending (${venues.filter(v => v.status === 'pending').length})` },
+                                        { value: 'rejected', label: `Rejected (${venues.filter(v => v.status === 'rejected').length})` },
+                                    ].map(({ value, label }) => (
+                                        <button
+                                            key={value}
+                                            onClick={() => { setFilter(value as any); setFilterOpen(false); }}
+                                            className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                                                filter === value
+                                                    ? 'bg-violet-500/20 text-violet-300'
+                                                    : 'text-gray-300 hover:bg-white/[0.06] hover:text-white'
+                                            }`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </FadeIn>
@@ -182,7 +209,7 @@ export default function VenuePortalVenuesPage() {
                                             </span>
                                         </div>
                                         <div className="flex gap-2 mt-4">
-                                            <Link href={`/venues/${venue._id}`} className="flex-1">
+                                            <Link href={`/venue-portal/venues/${venue._id}/preview`} className="flex-1">
                                                 <Button variant="secondary" size="sm" className="w-full">View</Button>
                                             </Link>
                                             <Link href={`/venue-portal/venues/${venue._id}/edit`} className="flex-1">

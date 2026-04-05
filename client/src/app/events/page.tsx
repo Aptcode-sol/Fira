@@ -35,11 +35,11 @@ const categories = [
 ];
 
 const sortOptions = [
+    { value: 'all', label: 'All Types' },
+    { value: 'today', label: 'Today' },
+    { value: 'popular', label: 'Popular' },
     { value: 'upcoming', label: 'Upcoming' },
-    { value: 'top', label: 'Popular' },
-    { value: 'featured', label: 'Featured' },
-    { value: 'latest', label: 'Latest' },
-    { value: 'nearby', label: 'Near You' },
+    { value: 'weekend', label: 'This Weekend' },
 ];
 
 const ticketTypeOptions = [
@@ -58,15 +58,15 @@ const dateFilterOptions = [
 export default function EventsPage() {
     // Section data
     const [sections, setSections] = useState<{
+        today: Event[];
+        popular: Event[];
         upcoming: Event[];
-        top: Event[];
-        latest: Event[];
-        nearby: Event[];
+        weekend: Event[];
     }>({
+        today: [],
+        popular: [],
         upcoming: [],
-        top: [],
-        latest: [],
-        nearby: []
+        weekend: []
     });
 
     // Filtered/paginated data
@@ -78,7 +78,7 @@ export default function EventsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
-    const [selectedSort, setSelectedSort] = useState('upcoming');
+    const [selectedSort, setSelectedSort] = useState('all'); // 'all' = sections view (default)
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState(false);
 
@@ -89,14 +89,14 @@ export default function EventsPage() {
     const [selectedDateFilter, setSelectedDateFilter] = useState('all');
     const [selectedCity, setSelectedCity] = useState('');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedSort !== 'upcoming' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedCity !== '';
-    const defaultSort = 'upcoming';
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedCity !== '';
+    const defaultSort = 'all';
 
     // Reset filters
     const resetFilters = () => {
         setSearchQuery('');
         setSelectedCategory('All');
-        setSelectedSort(defaultSort);
+        setSelectedSort('all');
         setSelectedTicketType('all');
         setSelectedDateFilter('all');
         setSelectedCity('');
@@ -106,6 +106,9 @@ export default function EventsPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // Active sort label for filtered grid header
+    const activeSortLabel = sortOptions.find(o => o.value === selectedSort)?.label || '';
+
     // Fetch sections
     useEffect(() => {
         if (isFiltered) return;
@@ -113,24 +116,18 @@ export default function EventsPage() {
         const fetchSections = async () => {
             setIsLoading(true);
             try {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                        () => setLocationError(true)
-                    );
-                }
-
-                const [upcomingRes, topRes, latestRes] = await Promise.all([
-                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
+                const [todayRes, popularRes, upcomingRes, weekendRes] = await Promise.all([
+                    eventsApi.getAll({ eventType: 'public', dateFilter: 'today', sort: 'upcoming' }) as Promise<EventsResponse>,
                     eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ eventType: 'public', sort: 'latest' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ eventType: 'public', weekend: 'true', sort: 'upcoming' }) as Promise<EventsResponse>,
                 ]);
 
                 setSections({
+                    today: todayRes.events || [],
+                    popular: popularRes.events || [],
                     upcoming: upcomingRes.events || [],
-                    top: topRes.events || [],
-                    latest: latestRes.events || [],
-                    nearby: []
+                    weekend: weekendRes.events || [],
                 });
             } catch (error) {
                 console.error('Failed to fetch events:', error);
@@ -152,18 +149,35 @@ export default function EventsPage() {
                 eventType: 'public',
                 page: pageNum.toString(),
                 limit: '12',
-                sort: selectedSort,
             };
             if (searchQuery) params.search = searchQuery;
             if (selectedCategory !== 'All') params.category = selectedCategory;
             if (selectedTicketType !== 'all') params.ticketType = selectedTicketType;
+            if (selectedCity) params.city = selectedCity;
+
+            // Map section sort values to API params
+            if (selectedSort === 'today') {
+                params.dateFilter = 'today';
+                params.sort = 'upcoming';
+            } else if (selectedSort === 'popular') {
+                params.sort = 'top';
+                params.status = 'upcoming';
+            } else if (selectedSort === 'upcoming') {
+                params.sort = 'upcoming';
+                params.status = 'upcoming';
+            } else if (selectedSort === 'weekend') {
+                params.weekend = 'true';
+                params.sort = 'upcoming';
+            } else {
+                // 'all' or any other value — just show upcoming public events
+                params.sort = 'upcoming';
+                params.status = 'upcoming';
+            }
+
+            // Date filter row overrides
             if (selectedDateFilter === 'today') params.dateFilter = 'today';
             else if (selectedDateFilter === 'tomorrow') params.dateFilter = 'tomorrow';
             else if (selectedDateFilter === 'weekend') params.weekend = 'true';
-            if (selectedCity) params.city = selectedCity;
-
-            // Featured filter
-            if (selectedSort === 'featured') params.featured = 'true';
 
             const res = await eventsApi.getAll(params) as EventsResponse;
             const newEvents = res.events || [];
@@ -181,20 +195,20 @@ export default function EventsPage() {
             setIsLoading(false);
             setIsLoadingMore(false);
         }
-    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter]);
+    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter, selectedCity]);
 
     // Fetch when filters change
     useEffect(() => {
-        if (isFiltered) {
+        if (isFiltered || showAllMode) {
             setPage(1);
             const timeout = setTimeout(() => fetchFiltered(1, false), 300);
             return () => clearTimeout(timeout);
         }
-    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter, selectedCity, isFiltered, fetchFiltered]);
+    }, [searchQuery, selectedCategory, selectedSort, selectedTicketType, selectedDateFilter, selectedCity, isFiltered, showAllMode, fetchFiltered]);
 
     // Infinite scroll observer
     useEffect(() => {
-        if (!isFiltered || !hasMore || isLoadingMore) return;
+        if ((!isFiltered && !showAllMode) || !hasMore || isLoadingMore) return;
 
         observerRef.current = new IntersectionObserver(
             (entries) => {
@@ -210,19 +224,22 @@ export default function EventsPage() {
         }
 
         return () => observerRef.current?.disconnect();
-    }, [hasMore, isLoadingMore, isFiltered]);
+    }, [hasMore, isLoadingMore, isFiltered, showAllMode]);
 
     // Load more when page changes
     useEffect(() => {
-        if (page > 1 && isFiltered) {
+        if (page > 1 && (isFiltered || showAllMode)) {
             fetchFiltered(page, true);
         }
-    }, [page, isFiltered, fetchFiltered]);
+    }, [page, isFiltered, showAllMode, fetchFiltered]);
 
     const handleSeeAll = (sort: string) => {
         setSelectedSort(sort);
         setSelectedCategory('All');
         setSearchQuery('');
+        setSelectedTicketType('all');
+        setSelectedDateFilter('all');
+        setSelectedCity('');
         setShowAllMode(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -324,7 +341,15 @@ export default function EventsPage() {
                                     <div className="w-[calc(50%-6px)] md:w-32">
                                         <Select
                                             value={selectedSort}
-                                            onChange={setSelectedSort}
+                                            onChange={(val) => {
+                                                setSelectedSort(val);
+                                                if (val === 'all') {
+                                                    setShowAllMode(false);
+                                                    setGridData([]);
+                                                } else {
+                                                    setShowAllMode(true);
+                                                }
+                                            }}
                                             options={sortOptions}
                                             placeholder="Sort by"
                                         />
@@ -411,11 +436,12 @@ export default function EventsPage() {
                     )}
 
                     {/* Sections */}
-                    {!isLoading && !isFiltered && (
+                    {!isLoading && !isFiltered && !showAllMode && (
                         <>
+                            <Section title="Today" data={sections.today} sort="today" />
+                            <Section title="Popular Events" data={sections.popular} sort="popular" />
                             <Section title="Upcoming Events" data={sections.upcoming} sort="upcoming" />
-                            <Section title="Top Events" data={sections.top} sort="top" />
-                            <Section title="Recently Added" data={sections.latest} sort="latest" />
+                            <Section title="This Weekend" data={sections.weekend} sort="weekend" />
 
                             {/* CTA */}
                             <FadeIn>
@@ -476,13 +502,18 @@ export default function EventsPage() {
                     )}
 
                     {/* Filtered Grid */}
-                    {!isLoading && isFiltered && (
+                    {!isLoading && (isFiltered || showAllMode) && (
                         <>
-                            <div className="mb-4">
-                                <p className="text-gray-400 text-sm">
-                                    Showing {gridData.length} events
-                                    {selectedSort !== defaultSort && ` • Sorted by ${sortOptions.find(o => o.value === selectedSort)?.label}`}
-                                </p>
+                            <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                    {showAllMode && activeSortLabel && (
+                                        <h2 className="text-xl md:text-2xl font-bold text-white relative pl-4 mb-1">
+                                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 md:h-6 bg-gradient-to-b from-violet-500 to-pink-500 rounded-full"></span>
+                                            {activeSortLabel === 'Today' ? 'Today' : activeSortLabel === 'Popular' ? 'Popular Events' : activeSortLabel === 'Upcoming' ? 'Upcoming Events' : 'This Weekend'}
+                                        </h2>
+                                    )}
+                                    <p className="text-gray-400 text-sm">Showing {gridData.length} events</p>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

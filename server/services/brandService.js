@@ -158,8 +158,8 @@ const brandService = {
         if (!brand) throw new Error('Brand not found');
         if (!user) throw new Error('User not found');
 
-        // Check if already following
-        if (user.followingBrands.some(id => id.toString() === brandId.toString())) {
+        // Check if already following (guard against missing field for older users)
+        if ((user.followingBrands || []).some(id => id.toString() === brandId.toString())) {
             throw new Error('Already following this brand');
         }
 
@@ -179,8 +179,8 @@ const brandService = {
         const user = await User.findById(userId).select('followingBrands').lean();
         if (!user) throw new Error('User not found');
 
-        // Check if actually following
-        if (!user.followingBrands.some(id => id.toString() === brandId.toString())) {
+        // Check if actually following (guard against missing field for older users)
+        if (!(user.followingBrands || []).some(id => id.toString() === brandId.toString())) {
             throw new Error('Not following this brand');
         }
 
@@ -200,7 +200,7 @@ const brandService = {
         const user = await User.findById(userId).select('followingBrands').lean();
         if (!user) return { isFollowing: false };
 
-        return { isFollowing: user.followingBrands.some(id => id.toString() === brandId.toString()) };
+        return { isFollowing: (user.followingBrands || []).some(id => id.toString() === brandId.toString()) };
     }
 };
 
