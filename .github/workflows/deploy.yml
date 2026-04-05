@@ -1,0 +1,106 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+      - production
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  EC2_USER: ec2-user # Change to your EC2 user
+  EC2_HOST: ${{ secrets.EC2_HOST }} # Add your EC2 IP in GitHub Secrets
+  EC2_KEY: ${{ secrets.EC2_PRIVATE_KEY }} # Add your EC2 key in GitHub Secrets
+  DEPLOY_PATH: /home/ec2-user/fira # Adjust based on your EC2 setup
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies - Server
+        run: |
+          cd server
+          npm ci --production
+
+      - name: Install dependencies - Admin
+        run: |
+          cd admin
+          npm ci
+
+      - name: Install dependencies - Client
+        run: |
+          cd client
+          npm ci
+
+      - name: Build Admin Dashboard
+        run: |
+          cd admin
+          npm run build
+
+      - name: Build Frontend Client
+        run: |
+          cd client
+          npm run build
+
+      - name: Run linting
+        continue-on-error: true
+        run: |
+          cd admin && npm run lint 2>/dev/null || true
+          cd ../client && npm run lint 2>/dev/null || true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            echo ":::: Pulling latest code ::::"
+            cd ${{ env.DEPLOY_PATH }}
+            git pull origin main
+            
+            echo ":::: Installing dependencies ::::"
+            cd server && npm ci --production && cd ..
+            cd admin && npm ci && npm run build && cd ..
+            cd client && npm ci && npm run build && cd ..
+            
+            echo ":::: Restarting PM2 apps ::::"
+            pm2 delete fira-backend fira-admin fira-client || true
+            pm2 start ecosystem.config.js --env production
+            pm2 save
+            
+            echo ":::: Deployment complete ::::"
+            pm2 status
+          EOF
+
+      - name: Notify on success
+        if: success()
+        run: echo "✅ Deployment successful!"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ Deployment failed!"
