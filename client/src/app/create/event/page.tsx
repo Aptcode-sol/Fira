@@ -55,6 +55,9 @@ function CreateEventForm() {
     const [loadingVenues, setLoadingVenues] = useState(true);
     const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
     const [coverImagePreview, setCoverImagePreview] = useState<string>('');
+    const [isVenueDropdownOpen, setIsVenueDropdownOpen] = useState(false);
+    const [venueSearchQuery, setVenueSearchQuery] = useState('');
+    const filteredVenues = venues.filter(v => v.name.toLowerCase().includes(venueSearchQuery.toLowerCase()));
 
     useEffect(() => {
         // Only redirect if auth check is complete AND user is not authenticated
@@ -89,10 +92,6 @@ function CreateEventForm() {
             showToast('Please sign in to create an event', 'error');
             return;
         }
-        if (!formData.useCustomVenue && !formData.venueId) {
-            showToast('Please select a venue or create a custom venue', 'error');
-            return;
-        }
         if (!formData.name) {
             showToast('Please enter an event name', 'error');
             setStep(1);
@@ -105,6 +104,11 @@ function CreateEventForm() {
         }
         if (!formData.date) {
             showToast('Please select a start date', 'error');
+            setStep(2);
+            return;
+        }
+        if (!formData.endDate) {
+            showToast('Please select an end date', 'error');
             setStep(2);
             return;
         }
@@ -157,7 +161,7 @@ function CreateEventForm() {
 
             const eventData: any = {
                 organizer: user._id,
-                venue: formData.useCustomVenue ? null : formData.venueId,
+                venue: (formData.useCustomVenue || !formData.venueId) ? null : formData.venueId,
                 name: formData.name,
                 description: formData.description,
                 category: formData.category,
@@ -327,7 +331,7 @@ function CreateEventForm() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">End Date</label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">End Date *</label>
                                         <input
                                             type="date"
                                             value={formData.endDate}
@@ -335,13 +339,13 @@ function CreateEventForm() {
                                             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                                             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                                         />
-                                        <p className="mt-1 text-xs text-gray-500">Leave empty for single-day events</p>
+                                        <p className="mt-1 text-xs text-gray-500">Required field</p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Start Time</label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Start Time *</label>
                                         <input
                                             type="time"
                                             value={formData.startTime}
@@ -350,7 +354,7 @@ function CreateEventForm() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">End Time</label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">End Time *</label>
                                         <input
                                             type="time"
                                             value={formData.endTime}
@@ -361,26 +365,72 @@ function CreateEventForm() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Select Venue *</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Select Venue (Optional)</label>
                                     <div className="relative mb-4">
-                                        <select
-                                            value={formData.venueId}
-                                            onChange={(e) => setFormData({ ...formData, venueId: e.target.value, useCustomVenue: false })}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer"
-                                            disabled={loadingVenues || formData.useCustomVenue}
+                                        <div 
+                                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white flex justify-between items-center cursor-pointer ${loadingVenues || formData.useCustomVenue ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            onClick={() => {
+                                                if (!loadingVenues && !formData.useCustomVenue) {
+                                                    setIsVenueDropdownOpen(!isVenueDropdownOpen);
+                                                }
+                                            }}
                                         >
-                                            <option value="" className="bg-[#1a1a1a]">
-                                                {loadingVenues ? 'Loading venues...' : 'Select a venue'}
-                                            </option>
-                                            {venues.map((venue) => (
-                                                <option key={venue._id} value={venue._id} className="bg-[#1a1a1a]">
-                                                    {venue.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
+                                            <span className={formData.venueId ? "text-white" : "text-gray-400"}>
+                                                {loadingVenues ? 'Loading venues...' : 
+                                                 formData.venueId ? venues.find(v => v._id === formData.venueId)?.name || 'Selected Venue' : 'Select a venue'}
+                                            </span>
+                                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${isVenueDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+
+                                        {isVenueDropdownOpen && !formData.useCustomVenue && (
+                                            <>
+                                                <div className="fixed inset-0 z-40" onClick={() => setIsVenueDropdownOpen(false)} />
+                                                <div className="absolute z-50 w-full mt-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl overflow-hidden flex flex-col" style={{ maxHeight: '300px' }}>
+                                                    <div className="p-2 border-b border-white/10">
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="Search venues..." 
+                                                            value={venueSearchQuery}
+                                                            onChange={(e) => setVenueSearchQuery(e.target.value)}
+                                                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-500"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                    <div className="overflow-y-auto">
+                                                        <div 
+                                                            className={`px-4 py-3 cursor-pointer hover:bg-white/10 text-sm ${!formData.venueId ? 'text-gray-500' : 'text-gray-300'}`}
+                                                            onClick={() => {
+                                                                setFormData({ ...formData, venueId: '', useCustomVenue: false });
+                                                                setIsVenueDropdownOpen(false);
+                                                                setVenueSearchQuery('');
+                                                            }}
+                                                        >
+                                                            Clear Selection
+                                                        </div>
+                                                        {filteredVenues.length > 0 ? (
+                                                            filteredVenues.map(venue => (
+                                                                <div 
+                                                                    key={venue._id} 
+                                                                    className={`px-4 py-3 cursor-pointer hover:bg-violet-500/20 text-sm ${formData.venueId === venue._id ? 'bg-violet-500/10 text-violet-400' : 'text-gray-300'} transition-colors`}
+                                                                    onClick={() => {
+                                                                        setFormData({ ...formData, venueId: venue._id, useCustomVenue: false });
+                                                                        setIsVenueDropdownOpen(false);
+                                                                        setVenueSearchQuery('');
+                                                                    }}
+                                                                >
+                                                                    {venue.name}
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="px-4 py-3 text-sm text-gray-500 text-center">No venues found</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="flex-1 h-px bg-white/10"></div>

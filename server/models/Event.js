@@ -10,14 +10,7 @@ const eventSchema = new mongoose.Schema({
     venue: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Venue',
-        // Required only when not using a custom venue
-        required: function () {
-            try {
-                return !(this.customVenue && this.customVenue.isCustom);
-            } catch (e) {
-                return true;
-            }
-        }
+        required: false
     },
     booking: {
         type: mongoose.Schema.Types.ObjectId,

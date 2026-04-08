@@ -226,8 +226,13 @@ export default function Events() {
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mt-4">
                                                     <div>
-                                                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Venue</span>
-                                                        <span className="text-gray-300">{event.venue?.name || 'N/A'}</span>
+                                                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Venue & Location</span>
+                                                        <span className="text-gray-300 block">
+                                                            {event.customVenue?.isCustom ? event.customVenue.name : (event.venue?.name || 'N/A')}
+                                                        </span>
+                                                        <span className="text-gray-500 text-xs">
+                                                            {event.customVenue?.isCustom ? event.customVenue.city : (event.venue?.address?.city || 'Unknown Location')}
+                                                        </span>
                                                     </div>
                                                     <div>
                                                         <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Start Time</span>
@@ -261,9 +266,9 @@ export default function Events() {
                                                 </Button>
                                                 <Button
                                                     size="sm"
+                                                    variant="success"
                                                     onClick={() => handleAdminApprove(event._id, 'approved')}
                                                     disabled={processingId === event._id}
-                                                    className="bg-green-600 hover:bg-green-700 text-white border-none"
                                                 >
                                                     {processingId === event._id ? 'Approving...' : 'Approve'}
                                                 </Button>
@@ -372,7 +377,12 @@ export default function Events() {
                                                             <span className="text-gray-500 text-xs">{event.organizer?.email}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-gray-300 text-sm">{event.venue?.name || 'N/A'}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-gray-300 text-sm">{event.customVenue?.isCustom ? event.customVenue.name : (event.venue?.name || 'N/A')}</span>
+                                                            <span className="text-gray-500 text-xs">{event.customVenue?.isCustom ? event.customVenue.city : (event.venue?.address?.city || 'Unknown Location')}</span>
+                                                        </div>
+                                                    </td>
                                                     <td className="px-6 py-4 text-gray-300 text-sm">{formatDateTime(event.startDateTime)}</td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col gap-1">

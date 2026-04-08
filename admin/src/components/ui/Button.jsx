@@ -18,6 +18,7 @@ export function Button({
         secondary: 'bg-transparent text-white border border-white/20 hover:border-white/40 hover:bg-white/5 focus:ring-white/50',
         ghost: 'bg-transparent text-white hover:bg-white/10 focus:ring-white/50',
         danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500',
+        success: 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500',
         violet: 'bg-violet-500 text-white hover:bg-violet-600 focus:ring-violet-500',
     };
 

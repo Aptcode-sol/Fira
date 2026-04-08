@@ -365,19 +365,19 @@ export default function DashboardEventDetailPage() {
         <DashboardLayout>
             <div className="p-6 lg:p-8">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-8">
-                    <div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div className="w-full md:w-auto">
                         <div className="flex items-center gap-3 mb-2">
-                            <Link href="/dashboard/events" className="text-gray-400 hover:text-white transition-colors">
+                            <Link href="/dashboard/events" className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors bg-white/5 rounded-lg md:bg-transparent">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </Link>
-                            <h1 className="text-3xl font-bold text-white">Manage Event</h1>
+                            <h1 className="text-2xl md:text-3xl font-bold text-white truncate">Manage Event</h1>
                         </div>
-                        <p className="text-gray-400">View bookings and manage your event</p>
+                        <p className="text-gray-400 text-sm md:text-base">View bookings and manage your event</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                         {isEditMode ? (
                             <>
                                 <Button
@@ -422,42 +422,42 @@ export default function DashboardEventDetailPage() {
                 </div>
 
                 {/* Hero Image */}
-                <div className="relative h-[300px] rounded-2xl overflow-hidden mb-8">
+                <div className="relative h-[200px] md:h-[300px] rounded-2xl overflow-hidden mb-8 group">
                     {event.images && event.images.length > 0 ? (
-                        <img src={event.images[0]} alt={event.name} className="w-full h-full object-cover" />
+                        <img src={event.images[0]} alt={event.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-violet-500/30 to-pink-500/30 flex items-center justify-center">
-                            <svg className="w-24 h-24 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-16 md:w-24 h-16 md:h-24 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                         </div>
                     )}
 
                     {/* Badges */}
-                    <div className="absolute top-4 left-4 flex gap-2">
+                    <div className="absolute top-4 left-4 flex flex-wrap gap-2">
                         {event.eventType === 'private' && (
-                            <span className="px-3 py-1.5 rounded-full bg-violet-500/30 backdrop-blur-sm border border-violet-500/30 text-violet-200 text-sm font-medium flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-violet-500/40 backdrop-blur-md border border-violet-500/30 text-violet-100 text-[10px] md:text-sm font-medium flex items-center gap-1.5">
+                                <svg className="w-3 md:w-4 h-3 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
-                                Private Event
+                                Private
                             </span>
                         )}
-                        <span className="px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white text-sm capitalize">
+                        <span className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] md:text-sm capitalize font-medium border border-white/10">
                             {event.category}
                         </span>
-                        <span className={`px-3 py-1.5 rounded-full backdrop-blur-sm text-sm capitalize ${event.status === 'upcoming' ? 'bg-green-500/30 text-green-200' :
-                            event.status === 'ongoing' ? 'bg-blue-500/30 text-blue-200' :
-                                event.status === 'completed' ? 'bg-gray-500/30 text-gray-200' :
-                                    'bg-red-500/30 text-red-200'
+                        <span className={`px-2 md:px-3 py-1 md:py-1.5 rounded-full backdrop-blur-md text-[10px] md:text-sm capitalize font-medium border ${event.status === 'upcoming' ? 'bg-green-500/40 text-green-100 border-green-500/30' :
+                            event.status === 'ongoing' ? 'bg-blue-500/40 text-blue-100 border-blue-500/30' :
+                                event.status === 'completed' ? 'bg-gray-500/40 text-gray-100 border-gray-500/30' :
+                                    'bg-red-500/40 text-red-100 border-red-500/30'
                             }`}>
                             {event.status}
                         </span>
                     </div>
 
                     {/* Date/Time Range Banner */}
-                    <div className="absolute bottom-4 left-4 px-4 py-3 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10">
-                        <div className="text-white text-lg font-semibold">
+                    <div className="absolute bottom-4 left-4 right-4 md:right-auto px-4 py-3 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 shadow-2xl">
+                        <div className="text-white text-sm md:text-lg font-semibold text-center md:text-left">
                             {formatDateTimeRange(event.startDateTime, event.endDateTime)}
                         </div>
                     </div>
@@ -619,7 +619,7 @@ export default function DashboardEventDetailPage() {
                                     </div>
 
                                     {/* Date & Time */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm text-gray-400 mb-1">Start Date *</label>
                                             <input
@@ -640,7 +640,7 @@ export default function DashboardEventDetailPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm text-gray-400 mb-1">Start Time *</label>
                                             <input
@@ -662,7 +662,7 @@ export default function DashboardEventDetailPage() {
                                     </div>
 
                                     {/* Ticket Info */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm text-gray-400 mb-1">Max Attendees</label>
                                             <input

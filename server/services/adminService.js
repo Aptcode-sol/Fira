@@ -181,8 +181,18 @@ const adminService = {
         const filter = {};
 
         if (search) {
+            const matchingVenues = await Venue.find({
+                $or: [
+                    { name: new RegExp(search, 'i') },
+                    { 'address.city': new RegExp(search, 'i') }
+                ]
+            }).select('_id');
+            
             filter.$or = [
-                { name: new RegExp(search, 'i') }
+                { name: new RegExp(search, 'i') },
+                { 'customVenue.city': new RegExp(search, 'i') },
+                { 'customVenue.name': new RegExp(search, 'i') },
+                { venue: { $in: matchingVenues.map(v => v._id) } }
             ];
         }
         if (status && status !== 'all') filter.status = status;

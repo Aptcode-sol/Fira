@@ -164,7 +164,13 @@ const eventService = {
     // Create event
     async createEvent(data) {
         // Check for time slot conflicts at the venue
-        const { venue, startDateTime, endDateTime } = data;
+        let { venue, startDateTime, endDateTime } = data;
+        
+        // Handle empty string venue (from frontend) to avoid ObjectId cast errors
+        if (venue === '') {
+            venue = null;
+            data.venue = null;
+        }
 
         // Validate startDateTime is not in the past
         const now = new Date();
@@ -211,7 +217,37 @@ const eventService = {
             // Ensure admin approval stays pending (default), and no venue ID is required
         }
 
+        // --- NEW: Auto-approval for Tagged Organizers ---
+        try {
+            const User = require('../models/User');
+            const organizerUser = await User.findById(data.organizer);
+            
+            if (organizerUser && (organizerUser.isVerified === true || (organizerUser.verificationBadge && organizerUser.verificationBadge !== 'none'))) {
+                console.log(`🚀 Fast Track: Auto-approving admin part for tagged organizer: ${organizerUser.name} (${organizerUser.verificationBadge})`);
+                
+                data.adminApproval = {
+                    status: 'approved',
+                    respondedAt: new Date(),
+                    respondedBy: 'system'
+                };
+
+                // If venue is ALSO approved (like for custom venues), mark entire event as approved
+                if (data.venueApproval && data.venueApproval.status === 'approved') {
+                    data.status = 'approved';
+                }
+            }
+        } catch (err) {
+            console.error('Error during auto-approval check:', err.message);
+            // Don't fail the create process, just default to manual approval
+        }
+        // ----------------------------------------------
+
         const event = await Event.create(data);
+
+        // If fully approved, update venue availability
+        if (event.status === 'approved') {
+            await this.updateVenueAvailability(event);
+        }
 
         // Send email notification to venue owner (only for non-custom venues)
         if (venue && !data.customVenue?.isCustom) {
