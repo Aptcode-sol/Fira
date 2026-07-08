@@ -56,6 +56,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         localStorage.setItem('dashboard_sidebar_expanded', String(isExpanded));
     }, [isExpanded]);
 
+    useEffect(() => {
+        const handleToggle = () => {
+            setIsExpanded(prev => !prev);
+        };
+        window.addEventListener('toggle-dashboard-sidebar', handleToggle);
+        return () => window.removeEventListener('toggle-dashboard-sidebar', handleToggle);
+    }, []);
+
     const isVenueOwner = user?.role === 'venue_owner' || user?.role === 'admin';
 
     const getIcon = (name: string) => {
@@ -153,7 +161,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Mobile Overlay */}
             {isExpanded && (
                 <div 
-                    className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+                    className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
                     onClick={() => setIsExpanded(false)}
                 />
             )}
@@ -162,20 +170,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <aside
                 onMouseEnter={() => setIsExpanded(true)}
                 onMouseLeave={() => setIsExpanded(false)}
-                className={`fixed left-0 top-0 h-full bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-30 lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-16 lg:w-20'
-                    }`}
+                className={`fixed left-0 top-0 h-full bg-[#0a0a0a] lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
+                    isExpanded ? 'w-64' : 'w-0 lg:w-20 overflow-hidden border-none'
+                }`}
             >
                 {/* Logo and Mobile Toggle */}
                 <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-16 lg:h-20 relative">
-                    {/* Toggle Button for Mobile - visible when collapsed */}
-                    <button 
-                        onClick={(e) => { e.preventDefault(); setIsExpanded(true); }}
-                        className={`lg:hidden text-white absolute inset-0 flex items-center justify-center w-full h-full ${isExpanded ? 'hidden' : 'block'}`}
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </button>
+                    {/* Mobile Toggle Button removed as handled by Navbar Hamburger */}
                     
                     {/* Logo - Hidden on mobile if not expanded */}
                     <Link href="/" className={`flex items-center justify-center transition-opacity duration-300 ${(!isExpanded && 'hidden lg:flex') || 'flex'} w-full`}>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import Navbar from '@/components/Navbar';
 import VenuePortalLandingNavbar from '@/components/venue-portal/VenuePortalLandingNavbar';
 
 const navItems = [
@@ -70,6 +71,14 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
         localStorage.setItem('venue_sidebar_expanded', String(isExpanded));
     }, [isExpanded]);
 
+    useEffect(() => {
+        const handleToggle = () => {
+            setIsExpanded(prev => !prev);
+        };
+        window.addEventListener('toggle-dashboard-sidebar', handleToggle);
+        return () => window.removeEventListener('toggle-dashboard-sidebar', handleToggle);
+    }, []);
+
     const getIcon = (name: string) => {
         const icons: Record<string, React.ReactNode> = {
             'home': (
@@ -112,6 +121,17 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
             {/* Dark background */}
             <div className="party-bg"></div>
 
+            {/* Main Navbar */}
+            <Navbar />
+
+            {/* Mobile Overlay */}
+            {isMobile && isExpanded && (
+                <div 
+                    className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+                    onClick={() => setIsExpanded(false)}
+                />
+            )}
+
             {/* Party Light Rays */}
             <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0 overflow-hidden">
                 <div className="absolute top-0 left-1/2 w-[300px] h-[120vh] origin-top -translate-x-1/2 rotate-[-55deg] bg-gradient-to-b from-red-500/25 via-red-500/5 to-transparent blur-2xl"></div>
@@ -130,8 +150,11 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
             <aside
                 onMouseEnter={() => { if (!isMobile) setIsExpanded(true); }}
                 onMouseLeave={() => { if (!isMobile) setIsExpanded(false); }}
-                className={`fixed left-0 top-0 h-full bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-30 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${!isMobile && isExpanded ? 'w-64' : 'w-[68px] lg:w-20'
-                    }`}
+                className={`fixed left-0 top-0 h-full bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
+                    isMobile 
+                        ? (isExpanded ? 'w-64' : 'w-0 overflow-hidden border-none') 
+                        : (isExpanded ? 'w-64' : 'w-20')
+                }`}
             >
                 {/* Logo */}
                 <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-20">
@@ -212,8 +235,11 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
             </aside>
 
             {/* Main Content */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-4 pb-20 lg:pb-0 transition-all duration-300 ${!isMobile && isExpanded ? 'ml-64' : 'ml-[68px] lg:ml-20'
-                }`}>
+            <main className={`flex-1 min-h-screen relative z-10 pt-16 lg:pt-4 pb-20 lg:pb-0 transition-all duration-300 ${
+                isMobile 
+                    ? 'ml-0' 
+                    : (isExpanded ? 'ml-64' : 'ml-20')
+            }`}>
                 {children}
             </main>
         </div>

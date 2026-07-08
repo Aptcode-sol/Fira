@@ -4,12 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { notificationsApi } from '@/lib/api';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const [shouldAnimate, setShouldAnimate] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -62,10 +63,19 @@ export default function Navbar() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Close menu when route changes
+    // Close menu and drawer when route changes
     useEffect(() => {
         setIsMenuOpen(false);
+        setIsSideDrawerOpen(false);
     }, [pathname]);
+
+    const handleHamburgerClick = () => {
+        if (pathname.startsWith('/dashboard') || pathname.startsWith('/venue-portal')) {
+            window.dispatchEvent(new CustomEvent('toggle-dashboard-sidebar'));
+        } else {
+            setIsSideDrawerOpen(true);
+        }
+    };
 
     return (
         <>
@@ -250,26 +260,7 @@ export default function Navbar() {
                         <span className="text-xs font-medium">Creators</span>
                     </Link>
 
-                    {/* Inbox - Mobile */}
-                    {isAuthenticated && (
-                        <Link
-                            href="/inbox"
-                            className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${isActive('/inbox')
-                                ? 'text-white'
-                                : 'text-gray-400 hover:text-white'
-                                }`}
-                        >
-                            <div className="relative">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                </svg>
-                                {unreadCount > 0 && (
-                                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-violet-500 rounded-full"></span>
-                                )}
-                            </div>
-                            <span className="text-xs font-medium">Inbox</span>
-                        </Link>
-                    )}
+
 
                     {/* Profile/Dashboard */}
                     {isAuthenticated ? (
@@ -381,6 +372,176 @@ export default function Navbar() {
                     </div>
                 </div>
             )}
+            {/* Mobile Floating Dynamic Island Navbar - Phones Only */}
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[70%] min-w-[260px] max-w-[70%] md:hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-black/80 backdrop-blur-md border border-white/10 rounded-full shadow-lg">
+                    {/* Left: Hamburger (Visible only when logged in) */}
+                    <div className="w-7 flex items-center justify-start">
+                        {isAuthenticated ? (
+                            <button
+                                onClick={handleHamburgerClick}
+                                className="text-gray-400 hover:text-white p-1 focus:outline-none"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        ) : (
+                            <div className="w-5 h-5" /> // spacer to keep fira centered
+                        )}
+                    </div>
+
+                    {/* Center: Fira Logo/Text with Fascinate font like Hero */}
+                    <Link href="/" className="text-white hover:text-violet-400 transition-colors uppercase text-xl font-fascinate tracking-wide">
+                        FIRA
+                    </Link>
+
+                    {/* Right: Inbox (Visible only when logged in) */}
+                    <div className="w-7 flex items-center justify-end">
+                        {isAuthenticated ? (
+                            <Link href="/inbox" className="relative text-gray-400 hover:text-white transition-colors">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-violet-500 rounded-full"></span>
+                                )}
+                            </Link>
+                        ) : (
+                            <div className="w-5 h-5" /> // spacer to keep title centered
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile Left Drawer Navigation */}
+            <AnimatePresence>
+                {isSideDrawerOpen && (
+                    <div className="fixed inset-0 z-[60] md:hidden">
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.6 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black backdrop-blur-xs"
+                            onClick={() => setIsSideDrawerOpen(false)}
+                        />
+
+                        {/* Drawer Content */}
+                        <motion.div
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="absolute top-0 bottom-0 left-0 w-64 bg-zinc-950 border-r border-white/10 flex flex-col p-6 shadow-2xl"
+                        >
+                            {/* Drawer Header */}
+                            <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+                                <span className="text-white font-bold tracking-wider uppercase text-lg">fira</span>
+                                <button
+                                    onClick={() => setIsSideDrawerOpen(false)}
+                                    className="text-gray-400 hover:text-white p-1"
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Navigation Links */}
+                            <nav className="flex-1 space-y-2">
+                                {navLinks.map((link) => (
+                                    <Link
+                                        key={link.href}
+                                        href={link.href}
+                                        onClick={() => setIsSideDrawerOpen(false)}
+                                        className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${isActive(link.href)
+                                            ? 'bg-violet-600/20 text-white border border-violet-500/20 font-semibold'
+                                            : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                            }`}
+                                    >
+                                        <span>{link.label}</span>
+                                        {link.badge && (
+                                            <span className="w-2 h-2 rounded-full bg-violet-400" />
+                                        )}
+                                    </Link>
+                                ))}
+
+                                {/* Additional Links if Authenticated */}
+                                {isAuthenticated && (
+                                    <>
+                                        <div className="h-px bg-white/5 my-4" />
+                                        <Link
+                                            href="/dashboard"
+                                            onClick={() => setIsSideDrawerOpen(false)}
+                                            className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive('/dashboard')
+                                                ? 'bg-violet-600/20 text-white border border-violet-500/20 font-semibold'
+                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                }`}
+                                        >
+                                            Dashboard
+                                        </Link>
+                                        <Link
+                                            href="/messages"
+                                            onClick={() => setIsSideDrawerOpen(false)}
+                                            className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive('/messages')
+                                                ? 'bg-violet-600/20 text-white border border-violet-500/20 font-semibold'
+                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                }`}
+                                        >
+                                            Messages
+                                        </Link>
+                                        <Link
+                                            href="/dashboard/notifications"
+                                            onClick={() => setIsSideDrawerOpen(false)}
+                                            className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive('/dashboard/notifications')
+                                                ? 'bg-violet-600/20 text-white border border-violet-500/20 font-semibold'
+                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                }`}
+                                        >
+                                            Notifications
+                                        </Link>
+                                    </>
+                                )}
+                            </nav>
+
+                            {/* Footer / Auth buttons */}
+                            <div className="pt-4 border-t border-white/5 space-y-3">
+                                {isAuthenticated ? (
+                                    <div className="flex items-center gap-3 px-2 py-1">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+                                            <span className="text-white text-xs font-semibold">
+                                                {user?.name?.charAt(0)?.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
+                                            <p className="text-[11px] text-gray-500 truncate capitalize">{user?.role?.replace('_', ' ')}</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Link
+                                            href="/signin"
+                                            onClick={() => setIsSideDrawerOpen(false)}
+                                            className="block w-full py-3 text-center text-gray-400 hover:text-white text-sm"
+                                        >
+                                            Sign In
+                                        </Link>
+                                        <Link
+                                            href="/signup"
+                                            onClick={() => setIsSideDrawerOpen(false)}
+                                            className="block w-full py-2.5 text-center bg-white text-black font-semibold rounded-full text-sm hover:bg-gray-200 transition-all"
+                                        >
+                                            Get Started
+                                        </Link>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </>
     );
 }
