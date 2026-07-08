@@ -67,6 +67,7 @@ export default function BrandDashboardPage() {
     const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
     const [isCreatingPost, setIsCreatingPost] = useState(false);
     const [editingPost, setEditingPost] = useState<any>(null);
+    const [postError, setPostError] = useState('');
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -204,6 +205,7 @@ export default function BrandDashboardPage() {
         setPostImagePreviews([]);
         setEditingPost(null);
         setShowPostModal(false);
+        setPostError('');
     };
 
     // Create or Update post
@@ -211,6 +213,7 @@ export default function BrandDashboardPage() {
         if (!brand?._id || !user?._id || !postContent.trim()) return;
 
         setIsCreatingPost(true);
+        setPostError('');
         try {
             // Upload images to Cloudinary first (only on submit)
             let imageUrls: string[] = [];
@@ -240,6 +243,7 @@ export default function BrandDashboardPage() {
             fetchPosts();
         } catch (err) {
             console.error('Failed to create/update post:', err);
+            setPostError(err instanceof Error ? err.message : 'Failed to create post. Please try again.');
         } finally {
             setIsCreatingPost(false);
         }
@@ -263,6 +267,7 @@ export default function BrandDashboardPage() {
             fetchPosts();
         } catch (err) {
             console.error('Failed to delete post:', err);
+            alert(err instanceof Error ? err.message : 'Failed to delete post. Please try again.');
         }
     };
 
@@ -753,6 +758,12 @@ export default function BrandDashboardPage() {
                             </h3>
                         </div>
                         <div className="p-6 space-y-4">
+                            {/* Error message */}
+                            {postError && (
+                                <div className="px-4 py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
+                                    {postError}
+                                </div>
+                            )}
                             <textarea
                                 value={postContent}
                                 onChange={(e) => setPostContent(e.target.value)}

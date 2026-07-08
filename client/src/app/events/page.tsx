@@ -89,7 +89,7 @@ export default function EventsPage() {
     const [selectedDateFilter, setSelectedDateFilter] = useState('all');
     const [selectedCity, setSelectedCity] = useState('');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedCity !== '';
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedCity !== '' || selectedSort !== 'all';
     const defaultSort = 'all';
 
     // Reset filters
@@ -329,16 +329,19 @@ export default function EventsPage() {
                                         }
                                     />
                                 </div>
-                                <div className="flex gap-3 w-full md:w-auto flex-wrap">
-                                    <div className="w-[calc(50%-6px)] md:w-36">
+                                <div className="grid grid-cols-2 md:flex gap-3 w-full md:w-auto">
+                                    <div className="w-full md:w-36">
                                         <Select
                                             value={selectedCategory}
-                                            onChange={setSelectedCategory}
+                                            onChange={(val) => {
+                                                setSelectedCategory(val);
+                                                if (val !== 'All') setShowAllMode(true);
+                                            }}
                                             options={categories}
                                             placeholder="Category"
                                         />
                                     </div>
-                                    <div className="w-[calc(50%-6px)] md:w-32">
+                                    <div className="w-full md:w-32">
                                         <Select
                                             value={selectedSort}
                                             onChange={(val) => {

@@ -29,10 +29,6 @@ export default function VenueOwnerSignUpPage() {
         businessPhone: '',
         govIdType: '',
         govIdNumber: '',
-        bankAccountName: '',
-        bankAccountNumber: '',
-        bankIfscCode: '',
-        bankName: '',
     });
     const [govIdFile, setGovIdFile] = useState<File | null>(null);
     const [govIdPreview, setGovIdPreview] = useState('');
@@ -73,7 +69,11 @@ export default function VenueOwnerSignUpPage() {
 
         // Validate required gov ID fields for venue owners
         if (!formData.govIdType || !formData.govIdNumber) {
-            setError('Government ID type and number are required');
+            setError('Aadhaar or PAN card details are required for verification');
+            return;
+        }
+        if (!govIdFile) {
+            setError('Please upload a copy of your ID document (Aadhaar or PAN)');
             return;
         }
 
@@ -98,10 +98,6 @@ export default function VenueOwnerSignUpPage() {
                 govIdType: formData.govIdType,
                 govIdNumber: formData.govIdNumber,
                 govIdDocument: govIdDocumentUrl,
-                bankAccountName: formData.bankAccountName,
-                bankAccountNumber: formData.bankAccountNumber,
-                bankIfscCode: formData.bankIfscCode,
-                bankName: formData.bankName,
             });
 
             setStep('verify');
@@ -260,20 +256,17 @@ export default function VenueOwnerSignUpPage() {
                                                     value={formData.govIdType}
                                                     onChange={(val) => setFormData({ ...formData, govIdType: val })}
                                                     options={[
-                                                        { value: 'aadhar', label: 'Aadhar Card' },
+                                                        { value: 'aadhar', label: 'Aadhaar Card' },
                                                         { value: 'pan', label: 'PAN Card' },
-                                                        { value: 'driving_license', label: 'Driving License' },
-                                                        { value: 'passport', label: 'Passport' },
-                                                        { value: 'voter_id', label: 'Voter ID' },
                                                     ]}
                                                     placeholder="Select ID type"
                                                 />
                                             </div>
 
                                             <Input
-                                                label="ID Number"
+                                                label={formData.govIdType === 'pan' ? 'PAN Number' : 'Aadhaar Number'}
                                                 type="text"
-                                                placeholder="Enter your ID number"
+                                                placeholder={formData.govIdType === 'pan' ? 'e.g., ABCDE1234F' : 'e.g., 1234 5678 9012'}
                                                 value={formData.govIdNumber}
                                                 onChange={(e) => setFormData({ ...formData, govIdNumber: e.target.value })}
                                                 required
@@ -286,7 +279,7 @@ export default function VenueOwnerSignUpPage() {
 
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                    Upload ID Document (Optional)
+                                                    Upload ID Document *
                                                 </label>
                                                 <div className="relative">
                                                     <input
@@ -309,90 +302,38 @@ export default function VenueOwnerSignUpPage() {
                                                         }}
                                                         className="hidden"
                                                         id="govIdUpload"
+                                                        required
                                                     />
                                                     <label
                                                         htmlFor="govIdUpload"
-                                                        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition-colors"
+                                                        className={`flex items-center justify-center gap-2 w-full px-4 py-3 border rounded-xl cursor-pointer transition-colors ${
+                                                            govIdFile
+                                                                ? 'bg-green-500/10 border-green-500/40 hover:bg-green-500/20'
+                                                                : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                                        }`}
                                                     >
                                                         {govIdPreview ? (
-                                                            <span className="text-green-400 text-sm truncate">{govIdFile?.name || 'File selected'}</span>
+                                                            <span className="text-green-400 text-sm truncate flex items-center gap-2">
+                                                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                                {govIdFile?.name || 'File selected'}
+                                                            </span>
                                                         ) : (
                                                             <>
                                                                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                                                 </svg>
-                                                                <span className="text-gray-400 text-sm">Click to upload ID document</span>
+                                                                <span className="text-gray-400 text-sm">Click to upload Aadhaar / PAN document</span>
                                                             </>
                                                         )}
                                                     </label>
                                                 </div>
+                                                <p className="mt-1.5 text-xs text-gray-500">Supported formats: JPG, PNG, PDF (max 5MB)</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Bank Details Section */}
-                                    <div className="pt-4 border-t border-white/10">
-                                        <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                            </svg>
-                                            Bank Details (for payouts)
-                                        </h3>
-
-                                        <div className="space-y-4">
-                                            <Input
-                                                label="Account Holder Name"
-                                                type="text"
-                                                placeholder="Name as on bank account"
-                                                value={formData.bankAccountName}
-                                                onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
-                                                leftIcon={
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                    </svg>
-                                                }
-                                            />
-
-                                            <Input
-                                                label="Account Number"
-                                                type="text"
-                                                placeholder="Enter account number"
-                                                value={formData.bankAccountNumber}
-                                                onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
-                                                leftIcon={
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                                                    </svg>
-                                                }
-                                            />
-
-                                            <Input
-                                                label="IFSC Code"
-                                                type="text"
-                                                placeholder="e.g., SBIN0001234"
-                                                value={formData.bankIfscCode}
-                                                onChange={(e) => setFormData({ ...formData, bankIfscCode: e.target.value.toUpperCase() })}
-                                                leftIcon={
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                    </svg>
-                                                }
-                                            />
-
-                                            <Input
-                                                label="Bank Name"
-                                                type="text"
-                                                placeholder="e.g., State Bank of India"
-                                                value={formData.bankName}
-                                                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                                                leftIcon={
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                                                    </svg>
-                                                }
-                                            />
-                                        </div>
-                                    </div>
 
                                     <div className="relative">
                                         <Input

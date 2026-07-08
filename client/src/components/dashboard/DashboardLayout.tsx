@@ -19,6 +19,7 @@ const navItems = [
 
 const venueOwnerItems = [
     { href: '/dashboard/venues', icon: 'building-office', label: 'My Venues' },
+    { href: '/dashboard/requests', icon: 'inbox', label: 'Requests' },
 ];
 
 const eventOrganizerItems = [
@@ -108,6 +109,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             'document': (
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            ),
+            'inbox': (
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H8a2 2 0 01-2-2m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4a2 2 0 00-2 2v1a2 2 0 01-2 2H8a2 2 0 01-2-2v-1a2 2 0 00-2-2H4" />
                 </svg>
             ),
         };
@@ -350,7 +356,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </aside>
 
             {/* Main Content */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-4 pb-20 lg:pb-0 lg:pt-20 transition-all duration-300 ml-16 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
+            <main className={`flex-1 min-h-screen relative z-10 pt-16 pb-20 lg:pb-0 lg:pt-20 transition-all duration-300 ml-0 lg:ml-16 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
                 }`}>
                 {children}
             </main>

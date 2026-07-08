@@ -113,7 +113,7 @@ const postService = {
         const organizerId = event.organizer._id ? event.organizer._id.toString() : event.organizer.toString();
 
         // Verify user is the event organizer
-        if (organizerId !== userId) {
+        if (organizerId !== userId.toString()) {
             console.log('Auth check failed:', { organizerId, userId });
             throw new Error('Not authorized to post on this event');
         }
@@ -193,7 +193,7 @@ const postService = {
         if (!event) throw new Error('Event not found');
 
         const organizerId = event.organizer._id ? event.organizer._id.toString() : event.organizer.toString();
-        if (organizerId !== userId) {
+        if (organizerId !== userId.toString()) {
             throw new Error('Not authorized to update this post');
         }
 
@@ -214,7 +214,7 @@ const postService = {
         if (!event) throw new Error('Event not found');
 
         const organizerId = event.organizer._id ? event.organizer._id.toString() : event.organizer.toString();
-        if (organizerId !== userId) {
+        if (organizerId !== userId.toString()) {
             throw new Error('Not authorized to delete this post');
         }
 

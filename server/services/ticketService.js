@@ -72,6 +72,16 @@ const ticketService = {
             throw new Error('Event not found');
         }
 
+        // Check if event is in the past or completed/cancelled
+        const now = new Date();
+        const eventStart = new Date(event.startDateTime || event.date);
+        if (eventStart < now) {
+            throw new Error('Tickets cannot be purchased for past events');
+        }
+        if (event.status === 'completed' || event.status === 'cancelled') {
+            throw new Error(`This event is ${event.status}. Tickets are no longer available.`);
+        }
+
         if (event.currentAttendees + quantity > event.maxAttendees) {
             throw new Error('Not enough tickets available');
         }

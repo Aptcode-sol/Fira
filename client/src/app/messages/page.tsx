@@ -51,14 +51,17 @@ export default function MessagesPage() {
     }, [messages]);
 
     // Handle URL parameter for conversation
+    // This effect needs conversations already loaded (hence depends on conversations array)
+    // If the conversation isn't in list yet, it just won't auto-select (handled by loadConversations)
     useEffect(() => {
-        if (conversationIdFromUrl && conversations.length > 0) {
+        if (!conversationIdFromUrl || isLoading) return;
+        if (conversations.length > 0) {
             const conv = conversations.find(c => c._id === conversationIdFromUrl);
             if (conv) {
                 setSelectedConversation(conv);
             }
         }
-    }, [conversationIdFromUrl, conversations]);
+    }, [conversationIdFromUrl, conversations, isLoading]);
 
     const loadConversations = async () => {
         try {
@@ -127,7 +130,8 @@ export default function MessagesPage() {
 
     const getDisplayInfo = (conversation: Conversation) => {
         const other = getOtherParticipant(conversation);
-        const isBrandOwner = conversation.brand?.user === user?._id;
+        // Fix: compare as strings to handle ObjectId vs string mismatch
+        const isBrandOwner = conversation.brand?.user?.toString() === user?._id?.toString();
 
         if (conversation.brand && !isBrandOwner) {
             return {
@@ -189,7 +193,7 @@ export default function MessagesPage() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ height: 'calc(100vh - 200px)' }}>
                         {/* Conversations List */}
                         <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-2xl overflow-hidden">
                             <div className="p-4 border-b border-white/10">
@@ -287,8 +291,8 @@ export default function MessagesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Messages */}
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                    {/* Messages - min-h-0 is required for flex overflow to work correctly */}
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
                                         {messages.map(message => (
                                             <div
                                                 key={message._id}
@@ -309,14 +313,14 @@ export default function MessagesPage() {
                                         <div ref={messagesEndRef} />
                                     </div>
 
-                                    {/* Message Input */}
-                                    <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10">
+                                    {/* Message Input - flex-shrink-0 keeps it always visible at bottom */}
+                                    <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 flex-shrink-0 bg-black/20">
                                         <div className="flex gap-2">
                                             <Input
                                                 value={newMessage}
                                                 onChange={(e) => setNewMessage(e.target.value)}
                                                 placeholder="Type a message..."
-                                                className="flex-1 bg-black/40"
+                                                className="flex-1 bg-white/10 border-white/20 text-white placeholder-gray-400"
                                                 disabled={isSending}
                                             />
                                             <Button

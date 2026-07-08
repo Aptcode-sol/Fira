@@ -17,6 +17,22 @@ class EmailService {
    */
   initialize() {
     try {
+      // Check if email service is disabled
+      if (process.env.EMAIL_DISABLE === 'true') {
+        console.log('⚠️ Email service disabled via EMAIL_DISABLE environment variable.');
+        this.transporter = {
+          sendMail: async (mailOptions) => {
+            console.log(`✉️ [Mock Email Bypassed] To: ${mailOptions.to}, Subject: ${mailOptions.subject}`);
+            return { messageId: 'disabled-mock-id' };
+          },
+          verify: async () => {
+            console.log('✉️ [Mock Email Verify] Connection verified (mocked)');
+            return true;
+          }
+        };
+        return;
+      }
+
       // Validate required environment variables
       if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
         console.error('❌ Missing SMTP configuration. Please check your .env file.');

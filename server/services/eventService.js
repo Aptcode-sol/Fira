@@ -247,6 +247,11 @@ const eventService = {
         // If fully approved, update venue availability
         if (event.status === 'approved') {
             await this.updateVenueAvailability(event);
+            const booking = await this.createBookingForEvent(event);
+            if (booking) {
+                event.booking = booking._id;
+                await event.save();
+            }
         }
 
         // Send email notification to venue owner (only for non-custom venues)
@@ -455,6 +460,12 @@ const eventService = {
 
             // Mark event dates as booked in venue daySlots
             await this.updateVenueAvailability(event);
+
+            // Create booking automatically
+            const booking = await this.createBookingForEvent(event);
+            if (booking) {
+                event.booking = booking._id;
+            }
         }
 
         await event.save();
@@ -501,6 +512,12 @@ const eventService = {
 
                 // Mark event dates as booked in venue daySlots
                 await this.updateVenueAvailability(event);
+
+                // Create booking automatically
+                const booking = await this.createBookingForEvent(event);
+                if (booking) {
+                    event.booking = booking._id;
+                }
             }
         }
 
@@ -758,6 +775,62 @@ const eventService = {
         }
 
         await venue.save();
+    },
+
+    // Helper: Create booking automatically when event is approved
+    async createBookingForEvent(event) {
+        const Booking = require('../models/Booking');
+        const Venue = require('../models/Venue');
+
+        if (!event.venue) return null;
+
+        const venueId = event.venue._id || event.venue;
+        const venue = await Venue.findById(venueId);
+
+        // Check if a booking already exists for this event
+        const existingBooking = await Booking.findOne({ event: event._id });
+        if (existingBooking) {
+            console.log(`[createBookingForEvent] Booking already exists for event ${event._id}`);
+            return existingBooking;
+        }
+
+        // Calculate hours/days and pricing
+        const start = new Date(event.startDateTime);
+        const end = new Date(event.endDateTime);
+        const durationHours = Math.ceil((end - start) / (1000 * 60 * 60)) || 1;
+
+        let totalAmount = 0;
+        if (venue) {
+            const basePrice = venue.pricing?.basePrice || 0;
+            const pricePerHour = venue.pricing?.pricePerHour || 0;
+            totalAmount = pricePerHour > 0 ? (pricePerHour * durationHours) : basePrice;
+        }
+
+        // Helper to format time
+        const formatTime = (dt) => {
+            const hours = dt.getHours().toString().padStart(2, '0');
+            const mins = dt.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${mins}`;
+        };
+
+        const bookingData = {
+            user: event.organizer,
+            venue: venueId,
+            event: event._id,
+            bookingType: 'event',
+            bookingDate: start,
+            startTime: formatTime(start),
+            endTime: formatTime(end),
+            purpose: event.description || `Event: ${event.name}`,
+            expectedGuests: event.maxAttendees || 0,
+            status: 'accepted',
+            totalAmount: totalAmount,
+            paymentStatus: 'pending'
+        };
+
+        const booking = await Booking.create(bookingData);
+        console.log(`[createBookingForEvent] Created booking ${booking._id} for event ${event._id}`);
+        return booking;
     }
 };
 

@@ -327,8 +327,9 @@ export default function VenuesPage() {
                                         }
                                     />
                                 </div>
-                                <div className="flex gap-3 w-full md:w-auto flex-wrap">
-                                    <div className="w-[calc(33%-8px)] md:w-40">
+                                {/* Second line on mobile: 3 filters in row */}
+                                <div className="grid grid-cols-2 md:flex gap-3 w-full md:w-auto">
+                                    <div className="w-full md:w-40">
                                         <LocationFilter
                                             selectedCity={selectedCity}
                                             onCityChange={setSelectedCity}
@@ -336,7 +337,7 @@ export default function VenuesPage() {
                                             className="w-full"
                                         />
                                     </div>
-                                    <div className="w-[calc(33%-8px)] md:w-36">
+                                    <div className="w-full md:w-36">
                                         <Select
                                             value={selectedSort}
                                             onChange={setSelectedSort}
@@ -344,8 +345,8 @@ export default function VenuesPage() {
                                             placeholder="Sort by"
                                         />
                                     </div>
-                                    {/* Availability Date - moved here */}
-                                    <div className="w-[calc(33%-8px)] md:w-44 relative">
+                                    {/* Availability Date - full width on mobile */}
+                                    <div className="col-span-2 md:col-auto w-full md:w-44 relative">
                                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -363,9 +364,9 @@ export default function VenuesPage() {
                                 </div>
                             </div>
                             {/* Second row: Additional filters */}
-                            <div className="flex flex-wrap gap-3 items-center">
+                            <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 items-center">
                                 {/* Venue Type */}
-                                <div className="w-[calc(33%-8px)] md:w-32">
+                                <div className="w-full md:w-32">
                                     <Select
                                         value={selectedVenueType}
                                         onChange={setSelectedVenueType}
@@ -374,7 +375,7 @@ export default function VenuesPage() {
                                     />
                                 </div>
                                 {/* Capacity */}
-                                <div className="w-[calc(33%-8px)] md:w-36">
+                                <div className="w-full md:w-36">
                                     <Select
                                         value={selectedCapacity}
                                         onChange={setSelectedCapacity}
@@ -383,7 +384,7 @@ export default function VenuesPage() {
                                     />
                                 </div>
                                 {/* Price */}
-                                <div className="w-[calc(33%-8px)] md:w-32">
+                                <div className="w-full md:w-32">
                                     <Select
                                         value={selectedPrice}
                                         onChange={setSelectedPrice}
@@ -396,12 +397,12 @@ export default function VenuesPage() {
                                     <Button
                                         variant="ghost"
                                         onClick={resetFilters}
-                                        className="text-violet-400 hover:text-violet-300 whitespace-nowrap text-sm ml-auto"
+                                        className="col-span-2 md:col-auto text-violet-400 hover:text-violet-300 whitespace-nowrap text-sm md:ml-auto w-full md:w-auto"
                                     >
                                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>
-                                        Reset
+                                        Reset Filters
                                     </Button>
                                 )}
                             </div>

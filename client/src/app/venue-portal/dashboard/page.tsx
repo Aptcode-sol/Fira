@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { venuesApi } from '@/lib/api';
+import { venuesApi, bookingsApi, eventsApi } from '@/lib/api';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { Button } from '@/components/ui';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -69,14 +69,41 @@ export default function VenuePortalDashboardPage() {
                 const activeVenues = venues.filter(v => v.status === 'approved').length;
                 const pendingVenues = venues.filter(v => v.status === 'pending').length;
 
+                // Fetch bookings for all venues
+                let totalBookings = 0;
+                let pendingBookings = 0;
+                let totalRevenue = 0;
+                for (const venue of venues) {
+                    try {
+                        const bookings = await bookingsApi.getVenueBookings(venue._id) as any[];
+                        if (Array.isArray(bookings)) {
+                            totalBookings += bookings.length;
+                            pendingBookings += bookings.filter(b => b.status === 'pending').length;
+                            totalRevenue += bookings.filter(b => b.status === 'accepted' || b.status === 'completed').reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+                        }
+                    } catch (bookingErr) {
+                        console.error(`Failed to fetch bookings for venue ${venue._id}:`, bookingErr);
+                    }
+                }
+
+                // Fetch event requests count
+                let pendingEventRequests = 0;
+                try {
+                    const eventRequestsResult = await eventsApi.getVenueRequests(user._id) as any;
+                    const eventRequests = eventRequestsResult?.events || [];
+                    pendingEventRequests = eventRequests.filter((e: any) => e.venueApproval?.status === 'pending').length;
+                } catch (eventErr) {
+                    console.error('Failed to fetch event requests:', eventErr);
+                }
+
                 setStats({
                     totalVenues: venues.length,
                     activeVenues,
                     pendingVenues,
-                    totalBookings: 0,
-                    pendingBookings: 0, // Placeholder
-                    pendingEventRequests: 0, // Placeholder
-                    totalRevenue: 0, // Placeholder
+                    totalBookings,
+                    pendingBookings,
+                    pendingEventRequests,
+                    totalRevenue,
                 });
 
                 // Set recent activity from venues
