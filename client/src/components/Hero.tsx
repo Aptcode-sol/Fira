@@ -70,11 +70,13 @@ export default function Hero() {
                 {/* CTA Buttons - Center aligned with proper spacing */}
                 <FadeIn delay={0.4} duration={0.6} direction="up">
                     <div className="flex flex-col items-center gap-3">
-                        <div className="flex flex-row gap-4 justify-center">
+                        {/* Stacked on phones: side by side the buttons were too
+                            narrow and "Get Started Free" wrapped onto two lines. */}
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center w-full max-w-xs sm:max-w-none">
                             {/* View Parties - Glass morphic rounded */}
                             <button
                                 onClick={() => scrollToSection('parties-section')}
-                                className="min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
+                                className="w-full sm:w-auto sm:min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 whitespace-nowrap"
                             >
                                 View Parties
                             </button>
@@ -85,14 +87,14 @@ export default function Hero() {
                             {!isLoading && !isAuthenticated ? (
                                 <Link
                                     href="/signup"
-                                    className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium flex items-center justify-center"
+                                    className="w-full sm:w-auto sm:min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium flex items-center justify-center whitespace-nowrap"
                                 >
                                     Get Started Free
                                 </Link>
                             ) : (
                                 <button
                                     onClick={() => scrollToSection('create-section')}
-                                    className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium"
+                                    className="w-full sm:w-auto sm:min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium whitespace-nowrap"
                                 >
                                     Create Parties
                                 </button>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,8 +14,9 @@ export default function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [shouldAnimate, setShouldAnimate] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
-    const { isAuthenticated, isLoading, user } = useAuth();
+    const { isAuthenticated, isLoading, user, logout } = useAuth();
     const pathname = usePathname();
+    const router = useRouter();
 
     // Enable animation only after component mounts (client-side)
     useEffect(() => {
@@ -201,7 +202,7 @@ export default function Navbar() {
             {/* Mobile Bottom Navigation */}
             {/* pb-[env(safe-area-inset-bottom)] keeps the tab labels above the
                 iPhone home indicator instead of tucked under it. */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+            <div className="mobile-fixed-bar fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
                 <div className="flex items-center justify-around px-2 py-3">
                     {/* Home */}
                     <Link
@@ -377,7 +378,7 @@ export default function Navbar() {
                 </div>
             )}
             {/* Mobile Floating Dynamic Island Navbar - Phones Only */}
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[70%] min-w-[260px] max-w-[70%] md:hidden">
+            <div className="mobile-fixed-bar fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[70%] min-w-[260px] max-w-[70%] md:hidden">
                 <div className="flex items-center justify-between px-4 py-2 bg-black/80 backdrop-blur-md border border-white/10 rounded-full shadow-lg">
                     {/* Left: Hamburger (Visible only when logged in) */}
                     <div className="w-7 flex items-center justify-start">
@@ -548,6 +549,25 @@ export default function Navbar() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </Link>
+                                ) : null}
+
+                                {/* Sign out. There was no way to log out from
+                                    the mobile drawer at all - the only logout
+                                    lived inside the dashboard sidebar. */}
+                                {isAuthenticated ? (
+                                    <button
+                                        onClick={() => {
+                                            setIsSideDrawerOpen(false);
+                                            logout();
+                                            router.push('/signin');
+                                        }}
+                                        className="w-full flex items-center gap-3 px-2 py-3 -mx-2 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                                    >
+                                        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                        <span className="font-medium text-sm">Sign Out</span>
+                                    </button>
                                 ) : (
                                     <>
                                         <Link

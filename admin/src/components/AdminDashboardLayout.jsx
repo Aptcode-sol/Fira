@@ -18,6 +18,8 @@ export default function AdminDashboardLayout({ children, onLogout }) {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [isExpanded, setIsExpanded] = useState(() => {
+        // Desktop-only preference - on mobile this opens a full drawer.
+        if (window.innerWidth < 1024) return false;
         const saved = localStorage.getItem('admin_sidebar_expanded');
         return saved === 'true';
     });

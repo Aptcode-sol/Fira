@@ -17,6 +17,25 @@ const authService = {
      * Register new user and send OTP
      */
     async register({ email, password, name, role = 'user', city = null, businessName = null, businessPhone = null, govIdType = null, govIdNumber = null, govIdDocument = null, bankDetails = null }) {
+        // Reject spam payloads in the display name.
+        //
+        // A bot registered 48 accounts with names like
+        // "🎁Dene Hemen! 5K Lira Bonusunu Yakala! https://bit.ly/... 🎁" - the
+        // name field was being used to smuggle advertising links into anything
+        // that renders a user's name. Blocking the payload also stops the
+        // signup, so no OTP email is sent, which is what got the mail domain
+        // blocked by Zoho in the first place.
+        const cleanName = (name || '').trim();
+        if (cleanName.length < 2) {
+            throw new Error('Please enter your name.');
+        }
+        if (cleanName.length > 60) {
+            throw new Error('That name is too long.');
+        }
+        if (/https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|ly|xyz|ru|top|link|click)\b/i.test(cleanName)) {
+            throw new Error('Your name cannot contain a website address.');
+        }
+
         // Validate password strength
         const passwordCheck = passwordValidator.validate(password);
         if (!passwordCheck.isValid) {

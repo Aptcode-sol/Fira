@@ -25,6 +25,10 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
     const { user } = useAuth();
     const [isExpanded, setIsExpanded] = useState(() => {
         if (typeof window !== 'undefined') {
+            // Desktop-only preference - see DashboardLayout. On mobile this
+            // flag opens a full-screen drawer, so restoring it meant signing in
+            // landed you on a dashboard with the menu already covering it.
+            if (window.innerWidth < 1024) return false;
             const saved = localStorage.getItem('venue_sidebar_expanded');
             return saved === 'true';
         }

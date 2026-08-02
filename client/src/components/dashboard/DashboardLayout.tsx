@@ -36,6 +36,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const { user } = useAuth();
     const [isExpanded, setIsExpanded] = useState(() => {
         if (typeof window !== 'undefined') {
+            // Only restore the pinned state on desktop. Pinning is a desktop
+            // affordance; on a phone the same flag renders a full-screen drawer,
+            // so signing in on mobile landed you on the dashboard with the menu
+            // already covering the page.
+            if (window.innerWidth < 1024) return false;
             const saved = localStorage.getItem('dashboard_sidebar_expanded');
             return saved === 'true';
         }

@@ -346,3 +346,34 @@ body {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Fixed mobile bars during URL-bar collapse
+
+   Android Chrome hides its address bar as you scroll down and brings it back as
+   you scroll up. Fixed elements are positioned against the VISUAL viewport, so
+   during that animation the browser repositions them a frame behind the page -
+   which shows up as a gap opening under the top bar, then the bar sliding down
+   over the content.
+
+   Promoting the bars to their own compositor layer lets the browser move them
+   without a repaint, which removes most of the lag. `backdrop-filter` on a
+   non-promoted fixed element is especially bad for this, and both bars use it.
+
+   This reduces the effect substantially but cannot remove it entirely - it is
+   how the browser itself behaves. Only a non-fixed layout would avoid it.
+   --------------------------------------------------------------------------- */
+.mobile-fixed-bar {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Stops the whole page rubber-banding past its bounds on iOS, which drags the
+   fixed bars away from the screen edge mid-gesture. */
+@media (max-width: 767px) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}

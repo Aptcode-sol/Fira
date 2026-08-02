@@ -7,6 +7,13 @@ const connectDB = require('./config/db');
 
 const app = express();
 
+// Nginx sits in front of this in production, so without trusting the proxy
+// every request would appear to come from 127.0.0.1 - the rate limiters would
+// then see all traffic as one client and lock out every user at once.
+// `1` = trust exactly one hop (our own Nginx), not an arbitrary X-Forwarded-For
+// chain a client could forge.
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));

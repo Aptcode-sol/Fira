@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const authService = require('../services/authService');
 const auth = require('../middleware/auth');
+const { registerLimiter, otpLimiter, loginLimiter } = require('../middleware/rateLimiters');
 
 // POST /api/auth/register - Register new user
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     try {
         // `city` is collected on the signup form and is what powers city-based
         // discovery, so it has to be forwarded to the service.
@@ -17,7 +18,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/register-venue-owner - Register new venue owner
-router.post('/register-venue-owner', async (req, res) => {
+router.post('/register-venue-owner', registerLimiter, async (req, res) => {
     try {
         const { 
             email, 
@@ -57,7 +58,7 @@ router.post('/register-venue-owner', async (req, res) => {
 });
 
 // POST /api/auth/verify-otp - Verify OTP and activate account
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', otpLimiter, async (req, res) => {
     try {
         const { email, code } = req.body;
 
@@ -73,7 +74,7 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 // POST /api/auth/resend-otp - Resend OTP
-router.post('/resend-otp', async (req, res) => {
+router.post('/resend-otp', otpLimiter, async (req, res) => {
     try {
         const { email } = req.body;
 
@@ -89,7 +90,7 @@ router.post('/resend-otp', async (req, res) => {
 });
 
 // POST /api/auth/login - Login user
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         const result = await authService.login({ email, password });
@@ -119,7 +120,7 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /api/auth/forgot-password - Request password reset
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', otpLimiter, async (req, res) => {
     try {
         const { email } = req.body;
 
@@ -135,7 +136,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // POST /api/auth/verify-reset-otp - Verify reset code
-router.post('/verify-reset-otp', async (req, res) => {
+router.post('/verify-reset-otp', otpLimiter, async (req, res) => {
     try {
         const { email, code } = req.body;
 
@@ -151,7 +152,7 @@ router.post('/verify-reset-otp', async (req, res) => {
 });
 
 // POST /api/auth/reset-password - Reset password with token
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', loginLimiter, async (req, res) => {
     try {
         const { resetToken, newPassword } = req.body;
 

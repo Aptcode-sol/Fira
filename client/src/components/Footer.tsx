@@ -226,14 +226,6 @@ export default function Footer() {
                         >
                             © {new Date().getFullYear()} FIRA. All rights reserved.
                         </motion.p>
-                        <motion.p
-                            className="text-gray-600 text-xs font-medium"
-                            initial={{ opacity: 0 }}
-                            animate={isInView ? { opacity: 1 } : {}}
-                            transition={{ delay: 0.65 }}
-                        >
-                            <span className="text-violet-500/80">Owned and Protected by</span> Sure Phanindra Kumar
-                        </motion.p>
                     </div>
 
                     <motion.p

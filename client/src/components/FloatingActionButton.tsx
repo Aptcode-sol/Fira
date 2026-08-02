@@ -64,12 +64,12 @@ export default function FloatingActionButton() {
         return null;
     }
 
+    // The plus always reveals the menu now. Previously a non-creator's tap
+    // navigated straight to /create/event with no indication of what it would
+    // do - the "Create Event" label was a hover tooltip, so on a phone the
+    // button was unlabelled and jumped somewhere unexpected.
     const handleMainClick = () => {
-        if (isCreator) {
-            setShowOptions(!showOptions);
-        } else {
-            router.push('/create/event');
-        }
+        setShowOptions(!showOptions);
     };
 
     const handleCreatePost = () => {
@@ -98,7 +98,7 @@ export default function FloatingActionButton() {
                     className={`w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/25 flex items-center justify-center transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/30 z-50`}
                 >
                     <svg
-                        className={`w-6 h-6 transition-transform duration-300 ${showOptions ? 'rotate-45' : (isHovered && !isCreator ? 'rotate-90' : '')}`}
+                        className={`w-6 h-6 transition-transform duration-300 ${showOptions ? 'rotate-45' : ''}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -107,9 +107,10 @@ export default function FloatingActionButton() {
                     </svg>
                 </motion.button>
 
-                {/* Speed Dial Options for Creators */}
+                {/* Speed dial. Create Event is available to everyone; Create
+                    Post only appears for users who actually have a brand page. */}
                 <AnimatePresence>
-                    {isCreator && showOptions && (
+                    {showOptions && (
                         <div className="flex flex-col-reverse items-end gap-3 mb-3">
                             <motion.div
                                 initial={{ opacity: 0, y: 20, scale: 0.8 }}
@@ -131,37 +132,37 @@ export default function FloatingActionButton() {
                                 </button>
                             </motion.div>
 
-                            {/* CREATE POST REMOVED - commented out for now.
-                                Posting is still reachable from the brand
-                                dashboard; the modal below stays wired up.
-                            <motion.div
-                                initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 20, scale: 0.8 }}
-                                transition={{ delay: 0.05 }}
-                                className="flex items-center gap-3 mr-2"
-                            >
-                                <span className="bg-black/90 border border-white/10 text-white text-sm font-medium px-3 py-1.5 rounded-lg shadow-lg">
-                                    Create Post
-                                </span>
-                                <button
-                                    onClick={handleCreatePost}
-                                    disabled={!brandId}
-                                    className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg flex items-center justify-center hover:shadow-xl hover:shadow-violet-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            {/* Only for users with a brand page - a regular user
+                                has nothing to post as. */}
+                            {isCreator && brandId && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                                    transition={{ delay: 0.05 }}
+                                    className="flex items-center gap-3 mr-2"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                </button>
-                            </motion.div>
-                            */}
+                                    <span className="bg-black/90 border border-white/10 text-white text-sm font-medium px-3 py-1.5 rounded-lg shadow-lg">
+                                        Create Post
+                                    </span>
+                                    <button
+                                        onClick={handleCreatePost}
+                                        className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg flex items-center justify-center hover:shadow-xl hover:shadow-violet-500/30 transition-all"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </button>
+                                </motion.div>
+                            )}
                         </div>
                     )}
                 </AnimatePresence>
 
-                {/* Tooltip for Non-Creators */}
+                {/* Hover hint on desktop, only while the menu is closed - the
+                    speed dial already labels everything once it is open. */}
                 <AnimatePresence>
-                    {!isCreator && isHovered && (
+                    {!showOptions && isHovered && (
                         <motion.div
                             initial={{ opacity: 0, x: 10, y: -28 }} // Adjusted position to align with button center
                             animate={{ opacity: 1, x: 0, y: -28 }}
@@ -169,7 +170,7 @@ export default function FloatingActionButton() {
                             className="absolute right-full mr-3 whitespace-nowrap pointer-events-none" // pointer-events-none to prevent flickering
                         >
                             <span className="px-3 py-2 rounded-lg bg-black/90 border border-white/10 text-white text-sm font-medium shadow-lg">
-                                Create Event
+                                Create
                             </span>
                         </motion.div>
                     )}
