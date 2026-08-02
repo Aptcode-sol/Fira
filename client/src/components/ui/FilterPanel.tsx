@@ -193,7 +193,9 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                 </div>
             </div>
 
-            <div className="px-5 py-4 space-y-5 overflow-y-auto max-h-[60vh] md:max-h-[70vh]">
+            {/* Only this region scrolls; header and footer stay put. flex-1 +
+                min-h-0 lets it size to whatever space the capped panel leaves. */}
+            <div className="px-5 py-4 space-y-5 overflow-y-auto flex-1 min-h-0">
                 {groups.map(group => (
                     <div key={group.key}>
                         <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">{group.label}</p>
@@ -220,7 +222,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
             <button
                 type="button"
                 onClick={() => setIsOpen(open => !open)}
-                className={`flex items-center gap-2 h-[42px] px-4 rounded-xl border text-sm font-medium transition-all shrink-0 ${activeGroups.length > 0 || isOpen
+                className={`flex items-center justify-center md:justify-start gap-2 h-[42px] px-4 rounded-xl border text-sm font-medium transition-all w-full md:w-auto shrink-0 ${activeGroups.length > 0 || isOpen
                     ? 'bg-violet-500/20 border-violet-500/50 text-white'
                     : 'bg-black/40 border-white/10 text-gray-300 hover:text-white hover:border-white/20'
                     }`}
@@ -236,13 +238,15 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                 )}
             </button>
 
-            {/* Active filter chips */}
+            {/* Active filter chips. Desktop only - at half-width on a phone
+                they get crushed, and the count badge on the trigger already
+                says how many filters are on. */}
             {activeGroups.map(group => (
                 <button
                     key={group.key}
                     type="button"
                     onClick={() => group.onChange(group.defaultValue)}
-                    className="flex items-center gap-1.5 px-3 h-[30px] rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs hover:text-white hover:border-white/20 transition-all"
+                    className="hidden md:flex items-center gap-1.5 px-3 h-[30px] rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs hover:text-white hover:border-white/20 transition-all"
                 >
                     <span className="text-gray-500">{group.label}:</span>
                     {labelFor(group)}
@@ -254,10 +258,22 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
 
             {isOpen && (
                 <>
-                    {/* Mobile: bottom sheet */}
-                    <div className="md:hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
-                    <div className="md:hidden fixed inset-x-0 bottom-0 z-[71] bg-[#0d0d0d] border-t border-white/10 rounded-t-2xl shadow-2xl">
-                        {panelBody}
+                    {/* Mobile: centred dialog.
+                        Was a bottom sheet, but it sat underneath the fixed
+                        bottom nav bar and ran off the screen. Centring it in the
+                        viewport keeps the whole panel reachable regardless of
+                        how tall the filter list is, and the dvh cap means the
+                        body scrolls rather than the panel overflowing. */}
+                    <div
+                        className="md:hidden fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                        onClick={() => setIsOpen(false)}
+                    >
+                        <div
+                            className="w-full max-w-sm max-h-[calc(100dvh-3rem)] flex flex-col bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {panelBody}
+                        </div>
                     </div>
 
                     {/* Desktop: popover.
@@ -265,7 +281,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                         control sits at the right end of the toolbar - opening
                         leftwards is what keeps it on screen. The max-width also
                         clamps it to the viewport on narrow desktop windows. */}
-                    <div className="hidden md:block absolute top-full right-0 mt-2 w-[360px] max-w-[calc(100vw-2rem)] z-[70] bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+                    <div className="hidden md:flex flex-col absolute top-full right-0 mt-2 w-[360px] max-w-[calc(100vw-2rem)] max-h-[70vh] z-[70] bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
                         {panelBody}
                     </div>
                 </>

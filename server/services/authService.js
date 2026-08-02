@@ -396,6 +396,50 @@ const authService = {
     /**
      * Reset Password with verified OTP token
      */
+    /**
+     * Change the password of an already-signed-in user.
+     *
+     * Distinct from resetPassword: there is no emailed token here, so the
+     * current password is what proves the person at the keyboard is the account
+     * owner and not someone who walked up to an unlocked laptop.
+     */
+    async changePassword({ userId, currentPassword, newPassword }) {
+        if (!currentPassword || !newPassword) {
+            throw new Error('Current and new password are both required.');
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new Error('User not found.');
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            throw new Error('Your current password is incorrect.');
+        }
+
+        if (currentPassword === newPassword) {
+            throw new Error('Your new password must be different from your current one.');
+        }
+
+        const passwordCheck = passwordValidator.validate(newPassword);
+        if (!passwordCheck.isValid) {
+            throw new Error(passwordCheck.errors.join('. '));
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        // Tell the owner their password moved - this is the signal that
+        // surfaces an account takeover. Non-blocking.
+        emailService.sendPasswordChangedEmail(user.email, user.name).catch(err => {
+            console.error('Failed to send password changed email:', err.message);
+        });
+
+        return { success: true, message: 'Password changed successfully.' };
+    },
+
     async resetPassword({ resetToken, newPassword }) {
         // Verify reset token
         let decoded;

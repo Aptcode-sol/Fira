@@ -820,8 +820,11 @@ export default function DashboardEventDetailPage() {
                 </div>
             </div>
 
-            {/* Event Posts Section */}
-            <div className="bg-black/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 mt-8">
+            {/* Event Posts Section
+                This sits OUTSIDE the page's `p-6 lg:p-8` wrapper (that closes
+                just above), so it needs its own horizontal margin - without it
+                the card ran flush to both screen edges on mobile. */}
+            <div className="bg-black/40 backdrop-blur-sm border border-white/5 rounded-2xl p-4 sm:p-6 mt-8 mx-6 lg:mx-8 mb-8">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-semibold text-white">Event Posts</h3>
                     <Button onClick={() => setShowPostModal(true)}>

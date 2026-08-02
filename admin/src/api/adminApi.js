@@ -1,131 +1,171 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/admin';
+const MAIN_API_BASE = API_BASE.replace(/\/admin$/, '');
+
+export const ADMIN_TOKEN_KEY = 'fira_admin_token';
+
+/**
+ * Every admin request now carries the JWT issued by /api/auth/login. The
+ * server checks the token AND the admin role, so nothing here is a security
+ * boundary - it just avoids pointless 401s.
+ */
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    return {
+        ...extra,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+}
+
+/**
+ * Single place where responses are turned into data or errors.
+ *
+ * A 401/403 means the session is gone or the account is not an admin; clearing
+ * the token and reloading drops the user back to the login screen instead of
+ * leaving a dashboard full of silently failing panels.
+ */
+async function handle(res, fallbackMessage) {
+    if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        localStorage.removeItem('fira_admin_auth');
+        if (typeof window !== 'undefined') window.location.reload();
+        throw new Error('Your admin session has expired. Please sign in again.');
+    }
+    if (!res.ok) {
+        let message = fallbackMessage;
+        try {
+            const body = await res.json();
+            if (body?.error) message = body.error;
+        } catch {
+            // non-JSON error body; keep the fallback
+        }
+        throw new Error(message);
+    }
+    return res.json();
+}
 
 const adminApi = {
+    // ================== AUTH ==================
+    async login(email, password) {
+        const res = await fetch(`${MAIN_API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await handle(res, 'Invalid email or password');
+        if (data?.token) localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+        return data;
+    },
+
+    logout() {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+    },
     // ================== DASHBOARD ==================
     async getStats() {
-        const res = await fetch(`${API_BASE}/stats`);
-        if (!res.ok) throw new Error('Failed to fetch stats');
-        return res.json();
+        const res = await fetch(`${API_BASE}/stats`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch stats');
     },
 
     // ================== USERS ==================
     async getUsers(params = {}) {
         const query = new URLSearchParams(params).toString();
-        const res = await fetch(`${API_BASE}/users?${query}`);
-        if (!res.ok) throw new Error('Failed to fetch users');
-        return res.json();
+        const res = await fetch(`${API_BASE}/users?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch users');
     },
 
     async getUserById(userId) {
-        const res = await fetch(`${API_BASE}/users/${userId}`);
-        if (!res.ok) throw new Error('Failed to fetch user');
-        return res.json();
+        const res = await fetch(`${API_BASE}/users/${userId}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch user');
     },
 
     async blockUser(userId) {
-        const res = await fetch(`${API_BASE}/users/${userId}/block`, { method: 'PUT' });
-        if (!res.ok) throw new Error('Failed to block user');
-        return res.json();
+        const res = await fetch(`${API_BASE}/users/${userId}/block`, { method: 'PUT', headers: authHeaders() });
+        return handle(res, 'Failed to block user');
     },
 
     async unblockUser(userId) {
-        const res = await fetch(`${API_BASE}/users/${userId}/unblock`, { method: 'PUT' });
-        if (!res.ok) throw new Error('Failed to unblock user');
-        return res.json();
+        const res = await fetch(`${API_BASE}/users/${userId}/unblock`, { method: 'PUT', headers: authHeaders() });
+        return handle(res, 'Failed to unblock user');
     },
 
     // ================== VENUES ==================
     async getVenues(params = {}) {
         const query = new URLSearchParams(params).toString();
-        const res = await fetch(`${API_BASE}/venues?${query}`);
-        if (!res.ok) throw new Error('Failed to fetch venues');
-        return res.json();
+        const res = await fetch(`${API_BASE}/venues?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch venues');
     },
 
     async getVenueById(venueId) {
-        const res = await fetch(`${API_BASE}/venues/${venueId}`);
-        if (!res.ok) throw new Error('Failed to fetch venue');
-        return res.json();
+        const res = await fetch(`${API_BASE}/venues/${venueId}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch venue');
     },
 
     async updateVenueStatus(venueId, status) {
         const res = await fetch(`${API_BASE}/venues/${venueId}/status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ status })
         });
-        if (!res.ok) throw new Error('Failed to update venue status');
-        return res.json();
+        return handle(res, 'Failed to update venue status');
     },
 
     // ================== EVENTS ==================
     async getEvents(params = {}) {
         const query = new URLSearchParams(params).toString();
-        const res = await fetch(`${API_BASE}/events?${query}`);
-        if (!res.ok) throw new Error('Failed to fetch events');
-        return res.json();
+        const res = await fetch(`${API_BASE}/events?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch events');
     },
 
     async getEventById(eventId) {
-        const res = await fetch(`${API_BASE}/events/${eventId}`);
-        if (!res.ok) throw new Error('Failed to fetch event');
-        return res.json();
+        const res = await fetch(`${API_BASE}/events/${eventId}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch event');
     },
 
     async updateEventStatus(eventId, status) {
         const res = await fetch(`${API_BASE}/events/${eventId}/status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ status })
         });
-        if (!res.ok) throw new Error('Failed to update event status');
-        return res.json();
+        return handle(res, 'Failed to update event status');
     },
 
     // Get events pending admin approval (venue already approved)
     async getPendingEventApprovals(params = {}) {
         const query = new URLSearchParams(params).toString();
         // Use main API endpoint for pending events
-        const mainApiBase = import.meta.env.VITE_API_BASE_URL?.replace('/admin', '') || 'http://localhost:5000/api';
-        const res = await fetch(`${mainApiBase}/events/admin-pending?${query}`);
-        if (!res.ok) throw new Error('Failed to fetch pending events');
-        return res.json();
+        const res = await fetch(`${MAIN_API_BASE}/events/admin-pending?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch pending events');
     },
 
     // Admin approve/reject event
     async adminApproveEvent(eventId, adminId, status, rejectionReason) {
-        const mainApiBase = import.meta.env.VITE_API_BASE_URL?.replace('/admin', '') || 'http://localhost:5000/api';
-        const res = await fetch(`${mainApiBase}/events/${eventId}/admin-approve`, {
+        const res = await fetch(`${MAIN_API_BASE}/events/${eventId}/admin-approve`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ adminId, status, rejectionReason })
         });
-        if (!res.ok) throw new Error('Failed to approve event');
-        return res.json();
+        return handle(res, 'Failed to approve event');
     },
 
     // ================== BRANDS ==================
     async getBrands(params = {}) {
         const query = new URLSearchParams(params).toString();
-        const res = await fetch(`${API_BASE}/brands?${query}`);
-        if (!res.ok) throw new Error('Failed to fetch brands');
-        return res.json();
+        const res = await fetch(`${API_BASE}/brands?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch brands');
     },
 
     async getBrandById(brandId) {
-        const res = await fetch(`${API_BASE}/brands/${brandId}`);
-        if (!res.ok) throw new Error('Failed to fetch brand');
-        return res.json();
+        const res = await fetch(`${API_BASE}/brands/${brandId}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch brand');
     },
 
     async updateBrandStatus(brandId, status) {
         const res = await fetch(`${API_BASE}/brands/${brandId}/status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ status })
         });
-        if (!res.ok) throw new Error('Failed to update brand status');
-        return res.json();
+        return handle(res, 'Failed to update brand status');
     }
 };
 

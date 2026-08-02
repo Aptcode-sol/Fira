@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import adminApi from '../api/adminApi';
 import logo from '../assets/logo.png';
 
 export default function Login({ onLogin }) {
@@ -12,20 +13,37 @@ export default function Login({ onLogin }) {
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
+    /**
+     * Authenticate against the real API.
+     *
+     * This used to be a hardcoded string comparison (admin@gmail.com /
+     * admin123) evaluated in the browser - the password shipped inside the JS
+     * bundle for anyone to read, and it granted access to an API that checked
+     * nothing anyway. Now the server issues a JWT and every admin request
+     * carries it; the role check happens server-side where it cannot be
+     * bypassed by editing client code.
+     */
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
-        // Hardcoded credentials
-        if (email === 'admin@gmail.com' && password === 'admin123') {
-            setTimeout(() => {
-                onLogin();
-                navigate('/');
-            }, 500);
-        } else {
+        try {
+            const { user, token } = await adminApi.login(email, password);
+
+            // Authorisation is enforced server-side; this check only avoids
+            // dropping a non-admin into a dashboard where every call would 403.
+            if (user?.role !== 'admin') {
+                setError('This account does not have admin access.');
+                setIsLoading(false);
+                return;
+            }
+
+            onLogin({ user, token });
+            navigate('/');
+        } catch (err) {
+            setError(err?.message || 'Invalid email or password');
             setIsLoading(false);
-            setError('Invalid email or password');
         }
     };
 

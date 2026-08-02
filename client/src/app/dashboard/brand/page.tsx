@@ -337,7 +337,7 @@ export default function BrandDashboardPage() {
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No Brand Profile</h3>
                         <p className="text-gray-400 mb-6">Create your brand profile to build your presence.</p>
-                        <Link href="/create/brand">
+                        <Link href="/create/creator">
                             <Button>Create Brand Profile</Button>
                         </Link>
                     </div>

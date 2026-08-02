@@ -40,6 +40,18 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
     const [isClosing, setIsClosing] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
 
+    // Hover-to-peek, kept separate from the pinned `isExpanded` state.
+    //
+    // Hover used to call setIsExpanded directly, which had two bad effects:
+    // it overwrote the user's pinned preference in localStorage, and because
+    // the main content margin is driven by isExpanded it shoved the entire
+    // page sideways on every pointer pass down the left edge.
+    const [isHovered, setIsHovered] = useState(false);
+
+    // What the sidebar should LOOK like. Deliberately not used for the main
+    // content margin - on hover the sidebar overlays the page instead.
+    const isOpen = isExpanded || (!isMobile && isHovered);
+
     // Track screen size
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -148,12 +160,15 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
 
             {/* Sidebar - slim icon-only on mobile, expandable on desktop */}
             <aside
-                onMouseEnter={() => { if (!isMobile) setIsExpanded(true); }}
-                onMouseLeave={() => { if (!isMobile) setIsExpanded(false); }}
-                className={`fixed left-0 top-0 h-full bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
-                    isMobile 
-                        ? (isExpanded ? 'w-64' : 'w-0 overflow-hidden border-none') 
-                        : (isExpanded ? 'w-64' : 'w-20')
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                // inset-y-0 rather than top-0 + h-full - see DashboardLayout for
+                // why: `height:100%` on a fixed element drifts on mobile as the
+                // browser URL bar hides and reappears during scroll.
+                className={`fixed left-0 inset-y-0 bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
+                    isMobile
+                        ? (isExpanded ? 'w-64' : 'w-0 overflow-hidden border-none')
+                        : (isOpen ? 'w-64' : 'w-20')
                 }`}
             >
                 {/* Logo */}
@@ -164,7 +179,8 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                             alt="FIRA"
                             className="w-8 h-8 object-contain flex-shrink-0"
                         />
-                        <span className={`text-[10px] text-gray-400 font-medium tracking-wider uppercase transition-all duration-200 mt-0.5 ${isExpanded ? 'opacity-100' : 'opacity-100'}`}>
+                        {/* Was a ternary with the same value on both branches. */}
+                        <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase mt-0.5">
                             Venues
                         </span>
                     </Link>
@@ -181,13 +197,13 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                                 className={`flex items-center gap-3 px-3 py-3.5 lg:py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
                                     ? 'bg-white text-black shadow-lg shadow-white/10'
                                     : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                    } ${!isMobile && isExpanded ? '' : 'justify-center'}`}
-                                title={!((!isMobile) && isExpanded) ? item.label : undefined}
+                                    } ${!isMobile && isOpen ? '' : 'justify-center'}`}
+                                title={!((!isMobile) && isOpen) ? item.label : undefined}
                             >
                                 <span className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
                                     {getIcon(item.icon)}
                                 </span>
-                                {!isMobile && isExpanded && (
+                                {!isMobile && isOpen && (
                                     <span className="font-medium whitespace-nowrap">
                                         {item.label}
                                     </span>
@@ -199,7 +215,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
 
                 <div className="p-2 lg:p-3 border-t border-white/[0.08] bg-black/20">
                     {/* User avatar */}
-                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${!isMobile && isExpanded ? '' : 'justify-center'}`}>
+                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${!isMobile && isOpen ? '' : 'justify-center'}`}>
                         <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium shadow-lg shadow-violet-500/25 flex-shrink-0 overflow-hidden">
                             {user?.avatar ? (
                                 <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
@@ -207,7 +223,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                                 user?.name?.charAt(0).toUpperCase() || 'V'
                             )}
                         </div>
-                        {!isMobile && isExpanded && (
+                        {!isMobile && isOpen && (
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-white truncate">{user?.name || 'Venue Owner'}</div>
                                 <div className="text-xs text-gray-400 truncate">{user?.email}</div>
@@ -221,13 +237,13 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                             localStorage.removeItem('fira_user');
                             window.location.href = '/venue-portal/signin';
                         }}
-                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${!isMobile && isExpanded ? '' : 'justify-center'}`}
+                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${!isMobile && isOpen ? '' : 'justify-center'}`}
                         title="Sign Out"
                     >
                         <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        {!isMobile && isExpanded && (
+                        {!isMobile && isOpen && (
                             <span className="font-medium whitespace-nowrap">Sign Out</span>
                         )}
                     </button>

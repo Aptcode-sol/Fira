@@ -10,7 +10,10 @@ const navItems = [
     { href: '/users', icon: 'users', label: 'Users' },
 ];
 
-export default function AdminDashboardLayout({ children }) {
+// `onLogout` is passed by App.jsx but was not destructured here, so
+// handleLogout's `props.onLogout` threw "props is not defined" and logging out
+// did nothing.
+export default function AdminDashboardLayout({ children, onLogout }) {
     const location = useLocation();
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
@@ -23,14 +26,27 @@ export default function AdminDashboardLayout({ children }) {
     const [isClosing, setIsClosing] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
 
-    // Load user from localStorage
+    // Hover-to-peek, kept separate from the pinned `isExpanded` state so that
+    // hovering never overwrites the saved preference or shifts the page.
+    const [isHovered, setIsHovered] = useState(false);
+
+    // What the sidebar should LOOK like. Not used for the main content margin -
+    // on hover it overlays the page rather than pushing it sideways.
+    const isOpen = isExpanded || (!isMobile && isHovered);
+
+    // Load the signed-in admin. This used to hardcode "Admin User /
+    // admin@fira.com" regardless of who was logged in; the real details are
+    // stored at login now.
     useEffect(() => {
         const storedAuth = localStorage.getItem('fira_admin_auth');
         if (storedAuth) {
             try {
-                // In a real app we might store user details here. 
-                // For now, hardcode Admin.
-                setUser({ name: 'Admin User', email: 'admin@fira.com' });
+                const data = JSON.parse(storedAuth);
+                setUser({
+                    name: data?.name || 'Admin',
+                    email: data?.email || '',
+                    role: data?.role || 'admin',
+                });
             } catch (e) {
                 console.error(e);
             }
@@ -69,10 +85,11 @@ export default function AdminDashboardLayout({ children }) {
     }, [isExpanded]);
 
     const handleLogout = () => {
-        if (props.onLogout) {
-            props.onLogout();
+        if (onLogout) {
+            onLogout();
         } else {
             localStorage.removeItem('fira_admin_auth');
+            localStorage.removeItem('fira_admin_token');
             window.location.reload();
         }
     };
@@ -132,22 +149,50 @@ export default function AdminDashboardLayout({ children }) {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-white/20 via-white/3 to-transparent blur-3xl"></div>
             </div>
 
-            {/* Sidebar - slim icon-only on mobile, expandable on desktop */}
+            {/* Backdrop for the expanded drawer on mobile - without it there is
+                no way to dismiss the sidebar once it covers the page. */}
+            {isMobile && isExpanded && (
+                <div
+                    className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+                    onClick={() => setIsExpanded(false)}
+                />
+            )}
+
+            {/* Sidebar - icon rail by default, expands to labels */}
             <aside
-                onMouseEnter={() => { if (!isMobile) setIsExpanded(true); }}
-                onMouseLeave={() => { if (!isMobile) setIsExpanded(false); }}
-                className={`fixed left-0 top-0 h-full bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-30 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${!isMobile && isExpanded ? 'w-64' : 'w-[68px] lg:w-20'}`}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                // inset-y-0 rather than top-0 + h-full: `height:100%` on a fixed
+                // element resolves against the viewport, which mobile browsers
+                // resize as the URL bar hides on scroll - that made the pinned
+                // bottom section drift.
+                // Width follows isOpen on ALL sizes now - previously mobile was
+                // locked to a 68px rail with no way to expand it.
+                className={`fixed left-0 inset-y-0 bg-black/95 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-40 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-[68px] lg:w-20'}`}
             >
-                {/* Logo */}
-                <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-20">
-                    <Link href="/" className="flex flex-col items-center">
+                {/* Logo + collapse toggle */}
+                <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-20 relative">
+                    <Link to="/" className="flex flex-col items-center">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
                             <img src={logo} alt="Fira Logo" className="w-full h-full object-contain" />
                         </div>
-                        <span className={`text-[10px] text-gray-400 font-medium tracking-wider uppercase transition-all duration-200 mt-1 ${isExpanded ? 'opacity-100' : 'opacity-100'}`}>
+                        <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase mt-1">
                             Admin
                         </span>
                     </Link>
+
+                    {/* There was no toggle at all before - the sidebar could
+                        only hover-expand and never stay pinned. */}
+                    <button
+                        onClick={() => setIsExpanded(prev => !prev)}
+                        className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1 transition-opacity ${isOpen ? 'right-3 opacity-100' : 'right-2 opacity-0 pointer-events-none lg:opacity-60 lg:pointer-events-auto'}`}
+                        title={isExpanded ? 'Collapse sidebar' : 'Pin sidebar open'}
+                        aria-label={isExpanded ? 'Collapse sidebar' : 'Pin sidebar open'}
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
                 </div>
 
                 {/* Navigation */}
@@ -158,16 +203,19 @@ export default function AdminDashboardLayout({ children }) {
                             <Link
                                 key={item.href}
                                 to={item.href}
+                                // Close the drawer after navigating on mobile,
+                                // otherwise it stays over the page you just opened.
+                                onClick={() => { if (isMobile) setIsExpanded(false); }}
                                 className={`flex items-center gap-3 px-3 py-3.5 lg:py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
                                     ? 'bg-white text-black shadow-lg shadow-white/10'
                                     : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                    } ${!isMobile && isExpanded ? '' : 'justify-center'}`}
-                                title={!((!isMobile) && isExpanded) ? item.label : undefined}
+                                    } ${isOpen ? '' : 'justify-center'}`}
+                                title={!isOpen ? item.label : undefined}
                             >
                                 <span className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
                                     {getIcon(item.icon)}
                                 </span>
-                                {!isMobile && isExpanded && (
+                                {isOpen && (
                                     <span className="font-medium whitespace-nowrap">
                                         {item.label}
                                     </span>
@@ -179,11 +227,11 @@ export default function AdminDashboardLayout({ children }) {
 
                 <div className="p-2 lg:p-3 border-t border-white/[0.08] bg-black/20">
                     {/* User avatar */}
-                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${!isMobile && isExpanded ? '' : 'justify-center'}`}>
+                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${isOpen ? '' : 'justify-center'}`}>
                         <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium shadow-lg shadow-violet-500/25 flex-shrink-0">
-                            A
+                            {user?.name?.charAt(0)?.toUpperCase() || 'A'}
                         </div>
-                        {!isMobile && isExpanded && (
+                        {isOpen && (
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-white truncate break-words">{user?.name || 'Admin'}</div>
                                 <div className="text-xs text-gray-400 truncate">{user?.email}</div>
@@ -193,13 +241,13 @@ export default function AdminDashboardLayout({ children }) {
                     {/* Logout Button */}
                     <button
                         onClick={handleLogout}
-                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${!isMobile && isExpanded ? '' : 'justify-center'}`}
+                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${isOpen ? '' : 'justify-center'}`}
                         title="Sign Out"
                     >
                         <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        {!isMobile && isExpanded && (
+                        {isOpen && (
                             <span className="font-medium whitespace-nowrap">Sign Out</span>
                         )}
                     </button>
@@ -207,6 +255,8 @@ export default function AdminDashboardLayout({ children }) {
             </aside>
 
             {/* Main Content */}
+            {/* Margin tracks the COLLAPSED rail only, so hovering or opening the
+                drawer overlays the page rather than shoving it sideways. */}
             <main className={`flex-1 min-h-screen relative z-10 pt-4 pb-20 lg:pb-0 transition-all duration-300 ${!isMobile && isExpanded ? 'ml-64' : 'ml-[68px] lg:ml-20'}`}>
                 {children}
             </main>

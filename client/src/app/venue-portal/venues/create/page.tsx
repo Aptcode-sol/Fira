@@ -16,6 +16,11 @@ export default function VenuePortalCreateVenuePage() {
     const { isAuthenticated, isLoading, user } = useAuth();
     const { showToast } = useToast();
     const [step, setStep] = useState(1);
+
+    // Scroll back to the top on each step - see create/event for why.
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [step]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         name: '',

@@ -133,6 +133,12 @@ export const authApi = {
             body: JSON.stringify(data),
         }),
 
+    changePassword: (data: { currentPassword: string; newPassword: string }) =>
+        request<{ success: boolean; message: string }>('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
     registerVenueOwner: (data: {
         email: string;
         password: string;

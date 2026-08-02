@@ -131,6 +131,9 @@ export default function FloatingActionButton() {
                                 </button>
                             </motion.div>
 
+                            {/* CREATE POST REMOVED - commented out for now.
+                                Posting is still reachable from the brand
+                                dashboard; the modal below stays wired up.
                             <motion.div
                                 initial={{ opacity: 0, y: 20, scale: 0.8 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -151,6 +154,7 @@ export default function FloatingActionButton() {
                                     </svg>
                                 </button>
                             </motion.div>
+                            */}
                         </div>
                     )}
                 </AnimatePresence>

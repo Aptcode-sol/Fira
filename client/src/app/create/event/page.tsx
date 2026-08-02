@@ -20,6 +20,14 @@ function CreateEventForm() {
     const { showToast } = useToast();
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Jump back to the top whenever the step changes.
+    // On a phone the form is taller than the screen, so pressing Next at the
+    // bottom of step 1 dropped you into the middle of step 2 - it looked like
+    // nothing had happened.
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [step]);
     const [formData, setFormData] = useState({
         name: '',
         description: '',

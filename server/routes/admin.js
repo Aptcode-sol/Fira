@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const adminService = require('../services/adminService');
+const adminAuth = require('../middleware/adminAuth');
+
+// Gate EVERY admin route behind a valid token + admin role.
+// Applied with router.use rather than per-route so a route added later cannot
+// accidentally ship unprotected - which is exactly how this whole router ended
+// up publicly readable in the first place.
+router.use(adminAuth);
 
 // ================== DASHBOARD ==================
 router.get('/stats', async (req, res) => {

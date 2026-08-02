@@ -26,6 +26,11 @@ export default function CreateCreatorPage() {
     const router = useRouter();
     const { user, isLoading } = useAuth();
     const [currentStep, setCurrentStep] = useState(1);
+
+    // Scroll back to the top on each step - see create/event for why.
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentStep]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
 

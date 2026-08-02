@@ -77,3 +77,31 @@ export function getCityByName(name?: string | null): City | undefined {
 export const FEATURED_CITIES = FEATURED_CITY_SLUGS
     .map(slug => CITIES.find(c => c.slug === slug))
     .filter((c): c is City => Boolean(c));
+
+/**
+ * Every city offered in the signup "City" picker.
+ *
+ * Separate from CITIES on purpose. CITIES drives the /events/in/<city> and
+ * /venues/in/<city> landing pages, which only make sense where we actually have
+ * listings - generating 100+ near-empty pages would be thin content and hurt
+ * the site in search. This list, by contrast, should be broad: a new user in
+ * Coimbatore or Guwahati must be able to pick their own city at signup.
+ *
+ * All state capitals, union territory capitals and major metros, alphabetical.
+ */
+export const SIGNUP_CITIES: string[] = [
+    'Agartala', 'Agra', 'Ahmedabad', 'Aizawl', 'Ajmer', 'Aligarh', 'Allahabad (Prayagraj)',
+    'Amravati', 'Amritsar', 'Aurangabad', 'Bareilly', 'Belgaum', 'Bengaluru', 'Bhavnagar',
+    'Bhopal', 'Bhubaneswar', 'Bikaner', 'Bilaspur', 'Chandigarh', 'Chennai', 'Coimbatore',
+    'Cuttack', 'Dehradun', 'Delhi', 'Dhanbad', 'Dispur', 'Durgapur', 'Erode', 'Faridabad',
+    'Gandhinagar', 'Gangtok', 'Ghaziabad', 'Goa (Panaji)', 'Gorakhpur', 'Guntur', 'Gurugram',
+    'Guwahati', 'Gwalior', 'Howrah', 'Hubli-Dharwad', 'Hyderabad', 'Imphal', 'Indore',
+    'Itanagar', 'Jabalpur', 'Jaipur', 'Jalandhar', 'Jammu', 'Jamshedpur', 'Jodhpur',
+    'Kakinada', 'Kanpur', 'Kavaratti', 'Kochi', 'Kohima', 'Kolhapur', 'Kolkata', 'Kollam',
+    'Kota', 'Kozhikode', 'Kurnool', 'Lucknow', 'Ludhiana', 'Madurai', 'Mangaluru', 'Meerut',
+    'Mumbai', 'Mysuru', 'Nagpur', 'Nashik', 'Navi Mumbai', 'Nellore', 'Noida', 'Patna',
+    'Puducherry', 'Pune', 'Raipur', 'Rajahmundry', 'Rajkot', 'Ranchi', 'Rourkela', 'Salem',
+    'Sangli', 'Shillong', 'Shimla', 'Siliguri', 'Solapur', 'Srinagar', 'Surat', 'Thane',
+    'Thiruvananthapuram', 'Thrissur', 'Tiruchirappalli', 'Tirunelveli', 'Tirupati',
+    'Udaipur', 'Ujjain', 'Vadodara', 'Varanasi', 'Vijayawada', 'Visakhapatnam', 'Warangal',
+];

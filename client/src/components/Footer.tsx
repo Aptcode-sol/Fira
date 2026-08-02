@@ -178,21 +178,35 @@ export default function Footer() {
                     variants={itemVariants}
                 >
                     <h4 className="text-white text-sm font-bold mb-5">Popular cities</h4>
+                    {/* Each link gets a small violet chevron so it reads as
+                        clickable. `items-start` + a shrink-0 icon with matching
+                        line-height keeps the arrow aligned to the first line
+                        when a long city name wraps. */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
                         {FEATURED_CITIES.map(city => (
                             <div key={city.slug} className="flex flex-col gap-2">
-                                <Link
-                                    href={`/events/in/${city.slug}`}
-                                    className="text-gray-400 hover:text-violet-300 text-sm transition-colors"
-                                >
-                                    Events in {city.name}
-                                </Link>
-                                <Link
-                                    href={`/venues/in/${city.slug}`}
-                                    className="text-gray-500 hover:text-violet-300 text-sm transition-colors"
-                                >
-                                    Venues in {city.name}
-                                </Link>
+                                {[
+                                    { href: `/events/in/${city.slug}`, label: `Events in ${city.name}`, tone: 'text-gray-400' },
+                                    { href: `/venues/in/${city.slug}`, label: `Venues in ${city.name}`, tone: 'text-gray-500' },
+                                ].map(item => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`group flex items-start gap-1.5 text-sm leading-5 transition-colors ${item.tone} hover:text-violet-300`}
+                                    >
+                                        <span className="min-w-0">{item.label}</span>
+                                        <svg
+                                            className="w-3 h-3 mt-1 shrink-0 text-violet-500/70 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-violet-400"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth={2.5}
+                                            viewBox="0 0 24 24"
+                                            aria-hidden="true"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </Link>
+                                ))}
                             </div>
                         ))}
                     </div>

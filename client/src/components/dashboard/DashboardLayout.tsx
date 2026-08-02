@@ -195,7 +195,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <aside
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                className={`fixed left-0 top-0 h-full bg-[#0a0a0a] lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
+                // inset-y-0 (top AND bottom pinned) rather than top-0 + h-full.
+                // `height:100%` on a fixed element resolves against the viewport,
+                // which mobile browsers resize as the URL bar hides on scroll -
+                // that made the pinned bottom section drift up and settle back.
+                // Anchoring both edges makes it stretch instead of being sized once.
+                className={`fixed left-0 inset-y-0 bg-[#0a0a0a] lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
                     isOpen ? 'w-64' : 'w-0 lg:w-20 overflow-hidden border-none'
                 }`}
             >

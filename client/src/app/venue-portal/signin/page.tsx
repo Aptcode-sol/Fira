@@ -7,12 +7,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input } from '@/components/ui';
 import VenuePortalLandingNavbar from '@/components/venue-portal/VenuePortalLandingNavbar';
 import PartyBackground from '@/components/PartyBackground';
+import { useToast } from '@/components/ui/Toast';
 
 export default function VenueOwnerSignInPage() {
     const router = useRouter();
     const { login, logout } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const { showToast } = useToast();
     const [error, setError] = useState('');
+
+    /**
+     * Surface a failure. Errors previously rendered only as a banner at the top
+     * of the card, which is off-screen once the form is scrolled - a failed
+     * submit then looked like nothing happened. The banner stays; the toast
+     * guarantees the message is actually seen.
+     */
+    const fail = (message: string) => {
+        setError(message);
+        showToast(message, 'error');
+    };
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
         email: '',
@@ -29,7 +42,7 @@ export default function VenueOwnerSignInPage() {
 
             // Check if user is a venue owner
             if (user.role !== 'venue_owner') {
-                setError('This login is for venue owners only. Please use the regular sign in page.');
+                fail('This login is for venue owners only. Please use the regular sign in page.');
                 logout(); // Log them out immediately if they're not a venue owner
                 setIsLoading(false);
                 return;
@@ -38,9 +51,9 @@ export default function VenueOwnerSignInPage() {
             router.push('/venue-portal/dashboard');
         } catch (err) {
             if (err instanceof Error && err.message === 'EMAIL_NOT_VERIFIED') {
-                setError('Please verify your email first');
+                fail('Please verify your email first');
             } else {
-                setError(err instanceof Error ? err.message : 'Login failed');
+                fail(err instanceof Error ? err.message : 'Login failed');
             }
         } finally {
             setIsLoading(false);

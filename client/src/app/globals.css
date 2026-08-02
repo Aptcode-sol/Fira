@@ -330,3 +330,19 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari, Opera */
 }
+/* ---------------------------------------------------------------------------
+   Mobile bottom-navigation clearance
+
+   The bottom nav bar (Navbar.tsx) is `fixed bottom-0` and ~72px tall on phones.
+   Individual pages only reserved pb-16 / pb-20, so it sat on top of whatever
+   the page ended with - usually the footer links.
+
+   Padding the body is deliberate rather than patching each page: it covers
+   every route including ones added later, and it cannot be forgotten. The
+   safe-area inset keeps content clear of the iPhone home indicator too.
+   --------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

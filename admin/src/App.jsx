@@ -11,50 +11,57 @@ import BrandDetail from './pages/BrandDetail';
 import Users from './pages/Users';
 import UserDetail from './pages/UserDetail';
 import Login from './pages/Login';
+import adminApi, { ADMIN_TOKEN_KEY } from './api/adminApi';
 import './index.css';
 
 const AUTH_KEY = 'fira_admin_auth';
-const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check localStorage on mount for existing valid session
+  /**
+   * Restore a session on mount.
+   *
+   * The session is now the JWT itself - previously this was a self-declared
+   * `{authenticated: true}` flag with a client-chosen expiry, which anyone
+   * could write into localStorage by hand to "log in". The real gate is
+   * server-side; this only decides which screen to show.
+   */
   useEffect(() => {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     const storedAuth = localStorage.getItem(AUTH_KEY);
-    if (storedAuth) {
-      try {
-        const authData = JSON.parse(storedAuth);
-        const now = Date.now();
 
-        // Check if token is still valid (not expired)
-        if (authData.expiry && now < authData.expiry) {
-          setIsAuthenticated(true);
-        } else {
-          // Token expired, remove it
-          localStorage.removeItem(AUTH_KEY);
-        }
+    if (token && storedAuth) {
+      try {
+        JSON.parse(storedAuth);
+        setIsAuthenticated(true);
       } catch {
-        // Invalid JSON, remove it
         localStorage.removeItem(AUTH_KEY);
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
       }
+    } else {
+      // One without the other is a half-session (e.g. left over from the old
+      // hardcoded login) - clear both so the user gets a clean sign-in.
+      localStorage.removeItem(AUTH_KEY);
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
     }
     setIsLoading(false);
   }, []);
 
-  const handleLogin = () => {
-    // Store auth with expiry time (1 day from now)
-    const authData = {
-      authenticated: true,
-      expiry: Date.now() + TOKEN_EXPIRY_MS,
-      loginTime: new Date().toISOString()
-    };
-    localStorage.setItem(AUTH_KEY, JSON.stringify(authData));
+  const handleLogin = ({ user }) => {
+    // adminApi.login already stored the token.
+    localStorage.setItem(AUTH_KEY, JSON.stringify({
+      name: user?.name,
+      email: user?.email,
+      role: user?.role,
+      loginTime: new Date().toISOString(),
+    }));
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    adminApi.logout();
     localStorage.removeItem(AUTH_KEY);
     setIsAuthenticated(false);
   };

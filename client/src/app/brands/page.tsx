@@ -449,7 +449,7 @@ export default function BrandsPage() {
                                             <p className="text-gray-400 mb-8 max-w-xl mx-auto text-lg">
                                                 Get verified, build your profile, and connect with thousands of fans. Access exclusive tools to manage your events.
                                             </p>
-                                            <Link href="/create/brand">
+                                            <Link href="/create/creator">
                                                 <Button size="lg" className="bg-white text-black hover:bg-gray-200 font-bold px-8">
                                                     Apply for Verification
                                                 </Button>

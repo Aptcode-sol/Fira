@@ -66,6 +66,8 @@ interface VenuesResponse {
 
 export default function VenuesPage() {
     // Section data (for non-filtered view)
+    // `nearby` is scoped to the visitor's city; the rest are nationwide - the
+    // city leads the page rather than filtering all of it.
     const [sections, setSections] = useState<{
         topRated: Venue[];
         inDemand: Venue[];
@@ -225,18 +227,24 @@ export default function VenuesPage() {
                 //     );
                 // }
 
-                const cityScope: Record<string, string> = selectedCity ? { city: selectedCity } : {};
-                const [topRatedRes, inDemandRes, latestRes] = await Promise.all([
-                    venuesApi.getAll({ ...cityScope, status: 'approved', sort: 'topRated' }) as Promise<VenuesResponse>,
-                    venuesApi.getAll({ ...cityScope, status: 'approved', sort: 'inDemand' }) as Promise<VenuesResponse>,
-                    venuesApi.getAll({ ...cityScope, status: 'approved', sort: 'latest' }) as Promise<VenuesResponse>,
+                // Only the Near You request is city-scoped. Skipped entirely
+                // when no city is known rather than firing a discarded request.
+                const nearbyRequest = selectedCity
+                    ? venuesApi.getAll({ city: selectedCity, status: 'approved', sort: 'topRated' }) as Promise<VenuesResponse>
+                    : Promise.resolve<VenuesResponse>({ venues: [], totalPages: 0, currentPage: 1, total: 0 });
+
+                const [nearbyRes, topRatedRes, inDemandRes, latestRes] = await Promise.all([
+                    nearbyRequest,
+                    venuesApi.getAll({ status: 'approved', sort: 'topRated' }) as Promise<VenuesResponse>,
+                    venuesApi.getAll({ status: 'approved', sort: 'inDemand' }) as Promise<VenuesResponse>,
+                    venuesApi.getAll({ status: 'approved', sort: 'latest' }) as Promise<VenuesResponse>,
                 ]);
 
                 setSections({
                     topRated: topRatedRes.venues || [],
                     inDemand: inDemandRes.venues || [],
                     latest: latestRes.venues || [],
-                    nearby: []
+                    nearby: nearbyRes.venues || []
                 });
             } catch (error) {
                 console.error('Failed to fetch venues:', error);
@@ -340,11 +348,6 @@ export default function VenuesPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const hasSectionResults =
-        sections.topRated.length > 0 ||
-        sections.inDemand.length > 0 ||
-        sections.latest.length > 0;
-
     // LOCATION DISABLED - browser geolocation prompt
     // const handleEnableLocation = () => {
     //     if (!navigator.geolocation) return;
@@ -406,16 +409,14 @@ export default function VenuesPage() {
                     <SlideUp>
                         <div className="text-center mb-12">
                             <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6">
-                                {selectedCity ? (
-                                    <>Venues in <span className="text-violet-400">{selectedCity}</span></>
-                                ) : (
-                                    <>Discover <span className="text-violet-400">Venues</span></>
-                                )}
+                                {/* Generic on purpose: the sections below are
+                                    nationwide, with the city surfaced as the
+                                    "Near You" block rather than as a filter on
+                                    the whole page. */}
+                                Discover <span className="text-violet-400">Venues</span>
                             </h1>
                             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                                {selectedCity
-                                    ? `Banquet halls, rooftops, clubs and farmhouses across ${selectedCity}.`
-                                    : 'Find the perfect space for your next event. From intimate gatherings to grand celebrations.'}
+                                Find the perfect space for your next event. From intimate gatherings to grand celebrations.
                             </p>
                         </div>
                     </SlideUp>
@@ -439,14 +440,22 @@ export default function VenuesPage() {
                                     />
                                 </div>
 
-                                <CitySelector
-                                    value={selectedCity}
-                                    onChange={changeCity}
-                                    available={cities}
-                                    className="w-full md:w-44"
-                                />
+                                {/* City and Filters share one line, half each,
+                                    on mobile - they used to stack onto two rows. */}
+                                <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-3">
+                                    <CitySelector
+                                        value={selectedCity}
+                                        onChange={changeCity}
+                                        available={cities}
+                                        className="w-full md:w-44"
+                                    />
 
-                                <FilterPanel groups={filterGroups} onReset={resetFilters} />
+                                    <FilterPanel
+                                        groups={filterGroups}
+                                        onReset={resetFilters}
+                                        className="w-full md:w-auto"
+                                    />
+                                </div>
 
                                 {isFiltered && (
                                     <Button
@@ -483,34 +492,16 @@ export default function VenuesPage() {
                     {/* Section View (not filtered) */}
                     {!isLoading && !isFiltered && (
                         <>
-                            {/* A city can legitimately have no venues yet while
-                                it is being seeded - offer a way out rather than
-                                an apparently broken empty page. */}
-                            {selectedCity && !hasSectionResults && (
-                                <FadeIn>
-                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center mb-12">
-                                        <h2 className="text-xl font-bold text-white mb-2">
-                                            No venues in {selectedCity} yet
-                                        </h2>
-                                        <p className="text-gray-400 mb-6 max-w-lg mx-auto">
-                                            We are onboarding venues in {selectedCity} right now. Browse every
-                                            city in the meantime, or list your own venue here.
-                                        </p>
-                                        <div className="flex flex-wrap gap-3 justify-center">
-                                            <Button onClick={() => changeCity('')} variant="violet">
-                                                Show all cities
-                                            </Button>
-                                            <Link href="/venue-portal/signup">
-                                                <Button variant="ghost" className="text-white border border-white/10">
-                                                    List your venue
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </FadeIn>
-                            )}
+                            {/* Near You leads when the visitor's city has
+                                venues. Section returns null for an empty list,
+                                so a city with nothing simply drops the block -
+                                no empty state, no dead space. */}
+                            <Section
+                                title={selectedCity ? `Near You in ${selectedCity}` : 'Near You'}
+                                data={sections.nearby}
+                            />
 
-                            <Section title={selectedCity ? `Top Rated in ${selectedCity}` : 'Top Rated'} data={sections.topRated} sort="topRated" />
+                            <Section title="Top Rated" data={sections.topRated} sort="topRated" />
                             <Section title="In Demand" data={sections.inDemand} sort="inDemand" />
                             <Section title="Recently Added" data={sections.latest} sort="latest" />
 

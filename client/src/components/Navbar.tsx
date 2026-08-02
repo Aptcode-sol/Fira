@@ -199,7 +199,9 @@ export default function Navbar() {
             </motion.nav>
 
             {/* Mobile Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10">
+            {/* pb-[env(safe-area-inset-bottom)] keeps the tab labels above the
+                iPhone home indicator instead of tucked under it. */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
                 <div className="flex items-center justify-around px-2 py-3">
                     {/* Home */}
                     <Link
@@ -437,9 +439,17 @@ export default function Navbar() {
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                             className="absolute top-0 bottom-0 left-0 w-64 bg-zinc-950 border-r border-white/10 flex flex-col p-6 shadow-2xl"
                         >
-                            {/* Drawer Header */}
+                            {/* Drawer Header - logo mark rather than the word
+                                "fira" set in the body font, which did not match
+                                the brand anywhere else in the app. */}
                             <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-                                <span className="text-white font-bold tracking-wider uppercase text-lg">fira</span>
+                                <Link href="/" onClick={() => setIsSideDrawerOpen(false)} className="flex items-center">
+                                    <img
+                                        src="/logo white.png"
+                                        alt="FIRA"
+                                        className="h-8 w-auto object-contain"
+                                    />
+                                </Link>
                                 <button
                                     onClick={() => setIsSideDrawerOpen(false)}
                                     className="text-gray-400 hover:text-white p-1"
@@ -463,8 +473,13 @@ export default function Navbar() {
                                             }`}
                                     >
                                         <span>{link.label}</span>
+                                        {/* Verified tick, matching the Creators
+                                            tab everywhere else. Was a plain dot
+                                            here, which read as an unread badge. */}
                                         {link.badge && (
-                                            <span className="w-2 h-2 rounded-full bg-violet-400" />
+                                            <svg className="w-4 h-4 text-violet-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
                                         )}
                                     </Link>
                                 ))}
@@ -513,8 +528,14 @@ export default function Navbar() {
                             {/* Footer / Auth buttons */}
                             <div className="pt-4 border-t border-white/5 space-y-3">
                                 {isAuthenticated ? (
-                                    <div className="flex items-center gap-3 px-2 py-1">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+                                    // The name block looked tappable but did
+                                    // nothing - it now opens the dashboard.
+                                    <Link
+                                        href="/dashboard"
+                                        onClick={() => setIsSideDrawerOpen(false)}
+                                        className="flex items-center gap-3 px-2 py-2 -mx-2 rounded-xl hover:bg-white/5 transition-colors"
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shrink-0">
                                             <span className="text-white text-xs font-semibold">
                                                 {user?.name?.charAt(0)?.toUpperCase()}
                                             </span>
@@ -523,7 +544,10 @@ export default function Navbar() {
                                             <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
                                             <p className="text-[11px] text-gray-500 truncate capitalize">{user?.role?.replace('_', ' ')}</p>
                                         </div>
-                                    </div>
+                                        <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </Link>
                                 ) : (
                                     <>
                                         <Link

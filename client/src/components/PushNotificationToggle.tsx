@@ -59,16 +59,22 @@ export default function PushNotificationToggle({ className = '' }: { className?:
                     </p>
                 </div>
 
+                {/* The knob is positioned from `left-1`, not by translating an
+                    element with `left: auto`. Without an explicit left the
+                    browser used the span's static position, which a button's
+                    default padding and centre alignment pushed outside the
+                    capsule. `box-border`/`p-0` keep the track exactly 48x28. */}
                 <button
                     type="button"
                     onClick={handleToggle}
                     disabled={isBusy || isBlocked}
                     aria-pressed={isSubscribed}
-                    className={`relative shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isSubscribed ? 'bg-violet-500' : 'bg-white/10'
+                    aria-label={isSubscribed ? 'Turn off push notifications' : 'Turn on push notifications'}
+                    className={`relative shrink-0 w-12 h-7 p-0 box-border rounded-full transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${isSubscribed ? 'bg-violet-500' : 'bg-white/15'
                         }`}
                 >
                     <span
-                        className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${isSubscribed ? 'translate-x-6' : 'translate-x-1'
+                        className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${isSubscribed ? 'translate-x-5' : 'translate-x-0'
                             }`}
                     />
                 </button>

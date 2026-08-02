@@ -9,13 +9,26 @@ import { Button, Input, OTPInput, PasswordStrengthIndicator, Select } from '@/co
 import VenuePortalLandingNavbar from '@/components/venue-portal/VenuePortalLandingNavbar';
 import PartyBackground from '@/components/PartyBackground';
 import { uploadApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 export default function VenueOwnerSignUpPage() {
     const router = useRouter();
     const { setSession } = useAuth();
     const [step, setStep] = useState<'register' | 'verify'>('register');
     const [isLoading, setIsLoading] = useState(false);
+    const { showToast } = useToast();
     const [error, setError] = useState('');
+
+    /**
+     * Surface a failure. Errors previously rendered only as a banner at the top
+     * of the card, which is off-screen once the form is scrolled - a failed
+     * submit then looked like nothing happened. The banner stays; the toast
+     * guarantees the message is actually seen.
+     */
+    const fail = (message: string) => {
+        setError(message);
+        showToast(message, 'error');
+    };
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [otp, setOtp] = useState('');
@@ -65,17 +78,17 @@ export default function VenueOwnerSignUpPage() {
         setError('');
 
         if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
+            fail('Passwords do not match');
             return;
         }
 
         // Validate required gov ID fields for venue owners
         if (!formData.govIdType || !formData.govIdNumber) {
-            setError('Aadhaar or PAN card details are required for verification');
+            fail('Aadhaar or PAN card details are required for verification');
             return;
         }
         if (!govIdFile) {
-            setError('Please upload a copy of your ID document (Aadhaar or PAN)');
+            fail('Please upload a copy of your ID document (Aadhaar or PAN)');
             return;
         }
 
@@ -105,7 +118,7 @@ export default function VenueOwnerSignUpPage() {
             setStep('verify');
             setOtpExpiry(600);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Registration failed');
+            fail(err instanceof Error ? err.message : 'Registration failed');
             setUploadingId(false);
         } finally {
             setIsLoading(false);
@@ -117,7 +130,7 @@ export default function VenueOwnerSignUpPage() {
         setError('');
 
         if (otp.length !== 4) {
-            setError('Please enter the 4-digit verification code');
+            fail('Please enter the 4-digit verification code');
             return;
         }
 
@@ -135,7 +148,7 @@ export default function VenueOwnerSignUpPage() {
 
             router.push('/venue-portal/dashboard');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Verification failed');
+            fail(err instanceof Error ? err.message : 'Verification failed');
             setOtp('');
         } finally {
             setIsLoading(false);
@@ -153,7 +166,7 @@ export default function VenueOwnerSignUpPage() {
             setOtpExpiry(600);
             setOtp('');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to resend code');
+            fail(err instanceof Error ? err.message : 'Failed to resend code');
         } finally {
             setIsLoading(false);
         }
@@ -292,7 +305,7 @@ export default function VenueOwnerSignUpPage() {
                                                             const file = e.target.files?.[0];
                                                             if (file) {
                                                                 if (file.size > 5 * 1024 * 1024) {
-                                                                    setError('File size must be less than 5MB');
+                                                                    fail('File size must be less than 5MB');
                                                                     return;
                                                                 }
                                                                 setGovIdFile(file);

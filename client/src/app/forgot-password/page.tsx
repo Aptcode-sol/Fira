@@ -7,6 +7,7 @@ import { Button, Input, OTPInput } from '@/components/ui';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { authApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 type Step = 'email' | 'otp' | 'newPassword';
 
@@ -14,7 +15,19 @@ export default function ForgotPasswordPage() {
     const router = useRouter();
     const [step, setStep] = useState<Step>('email');
     const [isLoading, setIsLoading] = useState(false);
+    const { showToast } = useToast();
     const [error, setError] = useState('');
+
+    /**
+     * Surface a failure. Errors previously rendered only as a banner at the top
+     * of the card, which is off-screen once the form is scrolled - a failed
+     * submit then looked like nothing happened. The banner stays; the toast
+     * guarantees the message is actually seen.
+     */
+    const fail = (message: string) => {
+        setError(message);
+        showToast(message, 'error');
+    };
     const [success, setSuccess] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -39,7 +52,7 @@ export default function ForgotPasswordPage() {
             setSuccess(result.message);
             setStep('otp');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to send reset code');
+            fail(err instanceof Error ? err.message : 'Failed to send reset code');
         } finally {
             setIsLoading(false);
         }
@@ -61,7 +74,7 @@ export default function ForgotPasswordPage() {
             setSuccess(result.message);
             setStep('newPassword');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Invalid reset code');
+            fail(err instanceof Error ? err.message : 'Invalid reset code');
         } finally {
             setIsLoading(false);
         }
@@ -74,12 +87,12 @@ export default function ForgotPasswordPage() {
         setSuccess('');
 
         if (formData.newPassword !== formData.confirmPassword) {
-            setError('Passwords do not match');
+            fail('Passwords do not match');
             return;
         }
 
         if (formData.newPassword.length < 8) {
-            setError('Password must be at least 8 characters');
+            fail('Password must be at least 8 characters');
             return;
         }
 
@@ -97,7 +110,7 @@ export default function ForgotPasswordPage() {
                 router.push('/signin');
             }, 2000);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to reset password');
+            fail(err instanceof Error ? err.message : 'Failed to reset password');
         } finally {
             setIsLoading(false);
         }
@@ -113,7 +126,7 @@ export default function ForgotPasswordPage() {
             const result = await authApi.forgotPassword({ email: formData.email });
             setSuccess(result.message);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to resend code');
+            fail(err instanceof Error ? err.message : 'Failed to resend code');
         } finally {
             setIsLoading(false);
         }

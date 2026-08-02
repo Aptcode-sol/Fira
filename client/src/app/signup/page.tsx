@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/Toast';
+import { SIGNUP_CITIES } from '@/lib/cities';
 import { Button, Input, OTPInput, PasswordStrengthIndicator, Select } from '@/components/ui';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
@@ -13,6 +15,7 @@ function SignUpContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { setSession } = useAuth();
+    const { showToast } = useToast();
 
     // /signup?email=...&verify=true is where the sign-in page sends a user whose
     // email is not verified yet, so land them straight on the OTP step with the
@@ -37,12 +40,21 @@ function SignUpContent() {
         city: '',
     });
 
-    // Major Indian cities for selection
-    const cities = [
-        'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
-        'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow',
-        'Chandigarh', 'Goa', 'Kochi', 'Indore', 'Nagpur'
-    ];
+    // Full India city list (see lib/cities.ts). The Select is searchable, so a
+    // long list is fine - typing narrows it instantly.
+    const cities = SIGNUP_CITIES;
+
+
+    /**
+     * Surface a failure. Errors used to render only as a banner at the top of
+     * the card, which is off-screen once you have scrolled down the form - so
+     * a failed submit looked like nothing happened. The banner stays (it also
+     * drives the red OTP input styling) but a toast now guarantees it is seen.
+     */
+    const fail = (message: string) => {
+        setError(message);
+        showToast(message, 'error');
+    };
 
     // Countdown timer for OTP expiry
     useEffect(() => {
@@ -75,7 +87,7 @@ function SignUpContent() {
         setError('');
 
         if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
+            fail('Passwords do not match');
             return;
         }
 
@@ -93,7 +105,7 @@ function SignUpContent() {
             setStep('verify');
             setOtpExpiry(600); // Reset to 10 minutes
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Registration failed');
+            fail(err instanceof Error ? err.message : 'Registration failed');
         } finally {
             setIsLoading(false);
         }
@@ -104,7 +116,7 @@ function SignUpContent() {
         setError('');
 
         if (otp.length !== 4) {
-            setError('Please enter the 4-digit verification code');
+            fail('Please enter the 4-digit verification code');
             return;
         }
 
@@ -123,7 +135,7 @@ function SignUpContent() {
             // Redirect to dashboard
             router.push('/dashboard');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Verification failed');
+            fail(err instanceof Error ? err.message : 'Verification failed');
             setOtp(''); // Clear OTP on error
         } finally {
             setIsLoading(false);
@@ -142,7 +154,7 @@ function SignUpContent() {
             setOtpExpiry(600); // Reset expiry to 10 minutes
             setOtp(''); // Clear current OTP
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to resend code');
+            fail(err instanceof Error ? err.message : 'Failed to resend code');
         } finally {
             setIsLoading(false);
         }

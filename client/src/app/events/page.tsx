@@ -60,13 +60,16 @@ const dateFilterOptions = [
 ];
 
 export default function EventsPage() {
-    // Section data
+    // Section data. `nearYou` is scoped to the visitor's city; every other
+    // section is nationwide - the city leads the page rather than filtering it.
     const [sections, setSections] = useState<{
+        nearYou: Event[];
         today: Event[];
         popular: Event[];
         upcoming: Event[];
         weekend: Event[];
     }>({
+        nearYou: [],
         today: [],
         popular: [],
         upcoming: [],
@@ -152,12 +155,6 @@ export default function EventsPage() {
     // Active sort label for filtered grid header
     const activeSortLabel = sortOptions.find(o => o.value === selectedSort)?.label || '';
 
-    const hasSectionResults =
-        sections.today.length > 0 ||
-        sections.popular.length > 0 ||
-        sections.upcoming.length > 0 ||
-        sections.weekend.length > 0;
-
     // Every filter lives behind a single "Filters" control instead of a row of dropdowns.
     const filterGroups: FilterGroup[] = [
         {
@@ -222,15 +219,28 @@ export default function EventsPage() {
         const fetchSections = async () => {
             setIsLoading(true);
             try {
-                const cityScope: Record<string, string> = selectedCity ? { city: selectedCity } : {};
-                const [todayRes, popularRes, upcomingRes, weekendRes] = await Promise.all([
-                    eventsApi.getAll({ ...cityScope, eventType: 'public', dateFilter: 'today', sort: 'upcoming' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ ...cityScope, status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ ...cityScope, status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ ...cityScope, eventType: 'public', weekend: 'true', sort: 'upcoming' }) as Promise<EventsResponse>,
+                // Near You is the only city-scoped request. If the visitor has
+                // no city set we skip it entirely rather than firing a request
+                // whose result we would discard.
+                const nearYouRequest = selectedCity
+                    ? eventsApi.getAll({
+                        city: selectedCity,
+                        eventType: 'public',
+                        status: 'upcoming',
+                        sort: 'upcoming',
+                    }) as Promise<EventsResponse>
+                    : Promise.resolve<EventsResponse>({ events: [], totalPages: 0, currentPage: 1, total: 0 });
+
+                const [nearYouRes, todayRes, popularRes, upcomingRes, weekendRes] = await Promise.all([
+                    nearYouRequest,
+                    eventsApi.getAll({ eventType: 'public', dateFilter: 'today', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ eventType: 'public', weekend: 'true', sort: 'upcoming' }) as Promise<EventsResponse>,
                 ]);
 
                 setSections({
+                    nearYou: nearYouRes.events || [],
                     today: todayRes.events || [],
                     popular: popularRes.events || [],
                     upcoming: upcomingRes.events || [],
@@ -411,16 +421,14 @@ export default function EventsPage() {
                     <SlideUp>
                         <div className="text-center mb-12">
                             <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6">
-                                {selectedCity ? (
-                                    <>Events in <span className="text-violet-400">{selectedCity}</span></>
-                                ) : (
-                                    <>Discover <span className="text-violet-400">Events</span></>
-                                )}
+                                {/* Generic on purpose: the sections below are
+                                    nationwide, with the city surfaced as the
+                                    "Near You" block rather than as a filter on
+                                    the whole page. */}
+                                Discover <span className="text-violet-400">Events</span>
                             </h1>
                             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                                {selectedCity
-                                    ? `Parties, concerts, festivals and more happening in ${selectedCity}.`
-                                    : 'Find parties, concerts, festivals and more happening around you.'}
+                                Find parties, concerts, festivals and more happening around you.
                             </p>
                         </div>
                     </SlideUp>
@@ -444,14 +452,22 @@ export default function EventsPage() {
                                     />
                                 </div>
 
-                                <CitySelector
-                                    value={selectedCity}
-                                    onChange={changeCity}
-                                    available={cities}
-                                    className="w-full md:w-44"
-                                />
+                                {/* City and Filters share one line, half each,
+                                    on mobile - they used to stack onto two rows. */}
+                                <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-3">
+                                    <CitySelector
+                                        value={selectedCity}
+                                        onChange={changeCity}
+                                        available={cities}
+                                        className="w-full md:w-44"
+                                    />
 
-                                <FilterPanel groups={filterGroups} onReset={resetFilters} />
+                                    <FilterPanel
+                                        groups={filterGroups}
+                                        onReset={resetFilters}
+                                        className="w-full md:w-auto"
+                                    />
+                                </div>
 
                                 {isFiltered && (
                                     <Button
@@ -488,34 +504,16 @@ export default function EventsPage() {
                     {/* Sections */}
                     {!isLoading && !isFiltered && !showAllMode && (
                         <>
-                            {/* City scope can legitimately return nothing while a
-                                city is still being seeded - give an escape hatch
-                                instead of an apparently broken empty page. */}
-                            {selectedCity && !hasSectionResults && (
-                                <FadeIn>
-                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center mb-12">
-                                        <h2 className="text-xl font-bold text-white mb-2">
-                                            No events in {selectedCity} yet
-                                        </h2>
-                                        <p className="text-gray-400 mb-6 max-w-lg mx-auto">
-                                            Nothing is scheduled here right now. Browse every city, or be the
-                                            first to host something in {selectedCity}.
-                                        </p>
-                                        <div className="flex flex-wrap gap-3 justify-center">
-                                            <Button onClick={() => changeCity('')} variant="violet">
-                                                Show all cities
-                                            </Button>
-                                            <Link href="/create/event">
-                                                <Button variant="ghost" className="text-white border border-white/10">
-                                                    Host an event
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </FadeIn>
-                            )}
+                            {/* Near You leads the page when the visitor's city
+                                has something on. Section returns null for an
+                                empty list, so a city with no events simply drops
+                                the whole block - no empty state, no dead space. */}
+                            <Section
+                                title={selectedCity ? `Near You in ${selectedCity}` : 'Near You'}
+                                data={sections.nearYou}
+                            />
 
-                            <Section title={selectedCity ? `Today in ${selectedCity}` : 'Today'} data={sections.today} sort="today" />
+                            <Section title="Today" data={sections.today} sort="today" />
                             <Section title="Popular Events" data={sections.popular} sort="popular" />
                             <Section title="Upcoming Events" data={sections.upcoming} sort="upcoming" />
                             <Section title="This Weekend" data={sections.weekend} sort="weekend" />

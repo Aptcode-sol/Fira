@@ -403,7 +403,7 @@ export default function VenuesPage() {
                             <h1 className="text-3xl font-bold text-white mb-2">My Venues</h1>
                             <p className="text-gray-400">Manage your venues and booking requests</p>
                         </div>
-                        <Link href="/create/venue">
+                        <Link href="/venue-portal/venues/create">
                             <Button>
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -576,7 +576,7 @@ export default function VenuesPage() {
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No venues yet</h3>
                         <p className="text-gray-400 mb-6">Start listing your venues to receive bookings!</p>
-                        <Link href="/create/venue">
+                        <Link href="/venue-portal/venues/create">
                             <Button>Add Your First Venue</Button>
                         </Link>
                     </div>

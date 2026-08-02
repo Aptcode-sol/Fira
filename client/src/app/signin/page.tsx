@@ -8,6 +8,7 @@ import { Button, Input } from '@/components/ui';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { authApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 // Inner component that uses useSearchParams
 function SignInContent() {
@@ -16,7 +17,19 @@ function SignInContent() {
     const redirectTo = searchParams.get('redirect') || '/dashboard';
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const { showToast } = useToast();
     const [error, setError] = useState('');
+
+    /**
+     * Surface a failure. Errors previously rendered only as a banner at the top
+     * of the card, which is off-screen once the form is scrolled - a failed
+     * submit then looked like nothing happened. The banner stays; the toast
+     * guarantees the message is actually seen.
+     */
+    const fail = (message: string) => {
+        setError(message);
+        showToast(message, 'error');
+    };
     const [showPassword, setShowPassword] = useState(false);
     const [showResendVerification, setShowResendVerification] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
@@ -43,10 +56,10 @@ function SignInContent() {
 
             // Check if error is due to unverified email
             if (errorMessage === 'EMAIL_NOT_VERIFIED') {
-                setError('Your email is not verified. Please check your inbox for the verification code.');
+                fail('Your email is not verified. Please check your inbox for the verification code.');
                 setShowResendVerification(true);
             } else {
-                setError(errorMessage);
+                fail(errorMessage);
             }
         } finally {
             setIsLoading(false);
@@ -68,7 +81,7 @@ function SignInContent() {
                 router.push('/signup?email=' + encodeURIComponent(formData.email) + '&verify=true');
             }, 2000);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to resend verification email');
+            fail(err instanceof Error ? err.message : 'Failed to resend verification email');
         } finally {
             setResendLoading(false);
         }

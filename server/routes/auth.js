@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authService = require('../services/authService');
+const auth = require('../middleware/auth');
 
 // POST /api/auth/register - Register new user
 router.post('/register', async (req, res) => {
@@ -159,6 +160,24 @@ router.post('/reset-password', async (req, res) => {
         }
 
         const result = await authService.resetPassword({ resetToken, newPassword });
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/auth/change-password - Change password while signed in.
+// Requires auth: the user id comes from the token, never from the body, so a
+// caller cannot change somebody else's password by passing their id.
+router.post('/change-password', auth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        const result = await authService.changePassword({
+            userId: req.user._id,
+            currentPassword,
+            newPassword
+        });
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

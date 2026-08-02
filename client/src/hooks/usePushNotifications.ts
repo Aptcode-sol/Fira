@@ -33,6 +33,19 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     return output;
 }
 
+/**
+ * Does an existing subscription use the VAPID key we are configured with?
+ * If not it is stale and the server can never deliver to it.
+ */
+function keyMatches(subscription: PushSubscription, expected: Uint8Array): boolean {
+    const actual = subscription.options?.applicationServerKey;
+    if (!actual) return false;
+
+    const bytes = new Uint8Array(actual as ArrayBuffer);
+    if (bytes.length !== expected.length) return false;
+    return bytes.every((byte, i) => byte === expected[i]);
+}
+
 export type PushPermission = 'default' | 'granted' | 'denied';
 
 export function usePushNotifications() {
@@ -81,38 +94,67 @@ export function usePushNotifications() {
 
         setIsBusy(true);
         try {
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            // A freshly-registered worker may still be installing; pushManager
-            // is only usable once it is active.
-            await navigator.serviceWorker.ready;
-
+            // Ask for permission FIRST, before any await.
+            //
+            // Mobile browsers (Chrome on Android especially) require
+            // requestPermission() to run inside the user-gesture that started
+            // the interaction. Awaiting the service worker registration first
+            // spends that gesture, so the call was being rejected outright -
+            // which is why the prompt appeared but enabling then failed.
             const result = await Notification.requestPermission();
             setPermission(result as PushPermission);
 
             if (result !== 'granted') {
                 setError(
                     result === 'denied'
-                        ? 'Notifications are blocked. Enable them for this site in your browser settings.'
-                        : 'Permission was dismissed.'
+                        ? 'Notifications are blocked. Enable them for this site in your browser settings, then reload.'
+                        : 'Permission was dismissed. Tap again to retry.'
                 );
                 return false;
             }
 
-            // Reuse an existing subscription if the browser already has one -
-            // re-subscribing with a different key throws.
+            await navigator.serviceWorker.register('/sw.js');
+            // A freshly-registered worker may still be installing; pushManager
+            // is only usable once one is active.
+            const registration = await navigator.serviceWorker.ready;
+
+            const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+
+            // An existing subscription may have been created with a previous
+            // VAPID key (or by a different deployment). Re-subscribing with a
+            // different key throws, and keeping the stale one means the server
+            // can never actually deliver to this device - so drop it.
             const existing = await registration.pushManager.getSubscription();
-            const subscription =
-                existing ??
-                (await registration.pushManager.subscribe({
+            let subscription = existing;
+
+            if (existing && !keyMatches(existing, applicationServerKey)) {
+                await existing.unsubscribe().catch(() => undefined);
+                subscription = null;
+            }
+
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-                }));
+                    applicationServerKey: applicationServerKey as BufferSource,
+                });
+            }
 
             await notificationsApi.subscribePush(subscription.toJSON());
             setIsSubscribed(true);
             return true;
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Could not enable notifications.';
+            const raw = err instanceof Error ? err.message : String(err);
+            // Browser errors here are opaque ("Registration failed - push
+            // service error"), so translate the common ones.
+            let message = raw;
+            if (/permission/i.test(raw)) {
+                message = 'Notification permission was refused for this site.';
+            } else if (/push service|AbortError|Registration failed/i.test(raw)) {
+                message =
+                    'Your browser could not reach its push service. This is usually a network or Google Play Services issue - try again on a different network.';
+            } else if (/applicationServerKey|InvalidAccessError/i.test(raw)) {
+                message = 'Push key mismatch. Turn notifications off and on again to re-register this device.';
+            }
             setError(message);
             return false;
         } finally {
