@@ -57,10 +57,13 @@ export default function Hero() {
                     </div>
                 </FadeIn>
 
-                {/* Subtitle */}
+                {/* Subtitle. States both sides of the product in one line -
+                    a visitor should know what FIRA does before they scroll. */}
                 <FadeIn delay={0.2} duration={0.6} direction="up">
-                    <p className="text-gray-500 text-base sm:text-lg md:text-xl mt-8 mb-12 max-w-md mx-auto leading-relaxed">
-                        Create, book and enjoy parties on your own
+                    <p className="text-gray-400 text-base sm:text-lg md:text-xl mt-8 mb-12 max-w-lg mx-auto leading-relaxed">
+                        Find parties worth going to.
+                        <br className="hidden sm:block" />{' '}
+                        <span className="text-gray-500">Book the venue to throw your own.</span>
                     </p>
                 </FadeIn>
 
@@ -110,14 +113,20 @@ export default function Hero() {
                     </div>
                 </FadeIn>
 
-                {/* Scroll indicator */}
-                {/* <FadeIn delay={0.8} duration={0.6} direction="up">
-                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2">
-                        <div className="w-6 h-10 border-2 border-white/20 rounded-full flex justify-center pt-2">
-                            <div className="w-1.5 h-2.5 bg-white/40 rounded-full animate-bounce"></div>
-                        </div>
-                    </div>
-                </FadeIn> */}
+                {/* Scroll cue. The hero fills the viewport, so without this
+                    there is nothing telling a visitor the page continues. */}
+                <FadeIn delay={0.9} duration={0.8}>
+                    <button
+                        onClick={() => scrollToSection('what-we-do')}
+                        aria-label="Scroll to find out more"
+                        className="hidden sm:flex absolute bottom-10 left-1/2 -translate-x-1/2 flex-col items-center gap-2 text-gray-600 hover:text-gray-400 transition-colors group"
+                    >
+                        <span className="text-[10px] uppercase tracking-[0.2em]">More</span>
+                        <span className="w-5 h-8 rounded-full border border-white/15 flex justify-center pt-1.5 group-hover:border-white/30 transition-colors">
+                            <span className="w-1 h-1.5 rounded-full bg-white/40 animate-bounce" />
+                        </span>
+                    </button>
+                </FadeIn>
             </div>
         </section>
     );

@@ -11,8 +11,7 @@ import ReadyToGoSection from '@/components/ReadyToGoSection';
 // import LocationFilter from '@/components/LocationFilter';
 // FEATURED VENUES DISABLED - commented out for now
 // import FeaturedVenues from '@/components/FeaturedVenues';
-// WHAT IS FIRA DISABLED - commented out for now
-// import WhatIsFira from '@/components/WhatIsFira';
+import WhatWeDoSection from '@/components/WhatWeDoSection';
 import CreatePartySection from '@/components/CreatePartySection';
 import BrandBandSection from '@/components/BrandBandSection';
 import VenueOwnerSection from '@/components/VenueOwnerSection';
@@ -25,11 +24,8 @@ export default function HomeClient() {
         <>
             <Hero />
 
-            {/* WHAT IS FIRA DISABLED - commented out for now.
-                Re-enable together with the import at the top of this file.
-                The same explainer content still lives on /about.
-            <WhatIsFira />
-            */}
+            {/* States what FIRA is, before showing any listings. */}
+            <WhatWeDoSection />
 
             <div className="relative z-20 max-w-7xl mx-auto px-4 pt-8 pb-4">
                 {/* CITY FILTER DISABLED - commented out for now.
