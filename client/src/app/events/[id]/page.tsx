@@ -14,6 +14,13 @@ import { useToast } from '@/components/ui/Toast';
 import TicketDisplay from '@/components/TicketDisplay';
 import { paymentsApi } from '@/lib/api'; // Add paymentsApi import
 
+/**
+ * How long the purchased-ticket confirmation stays on screen before we navigate
+ * to the tickets dashboard. Slightly longer than the venue flow because there
+ * is an actual ticket + QR code to look at here.
+ */
+const SUCCESS_REDIRECT_DELAY_MS = 4000;
+
 export default function EventDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -168,7 +175,11 @@ export default function EventDetailPage() {
                                 setPurchasedTicket(finalTicketResult.ticket);
                                 setIsTicketModalOpen(false);
                                 fetchEvent(event._id!); // Refresh spots
-                                router.push('/dashboard/tickets');
+                                // The purchased-ticket modal opens off
+                                // `purchasedTicket`; redirecting immediately
+                                // closed it before the buyer ever saw the ticket
+                                // they just paid for.
+                                setTimeout(() => router.push('/dashboard/tickets'), SUCCESS_REDIRECT_DELAY_MS);
                             } else {
                                 showToast('Payment verification failed', 'error');
                             }
@@ -204,7 +215,7 @@ export default function EventDetailPage() {
                 setIsTicketModalOpen(false);
                 fetchEvent(event._id);
                 setIsPurchasing(false);
-                router.push('/dashboard/tickets');
+                setTimeout(() => router.push('/dashboard/tickets'), SUCCESS_REDIRECT_DELAY_MS);
             }
         } catch (err: unknown) {
             const error = err as { message?: string };
@@ -677,7 +688,11 @@ export default function EventDetailPage() {
                                     </div>
                                 </div>
 
-                                {spotsLeft > 0 ? (
+                                {event.status === 'completed' || event.status === 'cancelled' || new Date(event.startDateTime) < new Date() ? (
+                                    <Button className="w-full" size="lg" disabled>
+                                        Event {event.status === 'cancelled' ? 'Cancelled' : 'Ended'}
+                                    </Button>
+                                ) : spotsLeft > 0 ? (
                                     <Button className="w-full" size="lg" onClick={handleGetTickets}>
                                         {event.ticketPrice === 0 ? 'Register for Free' : 'Get Tickets'}
                                     </Button>

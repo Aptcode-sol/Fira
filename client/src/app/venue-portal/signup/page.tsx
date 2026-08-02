@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, OTPInput, PasswordStrengthIndicator, Select } from '@/components/ui';
 import VenuePortalLandingNavbar from '@/components/venue-portal/VenuePortalLandingNavbar';
 import PartyBackground from '@/components/PartyBackground';
@@ -11,6 +12,7 @@ import { uploadApi } from '@/lib/api';
 
 export default function VenueOwnerSignUpPage() {
     const router = useRouter();
+    const { setSession } = useAuth();
     const [step, setStep] = useState<'register' | 'verify'>('register');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -127,8 +129,9 @@ export default function VenueOwnerSignUpPage() {
                 code: otp,
             });
 
-            localStorage.setItem('fira_token', response.token);
-            localStorage.setItem('fira_user', JSON.stringify(response.user));
+            // Start the session through the auth context so RouteGuard sees a
+            // logged-in owner; writing to localStorage alone bounces us to signin.
+            setSession(response.user, response.token);
 
             router.push('/venue-portal/dashboard');
         } catch (err) {

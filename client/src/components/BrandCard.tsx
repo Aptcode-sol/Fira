@@ -91,11 +91,14 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
         return count.toString();
     };
 
-    const handleEnquiry = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        showToast('Visit the brand page to view contact details', 'info');
-    };
+    // ENQUIRY DISABLED - this only ever fired a toast telling you to open the
+    // profile, and the in-app enquiry it pointed at is commented out while chat
+    // is off. Contact details live on /creators/[id] (email, Instagram, WhatsApp).
+    // const handleEnquiry = (e: React.MouseEvent) => {
+    //     e.preventDefault();
+    //     e.stopPropagation();
+    //     showToast('Visit the brand page to view contact details', 'info');
+    // };
 
     return (
         <Link href={`/creators/${brand._id}`} className="block">
@@ -171,30 +174,41 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
                             {brand.bio || 'No bio available'}
                         </p>
 
-                        <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                            <div className="flex gap-4 text-xs font-medium text-gray-400">
-                                <span>{formatFollowers(followersCount)} Followers</span>
-                                <span>{brand.stats.events} Events</span>
+                        <div className="pt-3 border-t border-white/5 space-y-3">
+                            {/* Stats on their own line - followers pinned left,
+                                events pinned right. */}
+                            <div className="flex items-center justify-between text-xs font-medium text-gray-400">
+                                <div className="flex flex-col">
+                                    <span className="text-white font-semibold">{formatFollowers(followersCount)}</span>
+                                    <span className="text-[10px] uppercase tracking-wider">Followers</span>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-white font-semibold">{brand.stats.events}</span>
+                                    <span className="text-[10px] uppercase tracking-wider">Events</span>
+                                </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            {/* Action on the next line. Follow is full width now
+                                that the Enquiry button is gone.
+                                ENQUIRY DISABLED - to restore it, put this back
+                                inside a `grid grid-cols-2 gap-2` wrapper:
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    className="h-8 px-3 text-xs bg-transparent border border-white/10 text-white hover:bg-neutral-800"
+                                    className="w-full h-8 px-3 text-xs bg-transparent border border-white/10 text-white hover:bg-neutral-800"
                                     onClick={handleEnquiry}
                                 >
                                     Enquiry
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    variant={isFollowing ? "secondary" : "primary"}
-                                    className={`h-8 px-3 text-xs ${isFollowing ? 'bg-transparent border border-white/10 text-white hover:bg-neutral-800' : ''}`}
-                                    onClick={handleFollow}
-                                >
-                                    {isFollowing ? 'Following' : 'Follow'}
-                                </Button>
-                            </div>
+                            */}
+                            <Button
+                                size="sm"
+                                variant={isFollowing ? "secondary" : "primary"}
+                                className={`w-full h-8 px-3 text-xs ${isFollowing ? 'bg-transparent border border-white/10 text-white hover:bg-neutral-800' : ''}`}
+                                onClick={handleFollow}
+                            >
+                                {isFollowing ? 'Following' : 'Follow'}
+                            </Button>
                         </div>
                     </div>
                 </div>

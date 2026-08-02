@@ -1,4 +1,29 @@
 const Notification = require('../models/Notification');
+const pushService = require('./pushService');
+
+/**
+ * Channels that should also fire a browser push. `in_app` stays silent - it is
+ * for things the user will see next time they open the inbox.
+ */
+const PUSH_CHANNELS = new Set(['push', 'all']);
+
+/**
+ * Fire-and-forget push. Notifications must never fail the action that caused
+ * them, so this logs and swallows rather than rejecting.
+ */
+function dispatchPush(userIds, { title, message, data }) {
+    const ids = Array.isArray(userIds) ? userIds : [userIds];
+    if (ids.length === 0) return;
+
+    pushService
+        .sendToUsers(ids, {
+            title,
+            body: message,
+            url: data?.actionUrl || '/inbox',
+            data: { referenceId: data?.referenceId, ...(data?.extra || {}) }
+        })
+        .catch(err => console.error('Push dispatch failed:', err.message));
+}
 
 const notificationService = {
     // Get user's notifications
@@ -37,8 +62,9 @@ const notificationService = {
             channel
         });
 
-        // TODO: Send push notification if channel is 'push' or 'all'
-        // TODO: Send email if channel is 'email' or 'all'
+        if (PUSH_CHANNELS.has(channel)) {
+            dispatchPush(userId, { title, message, data });
+        }
 
         return notification;
     },
@@ -75,16 +101,22 @@ const notificationService = {
     },
 
     // Send bulk notifications (for events like new event from followed user)
-    async sendBulkNotifications(userIds, { type, title, message, data }) {
+    async sendBulkNotifications(userIds, { type, title, message, data, channel = 'all' }) {
         const notifications = userIds.map(userId => ({
             user: userId,
             type,
             title,
             message,
-            data
+            data,
+            channel
         }));
 
         await Notification.insertMany(notifications);
+
+        if (PUSH_CHANNELS.has(channel)) {
+            dispatchPush(userIds, { title, message, data });
+        }
+
         return { message: `Sent ${userIds.length} notifications` };
     },
 
@@ -130,6 +162,17 @@ const notificationService = {
         }));
 
         await Notification.insertMany(notifications);
+
+        // Push to every follower's devices in one batch
+        dispatchPush(followers.map(f => f._id), {
+            title: notificationData.title,
+            message: notificationData.message,
+            data: {
+                referenceId: notificationData.referenceId,
+                actionUrl: notificationData.actionUrl,
+                extra: { brandId, brandName: brand.name }
+            }
+        });
 
         // Send emails if enabled
         let emailsSent = 0;

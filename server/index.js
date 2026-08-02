@@ -40,7 +40,8 @@ const uploadRoutes = require('./routes/upload');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const whatsappRoutes = require('./routes/whatsapp');
-const messageRoutes = require('./routes/message');
+// CHAT DISABLED - messaging routes are not mounted for now
+// const messageRoutes = require('./routes/message');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -56,7 +57,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
-app.use('/api/messages', messageRoutes);
+// CHAT DISABLED
+// app.use('/api/messages', messageRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

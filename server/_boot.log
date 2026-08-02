@@ -1,0 +1,13 @@
+[dotenv@17.2.3] injecting env (18) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+[2026-08-02 11:00:41] DEBUG Creating transport: nodemailer (7.0.11; +https://nodemailer.com/; SMTP/7.0.11[client:7.0.11])
+✅ Email service initialized successfully
+📧 SMTP Host: smtp.zoho.in
+📧 SMTP Port: 587
+📧 SMTP User: no-reply@letsfira.com
+📧 Secure: false
+✅ Web Push configured
+🚀 FIRA Server running on port 5000
+⏰ Initializing scheduled jobs...
+✅ Scheduled jobs initialized:
+   - Event reminders: Every 10 minutes
+✅ MongoDB Connected Successfully

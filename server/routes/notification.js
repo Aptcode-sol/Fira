@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const notificationService = require('../services/notificationService');
+const pushService = require('../services/pushService');
 
 const auth = require('../middleware/auth');
 
@@ -9,6 +10,67 @@ router.get('/', auth, async (req, res) => {
     try {
         const notifications = await notificationService.getUserNotifications(req.user._id);
         res.json(notifications);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/* ------------------------------------------------------------------ *
+ * Web Push
+ *
+ * These sit ABOVE the `/:id` routes on purpose - Express matches in
+ * order, so "/push/public-key" would otherwise be swallowed by "/:id".
+ * ------------------------------------------------------------------ */
+
+// GET /api/notifications/push/public-key - VAPID public key for the browser
+router.get('/push/public-key', (req, res) => {
+    const publicKey = pushService.getPublicKey();
+    if (!publicKey) {
+        return res.status(503).json({ error: 'Push notifications are not configured on this server' });
+    }
+    res.json({ publicKey });
+});
+
+// POST /api/notifications/push/subscribe - register this browser
+router.post('/push/subscribe', auth, async (req, res) => {
+    try {
+        const { subscription } = req.body;
+        await pushService.saveSubscription(
+            req.user._id,
+            subscription,
+            req.header('User-Agent') || null
+        );
+        res.status(201).json({ success: true, message: 'Push notifications enabled' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/notifications/push/unsubscribe - drop this browser
+router.post('/push/unsubscribe', auth, async (req, res) => {
+    try {
+        const { endpoint } = req.body;
+        const result = await pushService.removeSubscription(endpoint);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/notifications/push/test - send yourself a test push
+router.post('/push/test', auth, async (req, res) => {
+    try {
+        const result = await pushService.sendToUser(req.user._id, {
+            title: 'FIRA notifications are on 🎉',
+            body: "That's what an alert will look like. You're all set.",
+            url: '/inbox'
+        });
+        if (result.sent === 0) {
+            return res.status(404).json({
+                error: 'No active push subscription found for this account on any device.'
+            });
+        }
+        res.json({ success: true, ...result });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

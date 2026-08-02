@@ -16,11 +16,16 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
 
     if (!ticket || !event) return null;
 
-    const formattedDate = event.date ? new Date(event.date).toLocaleDateString('en-US', {
+    const dateObj = event.startDateTime ? new Date(event.startDateTime) : (event.date ? new Date(event.date) : null);
+    const formattedDate = dateObj ? dateObj.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric'
     }) : 'TBA';
+    
+    const formattedTime = event.startDateTime 
+        ? new Date(event.startDateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
+        : (event.startTime || 'TBA');
 
     const handleDownload = async () => {
         if (!ticketRef.current) return;
@@ -82,7 +87,7 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <p style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>Time</p>
-                                <p style={{ color: '#111827', fontWeight: '600' }}>{event.startTime}</p>
+                                <p style={{ color: '#111827', fontWeight: '600' }}>{formattedTime}</p>
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <p style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>Venue</p>

@@ -308,15 +308,32 @@ const eventService = {
 
     // Update event
     async updateEvent(id, updateData) {
-        const event = await Event.findByIdAndUpdate(
+        const event = await Event.findById(id);
+        if (!event) {
+            throw new Error('Event not found');
+        }
+
+        // Check if date/time is being changed and tickets are already sold
+        if (updateData.startDateTime || updateData.endDateTime) {
+            const currentStart = event.startDateTime ? event.startDateTime.toISOString() : null;
+            const newStart = updateData.startDateTime ? new Date(updateData.startDateTime).toISOString() : null;
+            
+            const currentEnd = event.endDateTime ? event.endDateTime.toISOString() : null;
+            const newEnd = updateData.endDateTime ? new Date(updateData.endDateTime).toISOString() : null;
+            
+            if ((newStart && currentStart !== newStart) || (newEnd && currentEnd !== newEnd)) {
+                if (event.currentAttendees > 0) {
+                    throw new Error('Cannot change event date or time after tickets have been sold. Please contact support.');
+                }
+            }
+        }
+
+        const updatedEvent = await Event.findByIdAndUpdate(
             id,
             { $set: updateData },
             { new: true }
         );
-        if (!event) {
-            throw new Error('Event not found');
-        }
-        return event;
+        return updatedEvent;
     },
 
     // Delete event (soft delete)

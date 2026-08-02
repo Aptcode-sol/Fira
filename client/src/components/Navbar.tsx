@@ -150,7 +150,8 @@ export default function Navbar() {
                                 <div className="w-20 h-8 bg-white/10 rounded-full animate-pulse" />
                             ) : isAuthenticated ? (
                                 <>
-                                    {/* Messages */}
+                                    {/* CHAT DISABLED - Messages */}
+                                    {/*
                                     <Link
                                         href="/messages"
                                         className="relative text-gray-400 hover:text-white transition-colors p-1"
@@ -159,6 +160,7 @@ export default function Navbar() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                         </svg>
                                     </Link>
+                                    */}
                                     {/* Notification Bell */}
                                     <Link
                                         href="/dashboard/notifications"
@@ -481,6 +483,8 @@ export default function Navbar() {
                                         >
                                             Dashboard
                                         </Link>
+                                        {/* CHAT DISABLED - Messages drawer link */}
+                                        {/*
                                         <Link
                                             href="/messages"
                                             onClick={() => setIsSideDrawerOpen(false)}
@@ -491,6 +495,7 @@ export default function Navbar() {
                                         >
                                             Messages
                                         </Link>
+                                        */}
                                         <Link
                                             href="/dashboard/notifications"
                                             onClick={() => setIsSideDrawerOpen(false)}

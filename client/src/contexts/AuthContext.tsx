@@ -11,6 +11,14 @@ interface AuthContextType {
     isAuthenticated: boolean;
     login: (email: string, password: string) => Promise<{ user: User; token: string }>;
     register: (data: { email: string; password: string; name: string; role?: string }) => Promise<{ success: boolean; message: string; email: string }>;
+    /**
+     * Start a session from a token obtained outside of `login` - i.e. the token
+     * returned by OTP verification at the end of signup. Writing straight to
+     * localStorage is not enough: the provider state also has to be updated or
+     * RouteGuard still sees an unauthenticated user and bounces to /signin.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setSession: (user: any, token: string) => User;
     logout: () => void;
     updateUser: (user: User) => void;
 }
@@ -72,6 +80,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return response; // Return the response for the component to handle
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setSession = useCallback((rawUser: any, authToken: string) => {
+        const userData = normalizeUser(rawUser);
+
+        setUser(userData);
+        setToken(authToken);
+        localStorage.setItem('fira_token', authToken);
+        localStorage.setItem('fira_user', JSON.stringify(userData));
+
+        return userData;
+    }, []);
+
     const logout = useCallback(() => {
         setUser(null);
         setToken(null);
@@ -93,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isAuthenticated: !!user && !!token,
                 login,
                 register,
+                setSession,
                 logout,
                 updateUser,
             }}

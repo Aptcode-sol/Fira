@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { FEATURED_CITIES } from '@/lib/cities';
 
 const footerLinks = {
     product: [
@@ -11,16 +12,7 @@ const footerLinks = {
         { label: 'Find Venues', href: '/venues' },
         { label: 'Create Event', href: '/create' },
         { label: 'List Venue', href: '/venue-portal/signin' },
-    ],
-    company: [
-        { label: 'About', href: '/about' },
-        { label: 'Careers', href: '/careers' },
-        { label: 'Press', href: '/press' },
-        { label: 'Contact', href: '/contact' },
-    ],
-    legal: [
-        { label: 'Privacy', href: '/privacy' },
-        { label: 'Terms', href: '/terms' },
+        { label: 'About FIRA', href: '/about' },
     ],
 };
 
@@ -176,6 +168,35 @@ export default function Footer() {
                         </ul>
                     </motion.div>
                 </div>
+
+                {/* Popular cities. A site-wide block like this is what gives
+                    every city landing page an internal link from every page -
+                    the difference between them being crawled and being orphans. */}
+                <motion.nav
+                    aria-label="Popular cities"
+                    className="border-t border-white/5 pt-10 pb-10"
+                    variants={itemVariants}
+                >
+                    <h4 className="text-white text-sm font-bold mb-5">Popular cities</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+                        {FEATURED_CITIES.map(city => (
+                            <div key={city.slug} className="flex flex-col gap-2">
+                                <Link
+                                    href={`/events/in/${city.slug}`}
+                                    className="text-gray-400 hover:text-violet-300 text-sm transition-colors"
+                                >
+                                    Events in {city.name}
+                                </Link>
+                                <Link
+                                    href={`/venues/in/${city.slug}`}
+                                    className="text-gray-500 hover:text-violet-300 text-sm transition-colors"
+                                >
+                                    Venues in {city.name}
+                                </Link>
+                            </div>
+                        ))}
+                    </div>
+                </motion.nav>
 
                 {/* Bottom Bar */}
                 <motion.div

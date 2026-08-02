@@ -18,8 +18,10 @@ interface Ticket {
     event: {
         _id: string;
         name: string;
-        date: string;
-        startTime: string;
+        date?: string;
+        startTime?: string;
+        startDateTime?: string;
+        endDateTime?: string;
         venue: {
             name: string;
             address: {
@@ -151,63 +153,97 @@ export default function TicketsPage() {
                                     key={ticket._id}
                                     className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300"
                                 >
-                                    <div className="flex flex-col md:flex-row">
+                                    <div className="flex flex-col sm:flex-row">
                                         {/* QR Code Section */}
-                                        <div className="md:w-48 p-6 bg-white/[0.03] flex items-center justify-center border-b md:border-b-0 md:border-r border-white/[0.08]">
-                                            <div className="w-32 h-32 bg-white rounded-xl flex items-center justify-center p-2">
+                                        <div className="w-full sm:w-48 p-4 sm:p-6 bg-white/[0.03] flex items-center justify-center border-b sm:border-b-0 sm:border-r border-white/[0.08]">
+                                            <div className="w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-xl flex items-center justify-center p-2">
                                                 {ticket.qrCode ? (
                                                     <img src={ticket.qrCode} alt="Ticket QR" className="w-full h-full object-contain" />
                                                 ) : (
                                                     <div className="text-center">
-                                                        <svg className="w-16 h-16 text-gray-800 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-800 mx-auto mb-1 sm:mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                                         </svg>
-                                                        <span className="text-xs text-gray-600">Scan to enter</span>
+                                                        <span className="text-[10px] sm:text-xs text-gray-600">Scan to enter</span>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
 
                                         {/* Ticket Details */}
-                                        <div className="flex-1 p-6">
-                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <h3 className="text-lg font-semibold text-white">{ticket.event?.name || 'Event'}</h3>
-                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'active'
-                                                            ? 'bg-green-500/20 text-green-400'
-                                                            : ticket.status === 'used'
-                                                                ? 'bg-gray-500/20 text-gray-400'
-                                                                : 'bg-red-500/20 text-red-400'
-                                                            }`}>
-                                                            {ticket.status === 'active' ? 'Valid' : ticket.status === 'used' ? 'Used' : 'Cancelled'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-gray-400 mb-1">
-                                                        {ticket.event?.venue?.name}{ticket.event?.venue?.address?.city ? `, ${ticket.event.venue.address.city}` : ''}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">
-                                                        {ticket.event?.date ? formatDate(ticket.event.date) : ''} • {ticket.event?.startTime || ''}
-                                                    </p>
-                                                </div>
-
-                                                <div className="text-right">
-                                                    <p className="text-xs text-gray-500 mb-1">Ticket ID</p>
-                                                    <p className="text-sm font-mono text-white">{ticket.ticketId}</p>
-                                                    <p className="text-xs text-gray-500 mt-2">{ticket.quantity}x {ticket.ticketType || 'General Admission'}</p>
-                                                </div>
+                                        <div className="flex-1 p-5 sm:p-6 min-w-0">
+                                            {/* Title + status. The badge never shrinks or wraps
+                                                onto its own line, however long the event name is. */}
+                                            <div className="flex items-start justify-between gap-3 mb-4">
+                                                <h3 className="text-lg font-semibold text-white leading-snug break-words min-w-0">
+                                                    {ticket.event?.name || 'Event'}
+                                                </h3>
+                                                <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'active'
+                                                    ? 'bg-green-500/20 text-green-400'
+                                                    : ticket.status === 'used'
+                                                        ? 'bg-gray-500/20 text-gray-400'
+                                                        : 'bg-red-500/20 text-red-400'
+                                                    }`}>
+                                                    {ticket.status === 'active' ? 'Valid' : ticket.status === 'used' ? 'Used' : 'Cancelled'}
+                                                </span>
                                             </div>
 
-                                            <div className="mt-4 pt-4 border-t border-white/[0.05] flex flex-wrap gap-3">
-                                                <Button variant="secondary" size="sm" onClick={() => handleDownload(ticket)}>
-                                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            {/* Every field as a label/value row, so they line up
+                                                instead of floating at different alignments. */}
+                                            <dl className="space-y-2 text-sm">
+                                                <div className="flex items-baseline justify-between gap-4">
+                                                    <dt className="text-gray-500 shrink-0">Venue</dt>
+                                                    <dd className="text-gray-300 text-right break-words min-w-0">
+                                                        {ticket.event?.venue?.name || 'TBA'}
+                                                        {ticket.event?.venue?.address?.city ? `, ${ticket.event.venue.address.city}` : ''}
+                                                    </dd>
+                                                </div>
+                                                <div className="flex items-baseline justify-between gap-4">
+                                                    <dt className="text-gray-500 shrink-0">When</dt>
+                                                    <dd className="text-gray-300 text-right">
+                                                        {ticket.event?.startDateTime
+                                                            ? formatDate(ticket.event.startDateTime)
+                                                            : (ticket.event?.date ? formatDate(ticket.event.date) : 'TBA')}
+                                                        {' • '}
+                                                        {ticket.event?.startDateTime
+                                                            ? new Date(ticket.event.startDateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                                                            : (ticket.event?.startTime || 'TBA')}
+                                                    </dd>
+                                                </div>
+                                                <div className="flex items-baseline justify-between gap-4">
+                                                    <dt className="text-gray-500 shrink-0">Ticket ID</dt>
+                                                    <dd className="font-mono text-white text-right break-all min-w-0">{ticket.ticketId}</dd>
+                                                </div>
+                                                <div className="flex items-baseline justify-between gap-4">
+                                                    <dt className="text-gray-500 shrink-0">Type</dt>
+                                                    <dd className="text-gray-300 text-right">
+                                                        {ticket.quantity}x {ticket.ticketType || 'General Admission'}
+                                                    </dd>
+                                                </div>
+                                            </dl>
+
+                                            {/* Actions: full width and stacked on a narrow card,
+                                                inline once there is room. All three share the same
+                                                size so they read as one set. */}
+                                            <div className="mt-5 pt-4 border-t border-white/[0.05] grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="w-full sm:w-auto justify-center"
+                                                    onClick={() => handleDownload(ticket)}
+                                                >
+                                                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                     </svg>
-                                                    View & Download
+                                                    View &amp; Download
                                                 </Button>
                                                 {ticket.event?._id && (
-                                                    <Link href={`/events/${ticket.event._id}`}>
-                                                        <Button variant="ghost" size="sm">
+                                                    <Link href={`/events/${ticket.event._id}`} className="w-full sm:w-auto">
+                                                        <Button variant="secondary" size="sm" className="w-full sm:w-auto justify-center">
+                                                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                            </svg>
                                                             View Event
                                                         </Button>
                                                     </Link>
@@ -216,10 +252,10 @@ export default function TicketsPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                        className="w-full sm:w-auto justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10"
                                                         onClick={() => setCancelTicket(ticket)}
                                                     >
-                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                                                         </svg>
                                                         Cancel Ticket

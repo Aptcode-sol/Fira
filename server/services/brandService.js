@@ -152,8 +152,8 @@ const brandService = {
         const User = require('../models/User');
 
         const [brand, user] = await Promise.all([
-            BrandProfile.findById(brandId).select('_id').lean(),
-            User.findById(userId).select('followingBrands').lean()
+            BrandProfile.findById(brandId).select('_id name user').lean(),
+            User.findById(userId).select('followingBrands name').lean()
         ]);
         if (!brand) throw new Error('Brand not found');
         if (!user) throw new Error('User not found');
@@ -168,6 +168,26 @@ const brandService = {
             User.findByIdAndUpdate(userId, { $addToSet: { followingBrands: brandId } }),
             BrandProfile.findByIdAndUpdate(brandId, { $inc: { 'stats.followers': 1 } })
         ]);
+
+        // Tell the creator they gained a follower. Best-effort: a notification
+        // failure must not make the follow itself look like it failed.
+        if (brand.user && brand.user.toString() !== userId.toString()) {
+            const notificationService = require('./notificationService');
+            notificationService.createNotification({
+                userId: brand.user,
+                type: 'new_follower',
+                title: 'New follower',
+                message: `${user.name || 'Someone'} started following ${brand.name}.`,
+                data: {
+                    referenceId: brandId,
+                    referenceModel: 'BrandProfile',
+                    actionUrl: `/creators/${brandId}`,
+                    extra: { followerId: userId, followerName: user.name }
+                },
+                priority: 'low',
+                channel: 'all'
+            }).catch(err => console.error('new_follower notification failed:', err.message));
+        }
 
         return { success: true, message: 'Now following this brand' };
     },

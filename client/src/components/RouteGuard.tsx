@@ -18,6 +18,15 @@ const publicRoutes = [
     '/venue-portal/landing',
     '/venue-portal/signin',
     '/venue-portal/signup',
+    // Marketing, support and legal pages. These were missing, which meant a
+    // signed-out visitor (or a crawler) hitting /about or /terms was bounced
+    // to /signin.
+    '/about',
+    '/help',
+    '/terms',
+    '/privacy',
+    '/refund-policy',
+    '/community-guidelines',
 ];
 
 // Routes that start with these prefixes are public (detail pages etc.)
@@ -42,7 +51,7 @@ const venueOwnerPrefixes = [
 const userOnlyPrefixes = [
     '/dashboard',
     '/create',
-    '/messages',
+    // '/messages', // CHAT DISABLED
 ];
 
 function isPublicRoute(pathname: string): boolean {
@@ -64,11 +73,13 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     const { user, isAuthenticated, isLoading } = useAuth();
     const [authorized, setAuthorized] = useState(false);
 
+    const isPublic = isPublicRoute(pathname);
+
     useEffect(() => {
         if (isLoading) return;
 
         // Public routes - always allow
-        if (isPublicRoute(pathname)) {
+        if (isPublic) {
             setAuthorized(true);
             return;
         }
@@ -102,7 +113,20 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
 
         // All checks passed
         setAuthorized(true);
-    }, [pathname, isAuthenticated, isLoading, user, router]);
+    }, [pathname, isPublic, isAuthenticated, isLoading, user, router]);
+
+    // A public route needs no auth check, so render it immediately - BEFORE the
+    // isLoading gate below.
+    //
+    // This matters far beyond a spinner flash: `isLoading` is derived from an
+    // `isMounted` flag set in a useEffect, so it is ALWAYS true on the server.
+    // Gating public pages on it meant every URL server-rendered as nothing but
+    // a spinner, and the real content only appeared after React hydrated in the
+    // browser. Crawlers that do not execute JavaScript saw an empty page on
+    // every single route.
+    if (isPublic) {
+        return <>{children}</>;
+    }
 
     // Show loading while checking auth
     if (isLoading) {
@@ -114,7 +138,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     }
 
     // Show nothing while redirecting
-    if (!authorized && !isPublicRoute(pathname)) {
+    if (!authorized) {
         return (
             <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
                 <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />

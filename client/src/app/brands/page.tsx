@@ -122,20 +122,22 @@ export default function BrandsPage() {
         scrollToTop();
     };
 
-    const handleEnableLocation = () => {
-        if (!navigator.geolocation) return;
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setLocationError(false);
-            },
-            () => {
-                setLocationError(true);
-                alert('Please enable location services in your browser settings to see nearby brands.');
-            }
-        );
-    };
+    // LOCATION DISABLED - browser geolocation prompt (matches the commented-out
+    // "Near You" section further down). `location` simply stays null for now.
+    // const handleEnableLocation = () => {
+    //     if (!navigator.geolocation) return;
+    //
+    //     navigator.geolocation.getCurrentPosition(
+    //         (pos) => {
+    //             setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    //             setLocationError(false);
+    //         },
+    //         () => {
+    //             setLocationError(true);
+    //             alert('Please enable location services in your browser settings to see nearby brands.');
+    //         }
+    //     );
+    // };
 
     // Fetch initial data
     useEffect(() => {
@@ -145,17 +147,18 @@ export default function BrandsPage() {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                        () => {
-                            console.log('Location permission denied/unavailable');
-                            setLocationError(true);
-                        }
-                    );
-                } else {
-                    setLocationError(true);
-                }
+                // LOCATION DISABLED - no geolocation prompt on page load
+                // if (navigator.geolocation) {
+                //     navigator.geolocation.getCurrentPosition(
+                //         (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                //         () => {
+                //             console.log('Location permission denied/unavailable');
+                //             setLocationError(true);
+                //         }
+                //     );
+                // } else {
+                //     setLocationError(true);
+                // }
 
                 // Single API call instead of 5 separate calls
                 const data = await brandsApi.getSections('4');

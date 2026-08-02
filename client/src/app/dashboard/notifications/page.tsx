@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import PushNotificationToggle from '@/components/PushNotificationToggle';
 import { Button } from '@/components/ui';
 import { notificationsApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -228,6 +229,11 @@ export default function NotificationsPage() {
                         )}
                     </div>
                 </SlideUp>
+
+                {/* Per-device push opt-in */}
+                <div className="mb-8">
+                    <PushNotificationToggle />
+                </div>
 
                 {/* Loading State - Skeleton Cards */}
                 {loading && (

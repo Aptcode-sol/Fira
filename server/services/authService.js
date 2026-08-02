@@ -73,6 +73,7 @@ const authService = {
         await OTP.create({
             email,
             code: otpCode,
+            type: 'email_verification',
             expiresAt,
             attempts: 0,
             lastSentAt: new Date()
@@ -99,9 +100,11 @@ const authService = {
      * Verify OTP and activate user account
      */
     async verifyOTP({ email, code }) {
-        // Find OTP record
+        // Find OTP record. Scope to email_verification so a password-reset code
+        // can never be used to verify an email address (and vice versa).
         const otpRecord = await OTP.findOne({
             email,
+            type: 'email_verification',
             verified: false
         }).sort({ createdAt: -1 });
 
@@ -182,9 +185,11 @@ const authService = {
             throw new Error('Email is already verified. Please login.');
         }
 
-        // Find existing OTP
+        // Find existing OTP (email verification only - a pending password reset
+        // must not block or be clobbered by a verification resend)
         const existingOTP = await OTP.findOne({
             email,
+            type: 'email_verification',
             verified: false
         }).sort({ createdAt: -1 });
 
@@ -198,13 +203,14 @@ const authService = {
         const otpCode = this.generateOTP();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // Delete old OTPs for this email
-        await OTP.deleteMany({ email });
+        // Delete old verification OTPs for this email
+        await OTP.deleteMany({ email, type: 'email_verification' });
 
         // Create new OTP in MongoDB
         await OTP.create({
             email,
             code: otpCode,
+            type: 'email_verification',
             expiresAt,
             attempts: 0,
             lastSentAt: new Date()
@@ -230,15 +236,16 @@ const authService = {
             throw new Error('Invalid credentials');
         }
 
-        // Check if email is verified
-        if (!user.emailVerified) {
-            throw new Error('EMAIL_NOT_VERIFIED');
-        }
-
-        // Check password
+        // Check password FIRST. Checking emailVerified before the password would
+        // let anyone probe which emails are registered-but-unverified.
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             throw new Error('Invalid credentials');
+        }
+
+        // Check if email is verified
+        if (!user.emailVerified) {
+            throw new Error('EMAIL_NOT_VERIFIED');
         }
 
         // Generate token

@@ -34,7 +34,7 @@ const ticketService = {
         const tickets = await Ticket.find({ user: userId })
             .populate({
                 path: 'event',
-                select: 'name date startTime images venue',
+                select: 'name date startTime startDateTime endDateTime images venue',
                 populate: { path: 'venue', select: 'name address' }
             })
             .sort({ createdAt: -1 })
@@ -146,6 +146,42 @@ const ticketService = {
         await Event.findByIdAndUpdate(eventId, {
             $inc: { currentAttendees: quantity }
         });
+
+        // Confirm the purchase in-app and on the buyer's devices. Best-effort -
+        // a notification failure must never lose someone their ticket.
+        const notificationService = require('./notificationService');
+        notificationService.createNotification({
+            userId,
+            type: 'ticket_purchased',
+            title: 'Ticket confirmed 🎟️',
+            message: `You're going to ${event.name}. Your ticket ${ticketId} is ready.`,
+            data: {
+                referenceId: ticket._id,
+                referenceModel: 'Ticket',
+                actionUrl: '/dashboard/tickets',
+                extra: { ticketId, eventId, eventName: event.name, quantity }
+            },
+            priority: 'high',
+            channel: 'all'
+        }).catch(err => console.error('ticket_purchased notification failed:', err.message));
+
+        // Let the organiser know a ticket moved.
+        if (event.organizer && event.organizer.toString() !== userId.toString()) {
+            notificationService.createNotification({
+                userId: event.organizer,
+                type: 'ticket_purchased',
+                title: 'Ticket sold',
+                message: `${quantity} ticket${quantity > 1 ? 's' : ''} just sold for ${event.name}.`,
+                data: {
+                    referenceId: eventId,
+                    referenceModel: 'Event',
+                    actionUrl: `/dashboard/events/${eventId}`,
+                    extra: { ticketId, quantity }
+                },
+                priority: 'low',
+                channel: 'all'
+            }).catch(err => console.error('organiser ticket notification failed:', err.message));
+        }
 
         return {
             success: true,

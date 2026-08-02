@@ -1,11 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/components/ui/Toast";
-import Footer from '@/components/Footer';
 import ScrollToTop from '@/components/ScrollToTop';
-import FloatingActionButton from '@/components/FloatingActionButton';
 import ClientLayout from './ClientLayout';
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_DESCRIPTION,
+  SITE_ALTERNATE_NAMES,
+  SITE_LOCALE,
+} from '@/lib/siteConfig';
+import { JsonLd, organizationSchema, websiteSchema } from '@/lib/seo/jsonLd';
 
 import { Fascinate } from 'next/font/google';
 
@@ -16,21 +23,89 @@ const fascinate = Fascinate({
 });
 
 export const metadata: Metadata = {
-  title: "FIRA - Premium Event Venues & Management Platform",
-  description: "Connect with premium venues and create unforgettable events. FIRA is the leading platform for venue booking, event management, and ticket sales with verified organizers and locations.",
-  keywords: "event venues, venue booking, event management, party planning, event tickets, private events, verified venues",
-  authors: [{ name: "FIRA" }],
+  // metadataBase makes every relative OG/canonical URL resolve to an absolute
+  // one. Without it Next emits relative URLs that crawlers and social scrapers
+  // cannot follow.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    // Brand-first. "FIRA" has to be the first token a crawler sees so the site
+    // has a chance of being associated with the brand name at all.
+    default: `${SITE_NAME} - ${SITE_TAGLINE}`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    'FIRA',
+    'letsfira',
+    'FIRA events',
+    'event venues India',
+    'venue booking',
+    'book banquet hall',
+    'event tickets',
+    'party venues near me',
+    'concerts near me',
+    'host an event',
+  ],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: 'events',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
-    title: "FIRA - Premium Event Venues & Management Platform",
-    description: "Connect with premium venues and create unforgettable events.",
-    type: "website",
-    siteName: "FIRA",
+    title: `${SITE_NAME} - ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: '/',
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: SITE_LOCALE,
   },
   twitter: {
-    card: "summary_large_image",
-    title: "FIRA - Premium Event Venues & Management Platform",
-    description: "Connect with premium venues and create unforgettable events.",
+    card: 'summary_large_image',
+    title: `${SITE_NAME} - ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: 'black-translucent',
+  },
+  // Ownership proof for Search Console. Set the token in the environment, or
+  // verify the property via a DNS TXT record instead.
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
+  other: {
+    // Helps disambiguate the brand for engines that read these hints.
+    'application-name': SITE_NAME,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0a0a0a',
+  colorScheme: 'dark',
+  width: 'device-width',
+  initialScale: 1,
+};
+
+// Site-wide entity graph: who we are (Organization) and what this site is
+// (WebSite). Emitted on every page so any entry point carries the brand facts.
+const siteGraph = {
+  '@context': 'https://schema.org',
+  '@graph': [organizationSchema(), websiteSchema()],
 };
 
 export default function RootLayout({
@@ -39,7 +114,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // en-IN, not en: the audience, currency and city names are all Indian.
+    <html lang="en-IN">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -47,8 +123,19 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
+        {/* Cuts a round-trip on the first events/venues fetch. */}
+        {process.env.NEXT_PUBLIC_API_URL && (
+          <link rel="preconnect" href={new URL(process.env.NEXT_PUBLIC_API_URL).origin} />
+        )}
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <JsonLd data={siteGraph} />
       </head>
       <body className={`${fascinate.variable} antialiased`}>
+        {/* Not rendered, but gives crawlers an unambiguous brand string on
+            every page - the H1 on most pages is a page title, not the brand. */}
+        <span className="sr-only">
+          {SITE_NAME} ({SITE_ALTERNATE_NAMES.join(', ')}) - {SITE_TAGLINE}
+        </span>
         <AuthProvider>
           <ToastProvider>
             <ScrollToTop />
@@ -61,4 +148,3 @@ export default function RootLayout({
     </html>
   );
 }
-

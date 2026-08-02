@@ -10,6 +10,13 @@ import { Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 
+/**
+ * How long the success state stays on screen before we navigate to the
+ * dashboard. Long enough to actually read the confirmation, short enough that
+ * nobody thinks the page has hung.
+ */
+const SUCCESS_REDIRECT_DELAY_MS = 3000;
+
 export default function VenueDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -216,8 +223,10 @@ export default function VenueDetailPage() {
                             setIsBookingModalOpen(false);
                             setBookingData({ date: '', endDate: '', startTime: '', endTime: '', guests: 50, purpose: '' });
                             fetchVenue(venue._id); // Refresh availability
-                            // Redirect to bookings dashboard
-                            router.push('/dashboard/bookings');
+                            // Give the success toast time to be read before
+                            // navigating - an instant redirect made it look like
+                            // nothing had happened.
+                            setTimeout(() => router.push('/dashboard/bookings'), SUCCESS_REDIRECT_DELAY_MS);
                         } else {
                             showToast('Payment verification failed', 'error');
                         }

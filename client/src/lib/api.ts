@@ -613,6 +613,24 @@ export const notificationsApi = {
         request(`/notifications/${id}`, {
             method: 'DELETE',
         }),
+
+    // --- Web Push ---
+    getPushPublicKey: () =>
+        request<{ publicKey: string }>('/notifications/push/public-key'),
+    subscribePush: (subscription: PushSubscriptionJSON) =>
+        request<{ success: boolean; message: string }>('/notifications/push/subscribe', {
+            method: 'POST',
+            body: JSON.stringify({ subscription }),
+        }),
+    unsubscribePush: (endpoint: string) =>
+        request<{ success: boolean; removed: number }>('/notifications/push/unsubscribe', {
+            method: 'POST',
+            body: JSON.stringify({ endpoint }),
+        }),
+    sendTestPush: () =>
+        request<{ success: boolean; sent: number }>('/notifications/push/test', {
+            method: 'POST',
+        }),
 };
 
 // Verification API

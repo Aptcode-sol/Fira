@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { FadeIn } from './animations';
+import { useAuth } from '@/contexts/AuthContext';
 
 const rotatingWords = ['FIRA', 'Celebrate', 'Party', 'Dance'];
 
 export default function Hero() {
     const [wordIndex, setWordIndex] = useState(0);
     const [isAnimating, setIsAnimating] = useState(false);
+    const { isAuthenticated, isLoading } = useAuth();
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -63,22 +66,47 @@ export default function Hero() {
 
                 {/* CTA Buttons - Center aligned with proper spacing */}
                 <FadeIn delay={0.4} duration={0.6} direction="up">
-                    <div className="flex flex-row gap-4 justify-center">
-                        {/* View Parties - Glass morphic rounded */}
-                        <button
-                            onClick={() => scrollToSection('parties-section')}
-                            className="min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
-                        >
-                            View Parties
-                        </button>
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="flex flex-row gap-4 justify-center">
+                            {/* View Parties - Glass morphic rounded */}
+                            <button
+                                onClick={() => scrollToSection('parties-section')}
+                                className="min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
+                            >
+                                View Parties
+                            </button>
 
-                        {/* Create Parties - Solid white */}
-                        <button
-                            onClick={() => scrollToSection('create-section')}
-                            className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium"
-                        >
-                            Create Parties
-                        </button>
+                            {/* Primary CTA. For a signed-out visitor the highest-value
+                                action is creating an account, not scrolling further -
+                                every visitor here is a lead we otherwise lose. */}
+                            {!isLoading && !isAuthenticated ? (
+                                <Link
+                                    href="/signup"
+                                    className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium flex items-center justify-center"
+                                >
+                                    Get Started Free
+                                </Link>
+                            ) : (
+                                <button
+                                    onClick={() => scrollToSection('create-section')}
+                                    className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium"
+                                >
+                                    Create Parties
+                                </button>
+                            )}
+                        </div>
+
+                        {!isLoading && !isAuthenticated && (
+                            <p className="text-gray-500 text-sm">
+                                Free to join.{' '}
+                                <button
+                                    onClick={() => scrollToSection('create-section')}
+                                    className="text-violet-400 hover:text-violet-300 transition-colors underline underline-offset-4"
+                                >
+                                    Or host your own party
+                                </button>
+                            </p>
+                        )}
                     </div>
                 </FadeIn>
 

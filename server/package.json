@@ -26,7 +26,8 @@
     "nodemailer": "^7.0.11",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

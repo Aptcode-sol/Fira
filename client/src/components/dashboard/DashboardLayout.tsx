@@ -8,7 +8,8 @@ import Navbar from '@/components/Navbar';
 
 const navItems = [
     { href: '/dashboard', icon: 'home', label: 'Overview' },
-    { href: '/dashboard/events', icon: 'calendar', label: 'My Events' },
+    // "My Events" lives in the Events Management section below (see
+    // eventOrganizerItems) - having it here too rendered it twice.
     { href: '/dashboard/bookings', icon: 'building', label: 'My Bookings' },
     { href: '/dashboard/tickets', icon: 'ticket', label: 'My Tickets' },
     { href: '/dashboard/payments', icon: 'credit-card', label: 'Payments' },
@@ -40,6 +41,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         }
         return false;
     });
+    // Hover-to-peek on desktop. `isExpanded` stays the *pinned* state (toggled
+    // by the button, persisted to localStorage); hovering only opens the
+    // sidebar temporarily and never overwrites that preference.
+    const [isHovered, setIsHovered] = useState(false);
+    const [isDesktop, setIsDesktop] = useState(false);
+
+    useEffect(() => {
+        const query = window.matchMedia('(min-width: 1024px)');
+        const sync = () => setIsDesktop(query.matches);
+        sync();
+        query.addEventListener('change', sync);
+        return () => query.removeEventListener('change', sync);
+    }, []);
+
+    // What the sidebar should *look* like right now. Note the main content
+    // margin deliberately does NOT use this - on hover the sidebar overlays the
+    // page instead of shoving it sideways, which would be jarring on every
+    // pointer pass.
+    const isOpen = isExpanded || (isDesktop && isHovered);
+
     const handleLinkClick = () => {
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
             setIsExpanded(false);
@@ -49,7 +70,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     // Derive sidebar visibility from user context — no API calls needed
     const hasBrand = !!(user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge));
     const hasVenues = user?.role === 'venue_owner' || user?.role === 'admin';
-    const hasEvents = hasBrand; // Creators can organize events
+    // Events Management is now the ONLY place "My Events" appears, so it has to
+    // be visible to everyone. This was gated on hasBrand before, but any user
+    // can create an event via /create/event - keeping the gate would have left
+    // regular users with no way to reach /dashboard/events at all.
+    const hasEvents = true;
 
     // Persist sidebar state
     useEffect(() => {
@@ -168,18 +193,27 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Collapsible Sidebar */}
             <aside
-                onMouseEnter={() => setIsExpanded(true)}
-                onMouseLeave={() => setIsExpanded(false)}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 className={`fixed left-0 top-0 h-full bg-[#0a0a0a] lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
-                    isExpanded ? 'w-64' : 'w-0 lg:w-20 overflow-hidden border-none'
+                    isOpen ? 'w-64' : 'w-0 lg:w-20 overflow-hidden border-none'
                 }`}
             >
                 {/* Logo and Mobile Toggle */}
                 <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-16 lg:h-20 relative">
-                    {/* Mobile Toggle Button removed as handled by Navbar Hamburger */}
+                    {/* Desktop Toggle Button */}
+                    <button 
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="absolute left-4 hidden lg:flex text-gray-400 hover:text-white z-10"
+                        title={isExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
                     
                     {/* Logo - Hidden on mobile if not expanded */}
-                    <Link href="/" className={`flex items-center justify-center transition-opacity duration-300 ${(!isExpanded && 'hidden lg:flex') || 'flex'} w-full`}>
+                    <Link href="/" className={`flex items-center justify-center transition-opacity duration-300 ${(!isOpen && 'hidden lg:flex') || 'flex'} w-full`}>
                         <img
                             src="/logo white.png"
                             alt="FIRA"
@@ -200,8 +234,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     )}
                 </div>
 
-                {/* Navigation */}
-                <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+                {/* Navigation - two zones.
+                    The main links scroll if they outgrow the sidebar, while
+                    Brand Profile, Events Management and Logout stay pinned to
+                    the bottom so they sit in the same place on every screen. */}
+                <nav className="flex-1 flex flex-col p-3 min-h-0">
+                    {/* Scrolling zone */}
+                    <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
@@ -213,12 +252,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                     ? 'bg-white text-black shadow-lg shadow-white/10'
                                     : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
                                     }`}
-                                title={!isExpanded ? item.label : undefined}
+                                title={!isOpen ? item.label : undefined}
                             >
                                 <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                                     {getIcon(item.icon)}
                                 </span>
-                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
                                     }`}>
                                     {item.label}
                                 </span>
@@ -229,7 +268,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {/* Venue Owner Section */}
                     {isVenueOwner && (
                         <>
-                            <div className={`transition-all duration-200 overflow-hidden ${isExpanded ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
+                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
                                 <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                     Venue Management
                                 </div>
@@ -245,12 +284,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                             ? 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 text-violet-300 border border-violet-500/30 shadow-lg shadow-violet-500/10'
                                             : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
                                             }`}
-                                        title={!isExpanded ? item.label : undefined}
+                                        title={!isOpen ? item.label : undefined}
                                     >
                                         <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                                             {getIcon(item.icon)}
                                         </span>
-                                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+                                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
                                             }`}>
                                             {item.label}
                                         </span>
@@ -260,10 +299,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         </>
                     )}
 
+                    </div>
+
+                    {/* Pinned zone - always at the bottom of the sidebar */}
+                    <div className="shrink-0 space-y-1 pt-3 mt-2 border-t border-white/[0.06]">
+
                     {/* Brand Section */}
                     {hasBrand && (
                         <>
-                            <div className={`transition-all duration-200 overflow-hidden ${isExpanded ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
+                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
                                 <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                     Brand Profile
                                 </div>
@@ -275,12 +319,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                     ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30 shadow-lg shadow-cyan-500/10'
                                     : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
                                     }`}
-                                title={!isExpanded ? 'My Brand' : undefined}
+                                title={!isOpen ? 'My Brand' : undefined}
                             >
                                 <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                                     {getIcon('sparkles')}
                                 </span>
-                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
                                     }`}>
                                     My Brand
                                 </span>
@@ -291,7 +335,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {/* Events Management Section */}
                     {hasEvents && (
                         <>
-                            <div className={`transition-all duration-200 overflow-hidden ${isExpanded ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
+                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
                                 <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                     Events Management
                                 </div>
@@ -307,12 +351,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                             ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-300 border border-orange-500/30 shadow-lg shadow-orange-500/10'
                                             : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
                                             }`}
-                                        title={!isExpanded ? item.label : undefined}
+                                        title={!isOpen ? item.label : undefined}
                                     >
                                         <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                                             {getIcon(item.icon)}
                                         </span>
-                                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+                                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
                                             }`}>
                                             {item.label}
                                         </span>
@@ -329,23 +373,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             localStorage.removeItem('fira_user');
                             window.location.href = '/signin';
                         }}
-                        className={`flex items-center gap-3 px-3 py-3 mt-4 rounded-xl transition-all duration-300 overflow-hidden text-red-400 hover:bg-red-500/10 hover:text-red-300`}
-                        title={!isExpanded ? 'Logout' : undefined}
+                        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 overflow-hidden text-red-400 hover:bg-red-500/10 hover:text-red-300`}
+                        title={!isOpen ? 'Logout' : undefined}
                     >
                         <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                             </svg>
                         </span>
-                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
                             }`}>
                             Logout
                         </span>
                     </button>
+                    </div>
                 </nav>
 
                 {/* Legal Links - Desktop */}
-                <div className={`mt-auto px-3 py-2 border-t border-white/[0.08] transition-all duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                <div className={`mt-auto px-3 py-2 border-t border-white/[0.08] transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
                     <div className="flex flex-wrap gap-2 text-xs text-gray-500">
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
                         <span>•</span>

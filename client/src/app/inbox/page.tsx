@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { messagesApi, notificationsApi, Conversation, Message } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
+import PushNotificationToggle from '@/components/PushNotificationToggle';
 import { Button, Input } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -88,80 +89,83 @@ export default function InboxPage() {
         }
     }, [isAuthenticated, user?._id, activeTab]);
 
-    // Load Conversations
-    useEffect(() => {
-        const loadConversations = async () => {
-            try {
-                setLoadingMessages(true);
-                const response = await messagesApi.getConversations();
-                setConversations(response.conversations);
-            } catch (err) {
-                console.error('Failed to load conversations:', err);
-            } finally {
-                setLoadingMessages(false);
-            }
-        };
-
-        if (isAuthenticated && user && activeTab === 'messages' && !selectedConversation) {
-            loadConversations();
-        }
-    }, [isAuthenticated, user, activeTab, selectedConversation]);
-
-    // Load Chat Messages
-    useEffect(() => {
-        const loadChatMessages = async (conversationId: string) => {
-            try {
-                const response = await messagesApi.getMessages(conversationId);
-                setMessages(response.messages);
-                setConversations(prev => prev.map(c =>
-                    c._id === conversationId ? { ...c, unreadCount: 0 } : c
-                ));
-            } catch (err) {
-                console.error('Failed to load messages:', err);
-            }
-        };
-
-        if (selectedConversation) {
-            loadChatMessages(selectedConversation._id);
-        }
-    }, [selectedConversation?._id]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !selectedConversation || isSending) return;
-
-        setIsSending(true);
-        try {
-            const response = await messagesApi.sendMessage({
-                conversationId: selectedConversation._id,
-                content: newMessage.trim(),
-            });
-
-            setMessages(prev => [...prev, response.message]);
-            setNewMessage('');
-
-            setConversations(prev => prev.map(c =>
-                c._id === selectedConversation._id
-                    ? {
-                        ...c,
-                        lastMessage: {
-                            content: newMessage.trim(),
-                            sender: user?._id || '',
-                            timestamp: new Date().toISOString()
-                        }
-                    }
-                    : c
-            ));
-        } catch (err) {
-            console.error('Failed to send message:', err);
-        } finally {
-            setIsSending(false);
-        }
-    };
+    // CHAT DISABLED - conversation/message loading and sending are commented out.
+    // Restore this block together with the Messages tab markup further down.
+    //
+    // // Load Conversations
+    // useEffect(() => {
+    //     const loadConversations = async () => {
+    //         try {
+    //             setLoadingMessages(true);
+    //             const response = await messagesApi.getConversations();
+    //             setConversations(response.conversations);
+    //         } catch (err) {
+    //             console.error('Failed to load conversations:', err);
+    //         } finally {
+    //             setLoadingMessages(false);
+    //         }
+    //     };
+    //
+    //     if (isAuthenticated && user && activeTab === 'messages' && !selectedConversation) {
+    //         loadConversations();
+    //     }
+    // }, [isAuthenticated, user, activeTab, selectedConversation]);
+    //
+    // // Load Chat Messages
+    // useEffect(() => {
+    //     const loadChatMessages = async (conversationId: string) => {
+    //         try {
+    //             const response = await messagesApi.getMessages(conversationId);
+    //             setMessages(response.messages);
+    //             setConversations(prev => prev.map(c =>
+    //                 c._id === conversationId ? { ...c, unreadCount: 0 } : c
+    //             ));
+    //         } catch (err) {
+    //             console.error('Failed to load messages:', err);
+    //         }
+    //     };
+    //
+    //     if (selectedConversation) {
+    //         loadChatMessages(selectedConversation._id);
+    //     }
+    // }, [selectedConversation?._id]);
+    //
+    // useEffect(() => {
+    //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // }, [messages]);
+    //
+    // const handleSendMessage = async (e: React.FormEvent) => {
+    //     e.preventDefault();
+    //     if (!newMessage.trim() || !selectedConversation || isSending) return;
+    //
+    //     setIsSending(true);
+    //     try {
+    //         const response = await messagesApi.sendMessage({
+    //             conversationId: selectedConversation._id,
+    //             content: newMessage.trim(),
+    //         });
+    //
+    //         setMessages(prev => [...prev, response.message]);
+    //         setNewMessage('');
+    //
+    //         setConversations(prev => prev.map(c =>
+    //             c._id === selectedConversation._id
+    //                 ? {
+    //                     ...c,
+    //                     lastMessage: {
+    //                         content: newMessage.trim(),
+    //                         sender: user?._id || '',
+    //                         timestamp: new Date().toISOString()
+    //                     }
+    //                 }
+    //                 : c
+    //         ));
+    //     } catch (err) {
+    //         console.error('Failed to send message:', err);
+    //     } finally {
+    //         setIsSending(false);
+    //     }
+    // };
 
     const markAsRead = async (id: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -172,6 +176,17 @@ export default function InboxPage() {
             );
         } catch (err) {
             console.error('Failed to mark as read:', err);
+        }
+    };
+
+    // Matches the "Mark all as read" action on the desktop notifications page.
+    const markAllAsRead = async () => {
+        if (!user?._id) return;
+        try {
+            await notificationsApi.markAllAsRead(user._id);
+            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        } catch (err) {
+            console.error('Failed to mark all as read:', err);
         }
     };
 
@@ -311,13 +326,43 @@ export default function InboxPage() {
             <PartyBackground />
             <Navbar />
             <main className="pt-20 pb-24 px-4 relative z-20 md:hidden">
+                {/* CHAT DISABLED - with Messages gone there is only one tab
+                    left, so a tab bar is meaningless. This mirrors the desktop
+                    /dashboard/notifications header instead.
+                    To bring chat back, restore the two-button tab bar kept at
+                    the bottom of this comment and drop this header. */}
+                {!selectedConversation && (
+                    <div className="flex items-start justify-between mb-6">
+                        <div>
+                            <h1 className="text-2xl font-bold text-white mb-1">Notifications</h1>
+                            <p className="text-sm text-gray-400">
+                                {unreadAlerts > 0
+                                    ? `You have ${unreadAlerts} unread notification${unreadAlerts === 1 ? '' : 's'}`
+                                    : "You're all caught up!"}
+                            </p>
+                        </div>
+                        {unreadAlerts > 0 && (
+                            <button
+                                onClick={markAllAsRead}
+                                className="text-xs text-violet-400 hover:text-violet-300 transition-colors shrink-0 mt-1"
+                            >
+                                Mark all as read
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Per-device push opt-in. This is the mobile surface, so it is
+                    the most likely place a user actually turns push on. */}
+                {!selectedConversation && <PushNotificationToggle className="mb-6" />}
+                {/* CHAT DISABLED - original tab bar
                 {!selectedConversation && (
                     <div className="flex gap-2 mb-6">
                         <button
                             onClick={() => setActiveTab('alerts')}
                             className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-                                activeTab === 'alerts' 
-                                ? 'bg-violet-600 text-white' 
+                                activeTab === 'alerts'
+                                ? 'bg-violet-600 text-white'
                                 : 'bg-white/5 text-gray-400 hover:text-white'
                             }`}
                         >
@@ -331,8 +376,8 @@ export default function InboxPage() {
                         <button
                             onClick={() => setActiveTab('messages')}
                             className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-                                activeTab === 'messages' 
-                                ? 'bg-violet-600 text-white' 
+                                activeTab === 'messages'
+                                ? 'bg-violet-600 text-white'
                                 : 'bg-white/5 text-gray-400 hover:text-white'
                             }`}
                         >
@@ -345,6 +390,7 @@ export default function InboxPage() {
                         </button>
                     </div>
                 )}
+                */}
 
                 {/* Alerts Content */}
                 {activeTab === 'alerts' && !selectedConversation && (
@@ -386,7 +432,8 @@ export default function InboxPage() {
                     </div>
                 )}
 
-                {/* Messages Content */}
+                {/* CHAT DISABLED - Messages list */}
+                {/*
                 {activeTab === 'messages' && !selectedConversation && (
                     <div className="space-y-3">
                         {loadingMessages ? (
@@ -438,8 +485,10 @@ export default function InboxPage() {
                         )}
                     </div>
                 )}
+                */}
 
-                {/* Mobile Chat View Overlay */}
+                {/* CHAT DISABLED - Mobile chat view overlay */}
+                {/*
                 {selectedConversation && (
                     <div className="fixed inset-0 z-50 bg-black flex flex-col">
                         <div className="pt-safe pr-4 pl-2 pb-3 border-b border-white/10 flex items-center gap-2 bg-black/90 backdrop-blur-xl shrink-0 mt-2">
@@ -510,6 +559,7 @@ export default function InboxPage() {
                         </form>
                     </div>
                 )}
+                */}
             </main>
         </div>
     );

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { brandsApi, messagesApi } from '@/lib/api';
+import { brandsApi } from '@/lib/api'; // CHAT DISABLED - `messagesApi` no longer imported
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import BrandHeader from '@/components/BrandHeader';
@@ -141,25 +141,26 @@ export default function CreatorProfilePage() {
         }
     };
 
-    const handleEnquiry = async () => {
-        // If not logged in, redirect to signin
-        if (!user?._id) {
-            window.location.href = '/signin?redirect=' + encodeURIComponent(`/creators/${id}`);
-            return;
-        }
-
-        setEnquiryLoading(true);
-        try {
-            const response = await messagesApi.startBrandEnquiry({ brandId: id });
-            router.push(`/messages?conversation=${response.conversation._id}`);
-        } catch (error) {
-            console.error('Error starting enquiry:', error);
-            const message = error instanceof Error ? error.message : 'Failed to start conversation';
-            showToast(message, 'error');
-        } finally {
-            setEnquiryLoading(false);
-        }
-    };
+    // CHAT DISABLED - starting an in-app enquiry conversation
+    // const handleEnquiry = async () => {
+    //     // If not logged in, redirect to signin
+    //     if (!user?._id) {
+    //         window.location.href = '/signin?redirect=' + encodeURIComponent(`/creators/${id}`);
+    //         return;
+    //     }
+    //
+    //     setEnquiryLoading(true);
+    //     try {
+    //         const response = await messagesApi.startBrandEnquiry({ brandId: id });
+    //         router.push(`/messages?conversation=${response.conversation._id}`);
+    //     } catch (error) {
+    //         console.error('Error starting enquiry:', error);
+    //         const message = error instanceof Error ? error.message : 'Failed to start conversation';
+    //         showToast(message, 'error');
+    //     } finally {
+    //         setEnquiryLoading(false);
+    //     }
+    // };
 
     if (loading) {
         return (
@@ -236,7 +237,9 @@ export default function CreatorProfilePage() {
                                         Want to book {brand.name} for your event or have an enquiry?
                                     </p>
                                     <div className="flex flex-wrap gap-3">
-                                        {/* Enquiry Button - Primary CTA */}
+                                        {/* CHAT DISABLED - in-app enquiry / "Send Enquiry" CTA.
+                                            Email / Instagram / WhatsApp below remain the contact paths. */}
+                                        {/*
                                         {user?._id && (brand.user === user._id || brand.user?._id === user._id) ? (
                                             <button
                                                 onClick={() => router.push('/messages')}
@@ -263,6 +266,7 @@ export default function CreatorProfilePage() {
                                                 {enquiryLoading ? 'Starting...' : 'Send Enquiry'}
                                             </button>
                                         )}
+                                        */}
                                         {brand.socialLinks?.email && (
                                             <a
                                                 href={`mailto:${brand.socialLinks.email}`}

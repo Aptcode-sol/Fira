@@ -327,7 +327,7 @@ function CreateEventForm() {
                                             value={formData.date}
                                             min={new Date().toISOString().split('T')[0]}
                                             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            className="w-full px-4 py-3 min-h-[50px] appearance-none rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                                         />
                                     </div>
                                     <div>
@@ -337,9 +337,8 @@ function CreateEventForm() {
                                             value={formData.endDate}
                                             min={formData.date || new Date().toISOString().split('T')[0]}
                                             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            className="w-full px-4 py-3 min-h-[50px] appearance-none rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                                         />
-                                        <p className="mt-1 text-xs text-gray-500">Required field</p>
                                     </div>
                                 </div>
 
@@ -350,7 +349,7 @@ function CreateEventForm() {
                                             type="time"
                                             value={formData.startTime}
                                             onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            className="w-full px-4 py-3 min-h-[50px] appearance-none rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                                         />
                                     </div>
                                     <div>
@@ -359,7 +358,7 @@ function CreateEventForm() {
                                             type="time"
                                             value={formData.endTime}
                                             onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                            className="w-full px-4 py-3 min-h-[50px] appearance-none rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                                         />
                                     </div>
                                 </div>

@@ -1,16 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, OTPInput, PasswordStrengthIndicator, Select } from '@/components/ui';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 
-export default function SignUpPage() {
+function SignUpContent() {
     const router = useRouter();
-    const [step, setStep] = useState<'register' | 'verify'>('register');
+    const searchParams = useSearchParams();
+    const { setSession } = useAuth();
+
+    // /signup?email=...&verify=true is where the sign-in page sends a user whose
+    // email is not verified yet, so land them straight on the OTP step with the
+    // email prefilled instead of on an empty registration form.
+    const emailFromUrl = searchParams.get('email') || '';
+    const shouldVerify = searchParams.get('verify') === 'true' && emailFromUrl !== '';
+
+    const [step, setStep] = useState<'register' | 'verify'>(shouldVerify ? 'verify' : 'register');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +31,7 @@ export default function SignUpPage() {
 
     const [formData, setFormData] = useState({
         name: '',
-        email: '',
+        email: emailFromUrl,
         password: '',
         confirmPassword: '',
         city: '',
@@ -106,9 +116,9 @@ export default function SignUpPage() {
                 code: otp,
             });
 
-            // Store token and user data
-            localStorage.setItem('fira_token', response.token);
-            localStorage.setItem('fira_user', JSON.stringify(response.user));
+            // Start the session through the auth context so RouteGuard sees a
+            // logged-in user; writing to localStorage alone bounces us to /signin.
+            setSession(response.user, response.token);
 
             // Redirect to dashboard
             router.push('/dashboard');
@@ -417,5 +427,22 @@ export default function SignUpPage() {
                 </div>
             </main>
         </>
+    );
+}
+
+// useSearchParams() needs a Suspense boundary during prerendering.
+export default function SignUpPage() {
+    return (
+        <Suspense fallback={
+            <>
+                <PartyBackground />
+                <Navbar />
+                <main className="relative z-20 min-h-screen flex items-center justify-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
+                </main>
+            </>
+        }>
+            <SignUpContent />
+        </Suspense>
     );
 }

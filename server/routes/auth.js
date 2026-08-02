@@ -5,8 +5,10 @@ const authService = require('../services/authService');
 // POST /api/auth/register - Register new user
 router.post('/register', async (req, res) => {
     try {
-        const { email, password, name } = req.body;
-        const result = await authService.register({ email, password, name });
+        // `city` is collected on the signup form and is what powers city-based
+        // discovery, so it has to be forwarded to the service.
+        const { email, password, name, city } = req.body;
+        const result = await authService.register({ email, password, name, city });
         res.status(201).json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

@@ -141,6 +141,26 @@ const bookingService = {
             console.log('⚠️ No venue found, skipping email notification');
         }
 
+        // In-app + push for the venue owner. Email already goes out above, but
+        // an owner who lives in the dashboard should not have to check mail.
+        if (venue?.owner?._id) {
+            const notificationService = require('./notificationService');
+            notificationService.createNotification({
+                userId: venue.owner._id,
+                type: 'booking_request',
+                title: 'New booking request',
+                message: `${booker?.name || 'Someone'} wants to book ${venue.name} on ${new Date(data.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
+                data: {
+                    referenceId: booking._id,
+                    referenceModel: 'Booking',
+                    actionUrl: '/dashboard/requests',
+                    extra: { venueName: venue.name, bookingDate: data.bookingDate }
+                },
+                priority: 'high',
+                channel: 'all'
+            }).catch(err => console.error('booking_request notification failed:', err.message));
+        }
+
         return booking;
     },
 
@@ -215,6 +235,30 @@ const bookingService = {
 
                 await venue.save();
             }
+        }
+
+        // Tell the person who made the request what the owner decided.
+        if (status === 'accepted' || status === 'rejected') {
+            const notificationService = require('./notificationService');
+            const venueName = booking.venue?.name || 'the venue';
+            const accepted = status === 'accepted';
+
+            notificationService.createNotification({
+                userId: booking.user,
+                type: accepted ? 'booking_accepted' : 'booking_rejected',
+                title: accepted ? 'Booking confirmed 🎉' : 'Booking declined',
+                message: accepted
+                    ? `${venueName} accepted your booking for ${new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`
+                    : `${venueName} could not take your booking${rejectionReason ? `: ${rejectionReason}` : '.'}`,
+                data: {
+                    referenceId: booking._id,
+                    referenceModel: 'Booking',
+                    actionUrl: '/dashboard/bookings',
+                    extra: { venueName, status, rejectionReason: rejectionReason || null }
+                },
+                priority: 'high',
+                channel: 'all'
+            }).catch(err => console.error(`booking_${status} notification failed:`, err.message));
         }
 
         return booking;

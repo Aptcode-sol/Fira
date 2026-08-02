@@ -7,6 +7,8 @@ export interface User {
     name: string;
     avatar: string | null;
     phone: string | null;
+    /** Home city, collected at signup - powers the city-first listing default. */
+    city?: string | null;
     role: 'user' | 'venue_owner' | 'admin';
     isVerified: boolean;
     emailVerified: boolean;

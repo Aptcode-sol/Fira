@@ -5,12 +5,16 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import EventCard from '@/components/EventCard';
-import { EventCardSkeleton, Input, Button, Select } from '@/components/ui';
+import CitySelector from '@/components/CitySelector';
+import { EventCardSkeleton, Input, Button, FilterPanel } from '@/components/ui';
+import type { FilterGroup } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { Event } from '@/lib/types';
 import { FadeIn, SlideUp } from '@/components/animations';
-import { motion, AnimatePresence } from 'framer-motion';
-import LocationFilter from '@/components/LocationFilter';
+import { motion } from 'framer-motion';
+import { useCities } from '@/hooks/useCities';
+import { useUserCity } from '@/hooks/useUserCity';
+import { CITIES, getCityByName } from '@/lib/cities';
 
 interface EventsResponse {
     events: Event[];
@@ -79,27 +83,66 @@ export default function EventsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [selectedSort, setSelectedSort] = useState('all'); // 'all' = sections view (default)
-    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [locationError, setLocationError] = useState(false);
+
+    // LOCATION DISABLED - we no longer ask the browser for GPS coordinates.
+    // See the "Near You" block further down for the matching UI.
+    // const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+    // const [locationError, setLocationError] = useState(false);
 
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [showAllMode, setShowAllMode] = useState(false);
     const [selectedTicketType, setSelectedTicketType] = useState('all');
     const [selectedDateFilter, setSelectedDateFilter] = useState('all');
-    const [selectedCity, setSelectedCity] = useState('');
 
-    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedCity !== '' || selectedSort !== 'all';
+    const cities = useCities();
+
+    // CITY-FIRST: the city is a *scope* on the whole catalogue, not one filter
+    // among many. It seeds from ?city=, then the visitor's saved choice, then
+    // the city on their profile - so a signed-in user lands on their own city
+    // without ever seeing a location permission prompt.
+    const { city: preferredCity, setCity: persistCity, isResolved: cityResolved } = useUserCity();
+    const [selectedCity, setSelectedCity] = useState('');
+    const [cityApplied, setCityApplied] = useState(false);
+
+    useEffect(() => {
+        if (cityApplied || !cityResolved) return;
+
+        // Read ?city= straight off the URL rather than with useSearchParams().
+        // That hook forces the whole page behind a Suspense boundary, which
+        // makes Next prerender only the fallback spinner - so crawlers get an
+        // empty page for /events. This runs in an effect anyway, where
+        // window.location is always available.
+        const fromUrl = new URLSearchParams(window.location.search).get('city');
+        const resolved = fromUrl
+            ? getCityByName(fromUrl)?.name || fromUrl
+            : preferredCity;
+
+        if (resolved) setSelectedCity(resolved);
+        setCityApplied(true);
+    }, [cityApplied, cityResolved, preferredCity]);
+
+    const changeCity = useCallback((city: string) => {
+        setSelectedCity(city);
+        persistCity(city);
+        setPage(1);
+        setGridData([]);
+    }, [persistCity]);
+
+    // Note: `selectedCity` is deliberately absent. Scoping to a city should not
+    // collapse the curated sections into a flat grid - the sections themselves
+    // are fetched city-scoped instead.
+    const isFiltered = showAllMode || searchQuery !== '' || selectedCategory !== 'All' || selectedTicketType !== 'all' || selectedDateFilter !== 'all' || selectedSort !== 'all';
     const defaultSort = 'all';
 
-    // Reset filters
+    // Reset filters. The city scope survives a reset on purpose - it is the
+    // visitor's standing preference, not something they just toggled.
     const resetFilters = () => {
         setSearchQuery('');
         setSelectedCategory('All');
         setSelectedSort('all');
         setSelectedTicketType('all');
         setSelectedDateFilter('all');
-        setSelectedCity('');
         setShowAllMode(false);
         setPage(1);
         setGridData([]);
@@ -109,18 +152,82 @@ export default function EventsPage() {
     // Active sort label for filtered grid header
     const activeSortLabel = sortOptions.find(o => o.value === selectedSort)?.label || '';
 
-    // Fetch sections
+    const hasSectionResults =
+        sections.today.length > 0 ||
+        sections.popular.length > 0 ||
+        sections.upcoming.length > 0 ||
+        sections.weekend.length > 0;
+
+    // Every filter lives behind a single "Filters" control instead of a row of dropdowns.
+    const filterGroups: FilterGroup[] = [
+        {
+            key: 'category',
+            label: 'Category',
+            type: 'list',
+            searchable: true,
+            options: categories,
+            value: selectedCategory,
+            defaultValue: 'All',
+            onChange: (val) => {
+                setSelectedCategory(val);
+                if (val !== 'All') setShowAllMode(true);
+            },
+        },
+        {
+            key: 'sort',
+            label: 'Show',
+            type: 'pills',
+            options: sortOptions,
+            value: selectedSort,
+            defaultValue: 'all',
+            onChange: (val) => {
+                setSelectedSort(val);
+                if (val === 'all') {
+                    setShowAllMode(false);
+                    setGridData([]);
+                } else {
+                    setShowAllMode(true);
+                }
+            },
+        },
+        {
+            key: 'when',
+            label: 'When',
+            type: 'pills',
+            options: dateFilterOptions,
+            value: selectedDateFilter,
+            defaultValue: 'all',
+            onChange: setSelectedDateFilter,
+        },
+        {
+            key: 'ticket',
+            label: 'Ticket',
+            type: 'pills',
+            options: ticketTypeOptions,
+            value: selectedTicketType,
+            defaultValue: 'all',
+            onChange: setSelectedTicketType,
+        },
+        // City is intentionally NOT in here - it has its own always-visible
+        // selector next to the search box (see CitySelector).
+    ];
+
+    // Fetch sections, scoped to the selected city
     useEffect(() => {
         if (isFiltered) return;
+        // Wait until the city preference is known, otherwise every visit fires
+        // a nationwide fetch and then immediately refetches by city.
+        if (!cityApplied) return;
 
         const fetchSections = async () => {
             setIsLoading(true);
             try {
+                const cityScope: Record<string, string> = selectedCity ? { city: selectedCity } : {};
                 const [todayRes, popularRes, upcomingRes, weekendRes] = await Promise.all([
-                    eventsApi.getAll({ eventType: 'public', dateFilter: 'today', sort: 'upcoming' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
-                    eventsApi.getAll({ eventType: 'public', weekend: 'true', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ ...cityScope, eventType: 'public', dateFilter: 'today', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ ...cityScope, status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ ...cityScope, status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ ...cityScope, eventType: 'public', weekend: 'true', sort: 'upcoming' }) as Promise<EventsResponse>,
                 ]);
 
                 setSections({
@@ -137,7 +244,7 @@ export default function EventsPage() {
         };
 
         fetchSections();
-    }, [isFiltered]);
+    }, [isFiltered, selectedCity, cityApplied]);
 
     // Fetch filtered/paginated data
     const fetchFiltered = useCallback(async (pageNum: number, append: boolean = false) => {
@@ -239,24 +346,24 @@ export default function EventsPage() {
         setSearchQuery('');
         setSelectedTicketType('all');
         setSelectedDateFilter('all');
-        setSelectedCity('');
         setShowAllMode(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleEnableLocation = () => {
-        if (!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setLocationError(false);
-            },
-            () => {
-                setLocationError(true);
-                alert('Please enable location services.');
-            }
-        );
-    };
+    // LOCATION DISABLED - browser geolocation prompt
+    // const handleEnableLocation = () => {
+    //     if (!navigator.geolocation) return;
+    //     navigator.geolocation.getCurrentPosition(
+    //         (pos) => {
+    //             setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    //             setLocationError(false);
+    //         },
+    //         () => {
+    //             setLocationError(true);
+    //             alert('Please enable location services.');
+    //         }
+    //     );
+    // };
 
     const Section = ({ title, data, sort }: { title: string; data: Event[]; sort?: string }) => {
         if (!data || data.length === 0) return null;
@@ -299,14 +406,21 @@ export default function EventsPage() {
 
             <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
                 <div className="max-w-7xl mx-auto">
-                    {/* Header */}
+                    {/* Header - the H1 names the city so the page states what
+                        it actually shows, for visitors and crawlers alike. */}
                     <SlideUp>
                         <div className="text-center mb-12">
                             <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6">
-                                Discover <span className="text-violet-400">Events</span>
+                                {selectedCity ? (
+                                    <>Events in <span className="text-violet-400">{selectedCity}</span></>
+                                ) : (
+                                    <>Discover <span className="text-violet-400">Events</span></>
+                                )}
                             </h1>
                             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                                Find parties, concerts, festivals and more happening around you.
+                                {selectedCity
+                                    ? `Parties, concerts, festivals and more happening in ${selectedCity}.`
+                                    : 'Find parties, concerts, festivals and more happening around you.'}
                             </p>
                         </div>
                     </SlideUp>
@@ -314,8 +428,8 @@ export default function EventsPage() {
                     {/* Search & Filter */}
                     <FadeIn delay={0.2}>
                         <div className="relative z-30 bg-black/70 backdrop-blur-sm border border-white/10 rounded-2xl p-4 mb-12">
-                            {/* First row: Search and primary filters */}
-                            <div className="flex flex-col md:flex-row gap-4 items-center mb-4">
+                            {/* Search + a single Filters entry point */}
+                            <div className="flex flex-col md:flex-row gap-3 md:items-center">
                                 <div className="flex-1 w-full">
                                     <Input
                                         placeholder="Search events..."
@@ -329,89 +443,22 @@ export default function EventsPage() {
                                         }
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 md:flex gap-3 w-full md:w-auto">
-                                    <div className="w-full md:w-36">
-                                        <Select
-                                            value={selectedCategory}
-                                            onChange={(val) => {
-                                                setSelectedCategory(val);
-                                                if (val !== 'All') setShowAllMode(true);
-                                            }}
-                                            options={categories}
-                                            placeholder="Category"
-                                        />
-                                    </div>
-                                    <div className="w-full md:w-32">
-                                        <Select
-                                            value={selectedSort}
-                                            onChange={(val) => {
-                                                setSelectedSort(val);
-                                                if (val === 'all') {
-                                                    setShowAllMode(false);
-                                                    setGridData([]);
-                                                } else {
-                                                    setShowAllMode(true);
-                                                }
-                                            }}
-                                            options={sortOptions}
-                                            placeholder="Sort by"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            {/* Second row: Additional filters */}
-                            <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 items-center w-full">
-                                {/* Ticket Type Filter: Left on Mobile, Left on Desktop */}
-                                <div className="col-span-1 md:w-auto flex items-center gap-2">
-                                    <span className="text-gray-500 text-sm hidden md:inline">Ticket:</span>
-                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden w-full md:w-auto">
-                                        {ticketTypeOptions.map((option) => (
-                                            <button
-                                                key={option.value}
-                                                onClick={() => setSelectedTicketType(option.value)}
-                                                className={`px-3 py-1.5 text-xs font-medium transition-all flex-1 text-center md:flex-none ${selectedTicketType === option.value
-                                                    ? 'bg-violet-500 text-white'
-                                                    : 'text-gray-400 hover:text-white'
-                                                    }`}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* Location Filter: Right on Mobile, Far Right on Desktop */}
-                                <div className="col-span-1 flex justify-end md:ml-auto md:order-last">
-                                    <LocationFilter
-                                        selectedCity={selectedCity}
-                                        onCityChange={setSelectedCity}
-                                        variant="select"
-                                        className="w-full md:w-40"
-                                    />
-                                </div>
+                                <CitySelector
+                                    value={selectedCity}
+                                    onChange={changeCity}
+                                    available={cities}
+                                    className="w-full md:w-44"
+                                />
 
-                                {/* Date Filter: Full width below on mobile, Middle on Desktop */}
-                                <div className="col-span-2 w-full md:w-auto flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 -mb-1 md:pb-0 md:mb-0">
-                                    <span className="text-gray-500 text-sm hidden md:inline shrink-0">When:</span>
-                                    <div className="flex rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0">
-                                        {dateFilterOptions.map((option) => (
-                                            <button
-                                                key={option.value}
-                                                onClick={() => setSelectedDateFilter(option.value)}
-                                                className={`px-3 py-1.5 text-xs font-medium transition-all ${selectedDateFilter === option.value
-                                                    ? 'bg-violet-500 text-white'
-                                                    : 'text-gray-400 hover:text-white'
-                                                    }`}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                <FilterPanel groups={filterGroups} onReset={resetFilters} />
 
-                                {/* Reset button */}
                                 {isFiltered && (
-                                    <Button variant="ghost" onClick={resetFilters} className="text-violet-400 whitespace-nowrap text-sm mt-2 md:mt-0 col-span-2 md:col-span-1 flex justify-center w-full md:w-auto md:order-last">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={resetFilters}
+                                        className="text-violet-400 whitespace-nowrap text-sm shrink-0 md:ml-auto"
+                                    >
                                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>
@@ -441,7 +488,34 @@ export default function EventsPage() {
                     {/* Sections */}
                     {!isLoading && !isFiltered && !showAllMode && (
                         <>
-                            <Section title="Today" data={sections.today} sort="today" />
+                            {/* City scope can legitimately return nothing while a
+                                city is still being seeded - give an escape hatch
+                                instead of an apparently broken empty page. */}
+                            {selectedCity && !hasSectionResults && (
+                                <FadeIn>
+                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center mb-12">
+                                        <h2 className="text-xl font-bold text-white mb-2">
+                                            No events in {selectedCity} yet
+                                        </h2>
+                                        <p className="text-gray-400 mb-6 max-w-lg mx-auto">
+                                            Nothing is scheduled here right now. Browse every city, or be the
+                                            first to host something in {selectedCity}.
+                                        </p>
+                                        <div className="flex flex-wrap gap-3 justify-center">
+                                            <Button onClick={() => changeCity('')} variant="violet">
+                                                Show all cities
+                                            </Button>
+                                            <Link href="/create/event">
+                                                <Button variant="ghost" className="text-white border border-white/10">
+                                                    Host an event
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </FadeIn>
+                            )}
+
+                            <Section title={selectedCity ? `Today in ${selectedCity}` : 'Today'} data={sections.today} sort="today" />
                             <Section title="Popular Events" data={sections.popular} sort="popular" />
                             <Section title="Upcoming Events" data={sections.upcoming} sort="upcoming" />
                             <Section title="This Weekend" data={sections.weekend} sort="weekend" />
@@ -535,18 +609,45 @@ export default function EventsPage() {
 
                             {gridData.length === 0 && (
                                 <div className="text-center py-20 text-gray-500">
-                                    <p className="text-xl mb-4">No events found</p>
-                                    <Button variant="ghost" className="text-violet-400" onClick={resetFilters}>Reset Filters</Button>
+                                    <p className="text-xl mb-4">
+                                        No events found{selectedCity ? ` in ${selectedCity}` : ''}
+                                    </p>
+                                    <div className="flex flex-wrap gap-3 justify-center">
+                                        <Button variant="ghost" className="text-violet-400" onClick={resetFilters}>Reset Filters</Button>
+                                        {selectedCity && (
+                                            <Button variant="ghost" className="text-violet-400" onClick={() => changeCity('')}>
+                                                Search all cities
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
                             {!hasMore && gridData.length > 0 && (
                                 <div className="text-center py-8 text-gray-500">
-                                    <p>You've seen all events</p>
+                                    <p>You&apos;ve seen all events</p>
                                 </div>
                             )}
                         </>
                     )}
+
+                    {/* Crawlable links into the city cluster. These give search
+                        engines a path to every city landing page from the main
+                        listing, and let visitors jump straight to a city. */}
+                    <nav aria-label="Events by city" className="mt-20 pt-10 border-t border-white/5">
+                        <h2 className="text-sm font-semibold text-gray-400 mb-4">Browse events by city</h2>
+                        <div className="flex flex-wrap gap-2">
+                            {CITIES.map(city => (
+                                <Link
+                                    key={city.slug}
+                                    href={`/events/in/${city.slug}`}
+                                    className="px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:text-white hover:border-white/20 transition-all"
+                                >
+                                    Events in {city.name}
+                                </Link>
+                            ))}
+                        </div>
+                    </nav>
                 </div>
             </main>
         </>
