@@ -226,11 +226,23 @@ export default function TicketsPage() {
                                                 inline once there is room. All three share the same
                                                 size so they read as one set. */}
                                             <div className="mt-5 pt-4 border-t border-white/[0.05] grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
+                                                {/* A cancelled or used ticket is
+                                                    not valid for entry, so there
+                                                    is nothing worth downloading -
+                                                    handing over a QR that will be
+                                                    rejected at the door is worse
+                                                    than offering nothing. */}
                                                 <Button
                                                     variant="secondary"
                                                     size="sm"
                                                     className="w-full sm:w-auto justify-center"
                                                     onClick={() => handleDownload(ticket)}
+                                                    disabled={ticket.status !== 'active'}
+                                                    title={
+                                                        ticket.status !== 'active'
+                                                            ? `This ticket is ${ticket.status} and cannot be downloaded`
+                                                            : undefined
+                                                    }
                                                 >
                                                     <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

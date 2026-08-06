@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import BrandHeader from '@/components/BrandHeader';
 import PostCard from '@/components/PostCard';
+import CreatePostModal from '@/components/modals/CreatePostModal';
 import EventCard from '@/components/EventCard';
 import { Loader2, AlertCircle, Instagram, Globe, Facebook, Linkedin, Twitter, Youtube, Link as LinkIcon } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -27,9 +28,26 @@ export default function CreatorProfilePage() {
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [enquiryLoading, setEnquiryLoading] = useState(false);
+    const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+
+    // Does the signed-in user own this profile? `brand.user` comes back either
+    // as a raw id or as a populated object depending on the endpoint, so check
+    // both shapes.
+    const isOwner = Boolean(
+        user?._id && brand && (brand.user === user._id || brand.user?._id === user._id)
+    );
 
     useEffect(() => {
         fetchData();
+    }, [id]);
+
+    // CreatePostModal announces a successful post on the window, so the list
+    // refreshes without a manual reload.
+    useEffect(() => {
+        const refresh = () => fetchData();
+        window.addEventListener('brand-post-created', refresh);
+        return () => window.removeEventListener('brand-post-created', refresh);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // Check follow status when user is available
@@ -348,12 +366,38 @@ export default function CreatorProfilePage() {
 
                         {activeTab === 'posts' && (
                             <div>
-
-
+                                {/* Owner-only composer. Viewing your own profile
+                                    previously offered no way to post at all -
+                                    it just said "No posts yet" with no action. */}
+                                {isOwner && (
+                                    <div className="mb-6 flex justify-end">
+                                        <button
+                                            onClick={() => setIsCreatePostOpen(true)}
+                                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-500 hover:bg-violet-600 text-white text-sm font-semibold transition-colors"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            New Post
+                                        </button>
+                                    </div>
+                                )}
 
                                 {posts.length === 0 ? (
                                     <div className="text-center py-20 text-gray-400">
-                                        <p>No posts yet from {brand.name}</p>
+                                        {isOwner ? (
+                                            <>
+                                                <p className="mb-4">You haven&apos;t posted anything yet.</p>
+                                                <button
+                                                    onClick={() => setIsCreatePostOpen(true)}
+                                                    className="text-violet-400 hover:text-violet-300 font-medium transition-colors"
+                                                >
+                                                    Write your first post →
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <p>No posts yet from {brand.name}</p>
+                                        )}
                                     </div>
                                 ) : (
                                     posts.map(post => <PostCard key={post._id} post={post} type="brand" parentId={id} />)
@@ -472,6 +516,15 @@ export default function CreatorProfilePage() {
                 </div>
             </div>
 
+            {/* Composer. The modal dispatches `brand-post-created` on success,
+                which the effect above listens for to refresh the list. */}
+            {isOwner && (
+                <CreatePostModal
+                    isOpen={isCreatePostOpen}
+                    onClose={() => setIsCreatePostOpen(false)}
+                    brandId={id}
+                />
+            )}
         </div>
 
 

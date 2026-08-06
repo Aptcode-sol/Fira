@@ -1,5 +1,18 @@
 const BrandProfile = require('../models/BrandProfile');
 
+/**
+ * Map a BrandProfile.type onto a User.verificationBadge.
+ *
+ * The two enums are different sizes on purpose: a profile can be any of ten
+ * types (dj, photographer, caterer...) while the badge only distinguishes
+ * three. Everything that is not a band or an organiser is badged 'brand'.
+ */
+const BADGE_BY_TYPE = { band: 'band', organizer: 'organizer' };
+
+function badgeForBrandType(type) {
+    return BADGE_BY_TYPE[String(type || '').toLowerCase()] || 'brand';
+}
+
 const brandService = {
     // Get brands with advanced filtering and sorting
     async getBrands(query = {}) {
@@ -144,6 +157,19 @@ const brandService = {
             { $set: data },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
+
+        // Keep the user's creator badge in step with their profile.
+        //
+        // Creating a brand did not grant the badge, and `verificationBadge` is
+        // what every creator feature checks (the "+" button's Create Post, the
+        // Brand section of the dashboard sidebar). So a genuine creator ended up
+        // with a profile they could not post to - exactly what happened to the
+        // two live accounts that had a brand but badge 'none'.
+        const User = require('../models/User');
+        await User.findByIdAndUpdate(userId, {
+            $set: { verificationBadge: badgeForBrandType(profile.type) }
+        });
+
         return profile;
     },
 

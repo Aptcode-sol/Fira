@@ -73,9 +73,40 @@ app.get('/', (req, res) => {
 });
 
 // Error Handler
+//
+// The previous version threw away every detail and replied with a bare
+// "Something went wrong!", which made 500s impossible to diagnose from either
+// the UI or the logs. Now:
+//   - the log line always identifies the request that failed
+//   - a short reference id is returned so a user's screenshot can be matched
+//     to a specific log entry
+//   - the real message is returned outside production, where leaking internals
+//     is not a concern
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Something went wrong!' });
+    const ref = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const status = err.status || err.statusCode || 500;
+
+    console.error(
+        `❌ [${ref}] ${req.method} ${req.originalUrl} -> ${status}: ${err.message}`
+    );
+    if (err.stack) console.error(err.stack);
+
+    // Mongoose validation errors are the caller's fault, not a server fault -
+    // report them as 400 with the specific field problem.
+    if (err.name === 'ValidationError') {
+        return res.status(400).json({
+            error: Object.values(err.errors || {}).map(e => e.message).join('. ') || err.message,
+            ref
+        });
+    }
+
+    res.status(status).json({
+        error: process.env.NODE_ENV === 'production'
+            ? `Something went wrong. Reference: ${ref}`
+            : err.message,
+        ref
+    });
 });
 
 // Start Server

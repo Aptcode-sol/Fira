@@ -153,6 +153,26 @@ eventSchema.pre('save', async function () {
     }
 });
 
+/**
+ * Keep ticketType and ticketPrice consistent.
+ *
+ * They are two fields describing one fact, and they had drifted apart in real
+ * data - an event with ticketType 'free' and ticketPrice 999 showed a price to
+ * buyers while the purchase flow handed out free tickets.
+ *
+ * Price wins, because that is what the buyer is shown:
+ *   price > 0  -> the event is paid
+ *   type free  -> the price must be 0
+ */
+eventSchema.pre('save', function () {
+    if (this.ticketPrice > 0) {
+        this.ticketType = 'paid';
+    } else {
+        this.ticketType = 'free';
+        this.ticketPrice = 0;
+    }
+});
+
 // Indexes
 eventSchema.index({ organizer: 1 });
 eventSchema.index({ venue: 1 });

@@ -9,7 +9,6 @@ import {
   SITE_NAME,
   SITE_TAGLINE,
   SITE_DESCRIPTION,
-  SITE_ALTERNATE_NAMES,
   SITE_LOCALE,
 } from '@/lib/siteConfig';
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/seo/jsonLd';
@@ -131,11 +130,15 @@ export default function RootLayout({
         <JsonLd data={siteGraph} />
       </head>
       <body className={`${fascinate.variable} antialiased`}>
-        {/* Not rendered, but gives crawlers an unambiguous brand string on
-            every page - the H1 on most pages is a page title, not the brand. */}
-        <span className="sr-only">
-          {SITE_NAME} ({SITE_ALTERNATE_NAMES.join(', ')}) - {SITE_TAGLINE}
-        </span>
+        {/* REMOVED: a visually-hidden brand string used to sit here
+            ("FIRA (Lets FIRA, Let's FIRA, letsfira, ...)"). Because it was the
+            first text in the body on EVERY page, Google scraped it as the
+            search-result description for every sitelink - so every entry under
+            the main result read "FIRA (Lets FIRA, Let's FIRA, letsfira, FIRA
+            Events, FIRA App, FIRA ..." instead of describing the page.
+            The alternate names still reach Google properly via `alternateName`
+            in the Organization/WebSite JSON-LD, which is the correct channel
+            and does not pollute snippets. */}
         <AuthProvider>
           <ToastProvider>
             <ScrollToTop />

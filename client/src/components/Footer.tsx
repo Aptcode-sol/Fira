@@ -11,7 +11,10 @@ const footerLinks = {
         { label: 'Find Parties', href: '/events' },
         { label: 'Find Venues', href: '/venues' },
         { label: 'Create Event', href: '/create' },
-        { label: 'List Venue', href: '/venue-portal/signin' },
+        // Points at the public pitch page, not the sign-in form. A sign-in
+        // screen is a dead end for anyone not already a customer, and it is
+        // disallowed in robots.txt so it could never rank or become a sitelink.
+        { label: 'Venue Portal', href: '/venue-portal/landing' },
         { label: 'About FIRA', href: '/about' },
     ],
 };

@@ -72,9 +72,26 @@ export function usePushNotifications() {
         navigator.serviceWorker
             .getRegistration()
             .then(reg => reg?.pushManager.getSubscription())
-            .then(sub => setIsSubscribed(Boolean(sub)))
+            .then(sub => {
+                setIsSubscribed(Boolean(sub));
+
+                // Re-sync the browser's subscription to the server.
+                //
+                // The toggle used to read the browser only, so it showed "on"
+                // while the server had no matching record - and pushes had
+                // nowhere to go ("No active push subscription found for this
+                // account on any device"). That happens whenever the record was
+                // created under a different account, pruned as expired, or lost.
+                // The endpoint upserts, so re-sending is idempotent and also
+                // re-points the device at whoever is signed in now.
+                if (sub && isAuthenticated) {
+                    notificationsApi.subscribePush(sub.toJSON()).catch(() => {
+                        // Non-fatal; the toggle still reflects the browser.
+                    });
+                }
+            })
             .catch(() => setIsSubscribed(false));
-    }, []);
+    }, [isAuthenticated]);
 
     const subscribe = useCallback(async () => {
         setError(null);

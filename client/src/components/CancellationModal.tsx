@@ -216,9 +216,13 @@ export function CancellationModal({
                         >
                             Keep Ticket
                         </Button>
+                        {/* Stays the standard white primary button. The red
+                            hover was the only thing turning it red - the copy
+                            and the warning above already make the consequence
+                            clear without recolouring the control. */}
                         <Button
                             variant="primary"
-                            className="flex-1 bg-red-500 hover:bg-red-600"
+                            className="flex-1"
                             onClick={handleCancel}
                             disabled={loading}
                         >

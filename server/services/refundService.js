@@ -189,7 +189,12 @@ const refundService = {
                 await ticket.save();
 
                 // Send notification to user
-                await notificationService.createNotification({
+                // Fire-and-forget: the ticket/refund is already committed at this
+        // point, so a notification failure must not surface as a failed
+        // cancellation. (A missing enum value here previously did exactly
+        // that - the ticket cancelled, then the request errored, and the
+        // retry reported "Ticket is not active".)
+        notificationService.createNotification({
                     userId: ticket.user._id || ticket.user,
                     type: 'refund',
                     title: 'Event Cancelled - Refund Processed',
@@ -209,7 +214,7 @@ const refundService = {
         // Update event attendee count
         await Event.findByIdAndUpdate(eventId, {
             $set: { currentAttendees: 0 }
-        });
+        }).catch(err => console.error('Notification failed (non-fatal):', err.message));
 
         return results;
     },
@@ -268,7 +273,12 @@ const refundService = {
         });
 
         // Send notification
-        await notificationService.createNotification({
+        // Fire-and-forget: the ticket/refund is already committed at this
+        // point, so a notification failure must not surface as a failed
+        // cancellation. (A missing enum value here previously did exactly
+        // that - the ticket cancelled, then the request errored, and the
+        // retry reported "Ticket is not active".)
+        notificationService.createNotification({
             userId,
             type: 'ticket_cancelled',
             title: 'Ticket Cancelled',
@@ -277,7 +287,7 @@ const refundService = {
                 : `Your ticket for "${ticket.event.name}" has been cancelled. ${refundEligibility.policy}`,
             data: { ticketId, eventId: ticket.event._id, refundId: refund?._id },
             priority: 'medium'
-        });
+        }).catch(err => console.error('Notification failed (non-fatal):', err.message));
 
         return {
             ticket,
@@ -367,7 +377,12 @@ const refundService = {
         }
 
         // Send notification
-        await notificationService.createNotification({
+        // Fire-and-forget: the ticket/refund is already committed at this
+        // point, so a notification failure must not surface as a failed
+        // cancellation. (A missing enum value here previously did exactly
+        // that - the ticket cancelled, then the request errored, and the
+        // retry reported "Ticket is not active".)
+        notificationService.createNotification({
             userId,
             type: 'booking_cancelled',
             title: 'Booking Cancelled',
@@ -376,7 +391,7 @@ const refundService = {
                 : `Your venue booking has been cancelled.`,
             data: { bookingId, refundId: refund?._id },
             priority: 'medium'
-        });
+        }).catch(err => console.error('Notification failed (non-fatal):', err.message));
 
         return { booking, refund };
     },
@@ -498,7 +513,12 @@ const refundService = {
         await refund.save();
 
         // Notify user
-        await notificationService.createNotification({
+        // Fire-and-forget: the ticket/refund is already committed at this
+        // point, so a notification failure must not surface as a failed
+        // cancellation. (A missing enum value here previously did exactly
+        // that - the ticket cancelled, then the request errored, and the
+        // retry reported "Ticket is not active".)
+        notificationService.createNotification({
             userId: refund.user,
             type: 'refund_update',
             title: action === 'approve' ? 'Refund Approved' : 'Refund Rejected',
@@ -507,7 +527,7 @@ const refundService = {
                 : `Your refund request has been rejected. Reason: ${notes}`,
             data: { refundId },
             priority: 'high'
-        });
+        }).catch(err => console.error('Notification failed (non-fatal):', err.message));
 
         return refund;
     },

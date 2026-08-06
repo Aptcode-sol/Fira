@@ -64,6 +64,37 @@ export default function CreateCreatorPage() {
         }
     }, [user, isLoading, router]);
 
+    /**
+     * Does a brand profile actually EXIST for this user?
+     *
+     * This page used to decide purely from `user.verificationBadge`, but the
+     * badge and the BrandProfile document are independent - 27 of the 42 badged
+     * accounts had no profile at all. Those users were stuck in a dead end:
+     * this page refused to let them create one ("You already have a verified
+     * creator profile") while /dashboard/brand correctly reported none existed.
+     *
+     * `undefined` = still checking, `null` = confirmed none.
+     */
+    const [existingBrand, setExistingBrand] = useState<{ _id: string } | null | undefined>(undefined);
+
+    useEffect(() => {
+        if (!user?._id) return;
+        let cancelled = false;
+
+        brandsApi
+            .getMyProfile(user._id)
+            .then(profile => {
+                if (!cancelled) setExistingBrand((profile as { _id: string } | null) || null);
+            })
+            .catch(() => {
+                // No profile (or the lookup failed) - let them create one rather
+                // than blocking on an error.
+                if (!cancelled) setExistingBrand(null);
+            });
+
+        return () => { cancelled = true; };
+    }, [user?._id]);
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
@@ -75,11 +106,19 @@ export default function CreateCreatorPage() {
     const { showToast } = useToast();
     if (!user) return null;
 
-    // Check if user is already a verified creator
-    const isCreator = user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge);
+    // Still checking whether a profile exists - showing the form and then
+    // swapping it for "you already have one" would be worse than a brief spinner.
+    if (existingBrand === undefined) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+            </div>
+        );
+    }
 
-    // If already a verified creator, show special message
-    if (isCreator) {
+    // Only block creation when a profile genuinely exists. The verification
+    // badge alone is not proof of one - see the comment on `existingBrand`.
+    if (existingBrand) {
         return (
             <>
                 <PartyBackground />

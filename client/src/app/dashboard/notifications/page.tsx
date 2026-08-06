@@ -215,7 +215,7 @@ export default function NotificationsPage() {
             <div className="p-6 lg:p-8">
                 {/* Header */}
                 <SlideUp>
-                    <div className="flex items-start justify-between mb-8">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 mb-8">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-2">Notifications</h1>
                             <p className="text-gray-400">

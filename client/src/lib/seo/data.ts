@@ -59,7 +59,13 @@ export interface SeoEvent {
         state?: string;
         pincode?: string;
     };
-    organizer?: { name?: string };
+    organizer?: {
+        _id?: string;
+        name?: string;
+        avatar?: string;
+        /** 'brand' | 'band' | 'organizer' | 'none' - set when they run a creator page. */
+        verificationBadge?: string;
+    };
     updatedAt?: string;
     createdAt?: string;
 }

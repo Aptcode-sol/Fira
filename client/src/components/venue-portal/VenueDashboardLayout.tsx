@@ -171,20 +171,33 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                 // browser URL bar hides and reappears during scroll.
                 className={`fixed left-0 inset-y-0 bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
                     isMobile
-                        ? (isExpanded ? 'w-64' : 'w-0 overflow-hidden border-none')
+                        ? (isExpanded ? 'w-56' : 'w-0 overflow-hidden border-none')
                         : (isOpen ? 'w-64' : 'w-20')
                 }`}
             >
-                {/* Logo */}
-                <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-20">
-                    <Link href="/venue-portal/dashboard" className="flex flex-col items-center">
+                {/* Logo.
+                    Left-aligned when the drawer is open so it lines up with the
+                    nav items below; centred only in the collapsed icon rail,
+                    where there is no left edge to align to. It was hard-coded to
+                    justify-center, which left it floating in the middle of an
+                    otherwise left-aligned menu. */}
+                <div
+                    className={`p-4 border-b border-white/[0.08] flex items-center h-20 ${isOpen ? 'justify-start' : 'justify-center'
+                        }`}
+                >
+                    <Link
+                        href="/venue-portal/dashboard"
+                        className={`flex items-center gap-2.5 ${isOpen ? 'flex-row' : 'flex-col gap-0'}`}
+                    >
                         <img
                             src="/logo white.png"
                             alt="FIRA"
                             className="w-8 h-8 object-contain flex-shrink-0"
                         />
-                        {/* Was a ternary with the same value on both branches. */}
-                        <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase mt-0.5">
+                        <span
+                            className={`text-[10px] text-gray-400 font-medium tracking-wider uppercase whitespace-nowrap ${isOpen ? '' : 'mt-0.5'
+                                }`}
+                        >
                             Venues
                         </span>
                     </Link>
@@ -201,13 +214,13 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                                 className={`flex items-center gap-3 px-3 py-3.5 lg:py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
                                     ? 'bg-white text-black shadow-lg shadow-white/10'
                                     : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                    } ${!isMobile && isOpen ? '' : 'justify-center'}`}
+                                    } ${isOpen ? '' : 'justify-center'}`}
                                 title={!((!isMobile) && isOpen) ? item.label : undefined}
                             >
                                 <span className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
                                     {getIcon(item.icon)}
                                 </span>
-                                {!isMobile && isOpen && (
+                                {isOpen && (
                                     <span className="font-medium whitespace-nowrap">
                                         {item.label}
                                     </span>
@@ -219,7 +232,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
 
                 <div className="p-2 lg:p-3 border-t border-white/[0.08] bg-black/20">
                     {/* User avatar */}
-                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${!isMobile && isOpen ? '' : 'justify-center'}`}>
+                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${isOpen ? '' : 'justify-center'}`}>
                         <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium shadow-lg shadow-violet-500/25 flex-shrink-0 overflow-hidden">
                             {user?.avatar ? (
                                 <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
@@ -227,7 +240,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                                 user?.name?.charAt(0).toUpperCase() || 'V'
                             )}
                         </div>
-                        {!isMobile && isOpen && (
+                        {isOpen && (
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-white truncate">{user?.name || 'Venue Owner'}</div>
                                 <div className="text-xs text-gray-400 truncate">{user?.email}</div>
@@ -241,13 +254,13 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                             localStorage.removeItem('fira_user');
                             window.location.href = '/venue-portal/signin';
                         }}
-                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${!isMobile && isOpen ? '' : 'justify-center'}`}
+                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${isOpen ? '' : 'justify-center'}`}
                         title="Sign Out"
                     >
                         <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        {!isMobile && isOpen && (
+                        {isOpen && (
                             <span className="font-medium whitespace-nowrap">Sign Out</span>
                         )}
                     </button>

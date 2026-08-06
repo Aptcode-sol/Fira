@@ -95,8 +95,18 @@ const ticketService = {
             paymentId
         });
 
-        // If paid event and no payment flow yet, initiate payment
-        if (event.ticketType === 'paid' && event.ticketPrice > 0 && !paymentId) {
+        // PRICE is the source of truth for whether payment is required.
+        //
+        // This used to also require `ticketType === 'paid'`, so an event with
+        // ticketType 'free' but ticketPrice 999 (a real case: "Pending Approval
+        // Concert") displayed ₹999 to the buyer, skipped this branch entirely
+        // and issued a free ticket - giving away paid inventory.
+        //
+        // Keying off price alone fails closed: anything with a price above zero
+        // must be paid for, whatever the type flag happens to say. The client
+        // already decides what to display from `ticketPrice`, so this also
+        // makes both sides agree.
+        if (event.ticketPrice > 0 && !paymentId) {
             const totalPrice = event.ticketPrice * quantity;
 
             // Initiate payment

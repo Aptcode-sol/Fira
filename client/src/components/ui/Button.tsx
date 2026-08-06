@@ -22,7 +22,11 @@ export function Button({
     disabled,
     ...props
 }: ButtonProps) {
-    const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed';
+    // whitespace-nowrap is load-bearing: every button is `rounded-full`, so a
+    // label that wraps turns the pill into a circular blob (e.g. "View Public
+    // Profile" collapsing to three stacked words). Buttons should keep their
+    // label on one line and let the surrounding layout wrap or scroll instead.
+    const baseStyles = 'inline-flex items-center justify-center whitespace-nowrap font-medium transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variants = {
         primary: 'bg-white text-black hover:bg-gray-100 focus:ring-white',

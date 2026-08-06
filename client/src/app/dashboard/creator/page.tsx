@@ -281,12 +281,12 @@ export default function BrandDashboardPage() {
             <DashboardLayout>
                 <div className="p-6 lg:p-8">
                     {/* Skeleton Header */}
-                    <div className="flex items-start justify-between mb-8">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 mb-8">
                         <div>
                             <div className="h-8 w-48 bg-white/[0.05] rounded-lg animate-pulse mb-2" />
                             <div className="h-4 w-64 bg-white/[0.05] rounded-lg animate-pulse" />
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
                             <div className="h-10 w-32 bg-white/[0.05] rounded-lg animate-pulse" />
                             <div className="h-10 w-28 bg-white/[0.05] rounded-lg animate-pulse" />
                         </div>
@@ -346,12 +346,12 @@ export default function BrandDashboardPage() {
             <div className="p-6 lg:p-8">
                 {/* Header */}
                 <SlideUp>
-                    <div className="flex items-start justify-between mb-8">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 mb-8">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-2">My Brand</h1>
                             <p className="text-gray-400">Manage your brand profile and content</p>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
                             <Link href={`/creators/${brand._id}`}>
                                 <Button variant="secondary">View Public Profile</Button>
                             </Link>

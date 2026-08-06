@@ -125,4 +125,19 @@ router.post('/:id/cancel', auth, async (req, res) => {
     }
 });
 
+// GET /api/tickets/:id/refund-eligibility - what a cancellation would refund
+//
+// The cancellation modal calls this as soon as it opens. The route was never
+// implemented, so Express fell through to its default HTML 404 and the client
+// tried to JSON.parse "<!DOCTYPE html>..." - surfacing as
+// "Unexpected token '<' ... is not valid JSON" inside the modal.
+router.get('/:id/refund-eligibility', auth, async (req, res) => {
+    try {
+        const eligibility = await ticketService.checkRefundEligibility(req.params.id);
+        res.json(eligibility);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;

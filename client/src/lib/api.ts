@@ -53,12 +53,29 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
         const data = await response.json();
 
         if (!response.ok) {
-            // Handle 401 Unauthorized
-            if (response.status === 401 && typeof window !== 'undefined') {
+            // Handle 401 Unauthorized.
+            //
+            // A 401 from an /auth/ endpoint means "those credentials are wrong",
+            // NOT "your session expired" - so it must not clear storage or
+            // redirect. It used to do both: entering a wrong password on
+            // /venue-portal/signin returned 401, the path did not start with
+            // "/signin", and this fired window.location.href = '/signin' - a
+            // full page navigation that looked like the form refreshing and
+            // threw away the error message before it could be displayed.
+            const isAuthAttempt = endpoint.startsWith('/auth/');
+
+            if (response.status === 401 && !isAuthAttempt && typeof window !== 'undefined') {
                 localStorage.removeItem('fira_token');
                 localStorage.removeItem('fira_user');
-                if (!window.location.pathname.startsWith('/signin')) {
-                    window.location.href = '/signin';
+
+                // Send venue owners back to their own sign-in page rather than
+                // the general one; `startsWith('/signin')` never matched
+                // '/venue-portal/signin', so they were bounced across portals.
+                const onVenuePortal = window.location.pathname.startsWith('/venue-portal');
+                const target = onVenuePortal ? '/venue-portal/signin' : '/signin';
+
+                if (window.location.pathname !== target) {
+                    window.location.href = target;
                 }
             }
 

@@ -16,6 +16,13 @@ const notificationSchema = new mongoose.Schema({
             'payment_success',
             'payment_failed',
             'refund_processed',
+            // Emitted by refundService when a ticket is cancelled and when a
+            // refund changes state. Both were missing from this enum, so
+            // Notification.create() threw a ValidationError mid-cancellation -
+            // surfacing to the user as
+            // "type: `ticket_cancelled` is not a valid enum value for path `type`".
+            'ticket_cancelled',
+            'refund_update',
             'event_reminder',
             'event_reminder_1h',
             'event_cancelled',

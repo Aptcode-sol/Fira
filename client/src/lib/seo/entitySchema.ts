@@ -16,6 +16,18 @@ function postalAddress(address?: SeoAddress) {
     };
 }
 
+/**
+ * Categories where somebody actually performs. A wedding or corporate summit
+ * has an organiser but no act, so claiming a `performer` there would be false.
+ */
+const PERFORMANCE_CATEGORIES = new Set([
+    'concert', 'music', 'dj', 'clubbing', 'dance', 'festival', 'party',
+]);
+
+function isPerformanceEvent(category?: string): boolean {
+    return PERFORMANCE_CATEGORIES.has(String(category || '').toLowerCase());
+}
+
 function geo(venue?: SeoVenue) {
     const coords = venue?.location?.coordinates;
     // GeoJSON is [lng, lat]. Skip the placeholder [0,0] and anything malformed.
@@ -90,8 +102,37 @@ export function eventSchema(event: SeoEvent, id: string) {
         eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
         ...(location ? { location } : {}),
         offers,
+        // Search Console flagged "Missing field 'url' (in 'organizer')". An
+        // organizer without a URL is a dead end for Google, so point at the
+        // platform page that actually represents them.
         ...(event.organizer?.name
-            ? { organizer: { '@type': 'Organization', name: event.organizer.name } }
+            ? {
+                organizer: {
+                    '@type': 'Organization',
+                    name: event.organizer.name,
+                    url: SITE_URL,
+                    ...(event.organizer.avatar ? { image: event.organizer.avatar } : {}),
+                },
+            }
+            : {}),
+
+        // Search Console flagged "Missing field 'performer'".
+        //
+        // Only emitted when it is actually TRUE: the organiser runs a verified
+        // creator page AND the event is a performance. Declaring a performer for
+        // a wedding or a corporate summit would be inventing structured data,
+        // which is the same mistake as the fabricated review counts.
+        ...(isPerformanceEvent(event.category) && event.organizer?.name && event.organizer?.verificationBadge
+            && event.organizer.verificationBadge !== 'none'
+            ? {
+                performer: {
+                    '@type': event.organizer.verificationBadge === 'band'
+                        ? 'MusicGroup'
+                        : 'PerformingGroup',
+                    name: event.organizer.name,
+                    ...(event.organizer.avatar ? { image: event.organizer.avatar } : {}),
+                },
+            }
             : {}),
         ...(typeof event.maxAttendees === 'number'
             ? { maximumAttendeeCapacity: event.maxAttendees }
