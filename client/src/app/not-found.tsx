@@ -80,7 +80,7 @@ export default function NotFound() {
                         <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
                             Oops! Page Not Found
                         </h2>
-                        <p className="text-gray-400 max-w-md mx-auto mb-8 text-lg">
+                        <p className="text-gray-300 max-w-md mx-auto mb-8 text-lg">
                             The page you&apos;re looking for doesn&apos;t exist or has been moved.
                             Let&apos;s get you back on track.
                         </p>
@@ -128,16 +128,16 @@ export default function NotFound() {
                         transition={{ duration: 0.6, delay: 0.8 }}
                         className="mt-16 flex flex-wrap gap-6 justify-center text-sm"
                     >
-                        <Link href="/venues" className="text-gray-500 hover:text-violet-400 transition-colors">
+                        <Link href="/venues" className="text-gray-300 hover:text-violet-400 transition-colors">
                             Venues
                         </Link>
-                        <Link href="/creators" className="text-gray-500 hover:text-violet-400 transition-colors">
+                        <Link href="/creators" className="text-gray-300 hover:text-violet-400 transition-colors">
                             Creators
                         </Link>
-                        <Link href="/create" className="text-gray-500 hover:text-violet-400 transition-colors">
+                        <Link href="/create" className="text-gray-300 hover:text-violet-400 transition-colors">
                             Create
                         </Link>
-                        <Link href="/dashboard" className="text-gray-500 hover:text-violet-400 transition-colors">
+                        <Link href="/dashboard" className="text-gray-300 hover:text-violet-400 transition-colors">
                             Dashboard
                         </Link>
                     </motion.div>

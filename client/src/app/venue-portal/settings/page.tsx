@@ -45,7 +45,7 @@ export default function VenuePortalSettingsPage() {
                 <SlideUp>
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-                        <p className="text-gray-400">Manage your account and preferences</p>
+                        <p className="text-gray-300">Manage your account and preferences</p>
                     </div>
                 </SlideUp>
 
@@ -95,7 +95,7 @@ export default function VenuePortalSettingsPage() {
 
                             <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
                                 <h3 className="text-lg font-semibold text-white mb-4">Bank Details</h3>
-                                <p className="text-gray-400 text-sm mb-4">
+                                <p className="text-gray-300 text-sm mb-4">
                                     Add your bank details to receive payouts from bookings.
                                 </p>
                                 <div className="space-y-4">
@@ -125,7 +125,7 @@ export default function VenuePortalSettingsPage() {
                                         <div key={i} className="flex items-center justify-between p-4 bg-white/[0.02] rounded-xl border border-white/[0.05] hover:border-white/[0.1] transition-all">
                                             <div>
                                                 <div className="font-medium text-white">{item.label}</div>
-                                                <div className="text-sm text-gray-500">{item.description}</div>
+                                                <div className="text-sm text-gray-300">{item.description}</div>
                                             </div>
                                             <button className="w-12 h-6 rounded-full bg-violet-500 relative transition-colors hover:bg-violet-400">
                                                 <div className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-md" />
@@ -144,11 +144,11 @@ export default function VenuePortalSettingsPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
                                         <div className="text-2xl font-bold text-white">₹0</div>
-                                        <div className="text-sm text-gray-400">Total Earnings</div>
+                                        <div className="text-sm text-gray-300">Total Earnings</div>
                                     </div>
                                     <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
                                         <div className="text-2xl font-bold text-white">₹0</div>
-                                        <div className="text-sm text-gray-400">Pending Payouts</div>
+                                        <div className="text-sm text-gray-300">Pending Payouts</div>
                                     </div>
                                 </div>
                             </div>
@@ -161,7 +161,7 @@ export default function VenuePortalSettingsPage() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                         </svg>
                                     </div>
-                                    <p className="text-gray-500">No transactions yet</p>
+                                    <p className="text-gray-300">No transactions yet</p>
                                 </div>
                             </div>
                         </div>

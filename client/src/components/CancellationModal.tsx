@@ -101,12 +101,12 @@ export function CancellationModal({
                         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mt-4">
                             <p className="text-green-400 text-sm mb-2">Refund Initiated</p>
                             <p className="text-2xl font-bold text-green-400">₹{refundResult.refund.amount}</p>
-                            <p className="text-xs text-gray-400 mt-2">
+                            <p className="text-xs text-gray-300 mt-2">
                                 {refundResult.refundEligibility?.policy}
                             </p>
                         </div>
                     ) : (
-                        <p className="text-gray-400">
+                        <p className="text-gray-300">
                             {refundResult.refundEligibility?.policy || 'Your ticket has been cancelled.'}
                         </p>
                     )}
@@ -117,7 +117,7 @@ export function CancellationModal({
             {!success && checkingEligibility && (
                 <div className="text-center py-8">
                     <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full mx-auto mb-4" />
-                    <p className="text-gray-400">Checking refund eligibility...</p>
+                    <p className="text-gray-300">Checking refund eligibility...</p>
                 </div>
             )}
 
@@ -126,7 +126,7 @@ export function CancellationModal({
                 <div className="space-y-6">
                     {/* Event Info */}
                     <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Event</p>
+                        <p className="text-xs text-gray-300 uppercase tracking-wider mb-1">Event</p>
                         <p className="text-white font-medium">{eventName}</p>
                     </div>
 
@@ -150,16 +150,16 @@ export function CancellationModal({
                                     <p className={`font-medium ${eligibility.eligible ? 'text-green-400' : 'text-red-400'}`}>
                                         {eligibility.eligible ? 'Eligible for Refund' : 'Not Eligible for Refund'}
                                     </p>
-                                    <p className="text-sm text-gray-400 mt-1">{eligibility.policy}</p>
+                                    <p className="text-sm text-gray-300 mt-1">{eligibility.policy}</p>
 
                                     {eligibility.eligible && eligibility.refundAmount > 0 && (
                                         <div className="mt-3 pt-3 border-t border-white/10">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-gray-400 text-sm">Original Amount</span>
+                                                <span className="text-gray-300 text-sm">Original Amount</span>
                                                 <span className="text-white">₹{eligibility.originalAmount}</span>
                                             </div>
                                             <div className="flex justify-between items-center mt-1">
-                                                <span className="text-gray-400 text-sm">
+                                                <span className="text-gray-300 text-sm">
                                                     Refund ({eligibility.refundPercentage}%)
                                                 </span>
                                                 <span className="text-green-400 font-semibold text-lg">
@@ -175,14 +175,14 @@ export function CancellationModal({
 
                     {/* Reason Input */}
                     <div>
-                        <label className="block text-sm text-gray-400 mb-2">
+                        <label className="block text-sm text-gray-300 mb-2">
                             Reason for cancellation (optional)
                         </label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             placeholder="Let us know why you're cancelling..."
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500 resize-none"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-300 focus:outline-none focus:border-violet-500 resize-none"
                             rows={3}
                         />
                     </div>

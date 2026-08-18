@@ -153,7 +153,7 @@ export default function VenuePortalDashboardPage() {
                             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2 break-words max-w-full">
                                 Welcome back, {user?.name}! 👋
                             </h1>
-                            <p className="text-sm sm:text-base text-gray-400">Here's what's happening with your venues.</p>
+                            <p className="text-sm sm:text-base text-gray-300">Here's what's happening with your venues.</p>
                         </div>
                         <Link href="/venue-portal/venues/create">
                             <Button variant="violet" className="shadow-lg shadow-violet-500/25 w-full sm:w-auto">
@@ -226,7 +226,7 @@ export default function VenuePortalDashboardPage() {
                                         stat.value.toLocaleString()
                                     )}
                                 </div>
-                                <div className="text-xs sm:text-sm text-gray-400">{stat.label}</div>
+                                <div className="text-xs sm:text-sm text-gray-300">{stat.label}</div>
                             </div>
                         ))}
                     </div>
@@ -244,7 +244,7 @@ export default function VenuePortalDashboardPage() {
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-semibold text-white">Total Revenue</h3>
-                                    <p className="text-sm text-gray-400">All-time earnings from bookings</p>
+                                    <p className="text-sm text-gray-300">All-time earnings from bookings</p>
                                 </div>
                             </div>
                             <Link href="/venue-portal/analytics" className="text-violet-400 hover:text-violet-300 text-sm font-medium flex items-center gap-1 group/link">
@@ -315,7 +315,7 @@ export default function VenuePortalDashboardPage() {
                                         <div className="flex-1">
                                             <div className="text-sm font-medium text-gray-200">{action.label}</div>
                                         </div>
-                                        <svg className="w-5 h-5 text-gray-500 group-hover:text-violet-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5 text-gray-300 group-hover:text-violet-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </Link>
@@ -342,9 +342,9 @@ export default function VenuePortalDashboardPage() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-white font-medium truncate">{activity.title}</div>
-                                                <div className="text-xs text-gray-400 mt-0.5">{activity.description}</div>
+                                                <div className="text-xs text-gray-300 mt-0.5">{activity.description}</div>
                                             </div>
-                                            <div className="text-xs text-gray-500 whitespace-nowrap hidden sm:block">{activity.time}</div>
+                                            <div className="text-xs text-gray-300 whitespace-nowrap hidden sm:block">{activity.time}</div>
                                         </div>
                                     ))
                                 ) : (
@@ -354,7 +354,7 @@ export default function VenuePortalDashboardPage() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </div>
-                                        <p className="text-gray-500">No recent activity</p>
+                                        <p className="text-gray-300">No recent activity</p>
                                     </div>
                                 )}
                             </div>

@@ -146,7 +146,7 @@ export default function ForgotPasswordPage() {
                             {step === 'otp' && 'Enter Reset Code'}
                             {step === 'newPassword' && 'Set New Password'}
                         </h1>
-                        <p className="text-gray-400">
+                        <p className="text-gray-300">
                             {step === 'email' && 'No worries! Enter your email and we\'ll send you a reset code.'}
                             {step === 'otp' && `We sent a 4-digit code to ${formData.email}`}
                             {step === 'newPassword' && 'Choose a strong password for your account.'}
@@ -227,7 +227,7 @@ export default function ForgotPasswordPage() {
                                     <button
                                         type="button"
                                         onClick={handleResendOTP}
-                                        className="text-violet-400 hover:text-violet-300 text-sm transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
+                                        className="text-violet-400 hover:text-violet-300 text-sm transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
                                         disabled={isLoading}
                                     >
                                         Didn&apos;t receive code? Resend
@@ -319,7 +319,7 @@ export default function ForgotPasswordPage() {
                             </form>
                         )}
 
-                        <div className="mt-6 text-center text-sm text-gray-400">
+                        <div className="mt-6 text-center text-sm text-gray-300">
                             Remember your password?{' '}
                             <Link href="/signin" className="text-violet-400 hover:text-violet-300 transition-colors font-medium">
                                 Sign In

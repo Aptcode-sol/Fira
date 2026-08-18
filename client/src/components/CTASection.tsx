@@ -15,7 +15,7 @@ export default function CTASection() {
                     </SlideUp>
 
                     <SlideUp delay={0.15}>
-                        <p className="text-gray-500 text-lg mb-10 max-w-xl mx-auto">
+                        <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">
                             Join thousands of party lovers, venue owners, and artists. Your next celebration starts here.
                         </p>
                     </SlideUp>

@@ -16,12 +16,9 @@ export default function Login({ onLogin }) {
     /**
      * Authenticate against the real API.
      *
-     * This used to be a hardcoded string comparison (admin@gmail.com /
-     * admin123) evaluated in the browser - the password shipped inside the JS
-     * bundle for anyone to read, and it granted access to an API that checked
-     * nothing anyway. Now the server issues a JWT and every admin request
-     * carries it; the role check happens server-side where it cannot be
-     * bypassed by editing client code.
+     * The server issues a JWT and every admin request carries it; the role
+     * check happens server-side where it cannot be bypassed by editing
+     * client code.
      */
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -70,7 +67,7 @@ export default function Login({ onLogin }) {
                             <img src={logo} alt="Fira Logo" className="h-12 w-auto mx-auto" />
                         </div>
                         <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-                        <p className="text-gray-400">Sign in to manage the platform</p>
+                        <p className="text-gray-300">Sign in to manage the platform</p>
                     </div>
 
                     <div className="glass-card p-8">
@@ -84,7 +81,7 @@ export default function Login({ onLogin }) {
                             <Input
                                 label="Email"
                                 type="email"
-                                placeholder="admin@gmail.com"
+                                placeholder="Enter your email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -98,7 +95,7 @@ export default function Login({ onLogin }) {
                             <Input
                                 label="Password"
                                 type={showPassword ? 'text' : 'password'}
-                                placeholder="••••••••"
+                                placeholder="Enter your password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -138,9 +135,12 @@ export default function Login({ onLogin }) {
                             </Button>
                         </form>
 
-                        <div className="mt-8 pt-6 border-t border-white/[0.05] text-center">
-                            <p className="text-xs text-gray-500">Demo credentials: admin@gmail.com / admin123</p>
-                        </div>
+                        {import.meta.env.VITE_DEV_MODE === 'true' && (
+                            <div className="mt-8 pt-6 border-t border-white/[0.05] text-center">
+                                <p className="text-[10px] uppercase tracking-widest text-yellow-500/70 mb-1">⚠ Development Only</p>
+                                <p className="text-xs text-gray-300">Dev credentials: admin@gmail.com / admin123</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>

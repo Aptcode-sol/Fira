@@ -111,7 +111,7 @@ export default function Dashboard() {
             <SlideUp>
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-                    <p className="text-gray-400">Overview of platform activity and pending approvals</p>
+                    <p className="text-gray-300">Overview of platform activity and pending approvals</p>
                 </div>
             </SlideUp>
 
@@ -126,14 +126,14 @@ export default function Dashboard() {
 
             {/* Stats Grid */}
             <FadeIn delay={0.1}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-4 mb-8">
                     {statCards.map((stat, i) => (
                         <div key={i} className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer">
                             <div className={`w-12 h-12 rounded-xl mb-4 flex items-center justify-center group-hover:scale-105 transition-transform ${getColorClass(stat.color)}`}>
                                 {stat.icon}
                             </div>
                             <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                            <div className="text-sm text-gray-400">{stat.label}</div>
+                            <div className="text-sm text-gray-300">{stat.label}</div>
                         </div>
                     ))}
                 </div>
@@ -146,7 +146,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h2 className="text-lg font-semibold text-white mb-1">Platform Revenue</h2>
-                                <p className="text-sm text-gray-400">Total earnings from ticket sales</p>
+                                <p className="text-sm text-gray-300">Total earnings from ticket sales</p>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,11 +161,11 @@ export default function Dashboard() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                                <div className="text-sm text-gray-400 mb-1">Tickets Sold</div>
+                                <div className="text-sm text-gray-300 mb-1">Tickets Sold</div>
                                 <div className="text-xl font-bold text-white">{(stats?.totalTickets || 0).toLocaleString()}</div>
                             </div>
                             <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                                <div className="text-sm text-gray-400 mb-1">Avg. Ticket Price</div>
+                                <div className="text-sm text-gray-300 mb-1">Avg. Ticket Price</div>
                                 <div className="text-xl font-bold text-white">
                                     {stats?.totalTickets > 0
                                         ? formatCurrency((stats?.totalRevenue || 0) / stats.totalTickets)

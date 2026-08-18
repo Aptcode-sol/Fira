@@ -12,6 +12,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import PostCard from '@/components/PostCard';
 import { useToast } from '@/components/ui/Toast';
 import TicketDisplay from '@/components/TicketDisplay';
+import BillingCard from '@/components/BillingCard';
+import DiscountCodeInput from '@/components/DiscountCodeInput';
+import InquiryForm from '@/components/InquiryForm';
 import { paymentsApi } from '@/lib/api'; // Add paymentsApi import
 
 /**
@@ -46,6 +49,12 @@ export default function EventDetailPage() {
     const [isCreatingPost, setIsCreatingPost] = useState(false);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [isUploadingGalleryImage, setIsUploadingGalleryImage] = useState(false);
+
+    // Discount code state
+    const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
+
+    // Inquiry modal state
+    const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
 
     useEffect(() => {
         if (params.id) {
@@ -344,7 +353,7 @@ export default function EventDetailPage() {
                 <main className="relative z-20 min-h-screen pt-28 pb-16 px-4 flex items-center justify-center">
                     <div className="text-center">
                         <h1 className="text-2xl font-bold text-white mb-2">Event not found</h1>
-                        <p className="text-gray-400 mb-6">The event you&apos;re looking for doesn&apos;t exist.</p>
+                        <p className="text-gray-300 mb-6">The event you&apos;re looking for doesn&apos;t exist.</p>
                         <Button onClick={() => router.push('/events')}>Browse Events</Button>
                     </div>
                 </main>
@@ -355,6 +364,12 @@ export default function EventDetailPage() {
     const organizer = event.organizer as User;
     const venue = event.venue as Venue;
     const spotsLeft = event.maxAttendees - event.currentAttendees;
+
+    // ponytail: check if all ticket tiers are sold out (Requirement 5.5)
+    const isTiersSoldOut = event.ticketTiers && event.ticketTiers.length > 0
+        ? event.ticketTiers.every(tier => tier.soldCount >= tier.maxQuantity)
+        : false;
+    const isSoldOut = isTiersSoldOut || spotsLeft <= 0;
 
     return (
         <>
@@ -423,7 +438,7 @@ export default function EventDetailPage() {
                                                     </svg>
                                                 )}
                                             </div>
-                                            <span className="text-gray-400 text-sm">Event Organizer</span>
+                                            <span className="text-gray-300 text-sm">Event Organizer</span>
                                         </div>
                                     </div>
                                 )}
@@ -452,7 +467,7 @@ export default function EventDetailPage() {
                                     <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                                         <h2 className="text-xl font-semibold text-white mb-4">About this event</h2>
                                         <div className="relative">
-                                            <p className={`text-gray-400 leading-relaxed whitespace-pre-line ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}>
+                                            <p className={`text-gray-300 leading-relaxed whitespace-pre-line ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}>
                                                 {event.description}
                                             </p>
                                             {event.description && event.description.length > 200 && (
@@ -480,7 +495,7 @@ export default function EventDetailPage() {
                                                 </div>
                                                 <div>
                                                     <h3 className="text-lg font-medium text-white">{venue.name}</h3>
-                                                    <p className="text-gray-400 text-sm">{venue.address?.city}, {venue.address?.state}</p>
+                                                    <p className="text-gray-300 text-sm">{venue.address?.city}, {venue.address?.state}</p>
                                                     {(venue as any).locationLink && (
                                                         <a
                                                             href={(venue as any).locationLink}
@@ -508,7 +523,7 @@ export default function EventDetailPage() {
                                                 </div>
                                                 <div>
                                                     <h3 className="text-lg font-medium text-white">{(event as any).customVenue?.name}</h3>
-                                                    <p className="text-gray-400 text-sm">{(event as any).customVenue?.city}</p>
+                                                    <p className="text-gray-300 text-sm">{(event as any).customVenue?.city}</p>
                                                     {(event as any).customVenue?.locationLink && (
                                                         <a
                                                             href={(event as any).customVenue.locationLink}
@@ -531,7 +546,7 @@ export default function EventDetailPage() {
                                     {event.tags && event.tags.length > 0 && (
                                         <div className="flex flex-wrap gap-2">
                                             {event.tags.map((tag, index) => (
-                                                <span key={index} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-sm">
+                                                <span key={index} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300 text-sm">
                                                     #{tag}
                                                 </span>
                                             ))}
@@ -543,7 +558,7 @@ export default function EventDetailPage() {
                                         <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                                             <h2 className="text-xl font-semibold text-white mb-4">Terms & Conditions</h2>
                                             <div className="relative">
-                                                <p className={`text-gray-400 leading-relaxed whitespace-pre-line text-sm ${!isTermsExpanded ? 'line-clamp-3' : ''}`}>
+                                                <p className={`text-gray-300 leading-relaxed whitespace-pre-line text-sm ${!isTermsExpanded ? 'line-clamp-3' : ''}`}>
                                                     {(event as Event & { termsAndConditions?: string }).termsAndConditions}
                                                 </p>
                                                 {(event as Event & { termsAndConditions?: string }).termsAndConditions!.length > 150 && (
@@ -577,7 +592,7 @@ export default function EventDetailPage() {
                                     )}
 
                                     {posts.length === 0 ? (
-                                        <div className="text-center py-20 text-gray-400">
+                                        <div className="text-center py-20 text-gray-300">
                                             <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                                             </svg>
@@ -645,7 +660,7 @@ export default function EventDetailPage() {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="text-center py-20 text-gray-400">
+                                        <div className="text-center py-20 text-gray-300">
                                             <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
@@ -666,22 +681,22 @@ export default function EventDetailPage() {
                                         <span className={`text-3xl font-bold ${event.ticketPrice === 0 ? 'text-green-400' : 'text-white'}`}>
                                             {formatPrice(event.ticketPrice)}
                                         </span>
-                                        {event.ticketPrice > 0 && <span className="text-gray-400">per ticket</span>}
+                                        {event.ticketPrice > 0 && <span className="text-gray-300">per ticket</span>}
                                     </div>
                                 </div>
 
                                 {/* Quick Info */}
                                 <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">From</span>
+                                        <span className="text-gray-300">From</span>
                                         <span className="text-white text-right">{formatSingleDateTime(event.startDateTime)}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">To</span>
+                                        <span className="text-gray-300">To</span>
                                         <span className="text-white text-right">{formatSingleDateTime(event.endDateTime)}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Spots Left</span>
+                                        <span className="text-gray-300">Spots Left</span>
                                         <span className={`font-medium ${spotsLeft < 20 ? 'text-red-400' : 'text-white'}`}>
                                             {spotsLeft} / {event.maxAttendees}
                                         </span>
@@ -692,21 +707,37 @@ export default function EventDetailPage() {
                                     <Button className="w-full" size="lg" disabled>
                                         Event {event.status === 'cancelled' ? 'Cancelled' : 'Ended'}
                                     </Button>
-                                ) : spotsLeft > 0 ? (
+                                ) : isSoldOut ? (
+                                    <>
+                                        <span className="block w-full text-center px-4 py-2 mb-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 text-sm font-semibold">
+                                            Sold Out
+                                        </span>
+                                        <Button className="w-full" size="lg" disabled>
+                                            Sold Out
+                                        </Button>
+                                    </>
+                                ) : (
                                     <Button className="w-full" size="lg" onClick={handleGetTickets}>
                                         {event.ticketPrice === 0 ? 'Register for Free' : 'Get Tickets'}
-                                    </Button>
-                                ) : (
-                                    <Button className="w-full" size="lg" disabled>
-                                        Sold Out
                                     </Button>
                                 )}
 
                                 {event.eventType === 'private' && (
-                                    <p className="text-xs text-gray-500 text-center mt-4">
+                                    <p className="text-xs text-gray-300 text-center mt-4">
                                         This is a private event. You&apos;ll need an access code to register.
                                     </p>
                                 )}
+
+                                {/* Ask a Question button */}
+                                <button
+                                    onClick={() => setIsInquiryModalOpen(true)}
+                                    className="w-full mt-4 text-sm text-violet-400 hover:text-violet-300 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.065 2.386-1.772 3.772-1.772 1.928 0 3.5 1.21 3.5 2.772 0 1.561-1.572 2.772-3.5 2.772-.969 0-1.839-.258-2.438-.698M12 17h.01" />
+                                    </svg>
+                                    Ask a Question
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -720,7 +751,7 @@ export default function EventDetailPage() {
                 title="Enter Access Code"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-400">This is a private event. Please enter the access code provided by the organizer.</p>
+                    <p className="text-gray-300">This is a private event. Please enter the access code provided by the organizer.</p>
                     <Input
                         placeholder="Enter access code"
                         value={privateCode}
@@ -740,14 +771,14 @@ export default function EventDetailPage() {
             {/* Ticket Purchase Modal */}
             <Modal
                 isOpen={isTicketModalOpen}
-                onClose={() => setIsTicketModalOpen(false)}
+                onClose={() => { setIsTicketModalOpen(false); setAppliedDiscount(null); }}
                 title="Get Tickets"
                 size="md"
             >
                 <div className="space-y-6">
                     <div>
                         <h3 className="text-lg font-semibold text-white mb-2">{event.name}</h3>
-                        <p className="text-gray-400 text-sm">{formatSingleDateTime(event.startDateTime)}</p>
+                        <p className="text-gray-300 text-sm">{formatSingleDateTime(event.startDateTime)}</p>
                     </div>
 
                     <div className="bg-white/5 rounded-xl p-4">
@@ -756,7 +787,7 @@ export default function EventDetailPage() {
                             <span className="text-white font-semibold">{formatPrice(event.ticketPrice)}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-gray-400 text-sm">Quantity</span>
+                            <span className="text-gray-300 text-sm">Quantity</span>
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"
@@ -785,13 +816,31 @@ export default function EventDetailPage() {
                         </div>
                     </div>
 
-                    <div className="border-t border-white/10 pt-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-400">Total</span>
-                            <span className="text-2xl font-bold text-white">
-                                {formatPrice(event.ticketPrice * ticketQuantity)}
-                            </span>
-                        </div>
+                    <div className="border-t border-white/10 pt-4 space-y-4">
+                        {event.ticketPrice > 0 && (
+                            <>
+                                <DiscountCodeInput
+                                    eventId={event._id!}
+                                    subtotal={event.ticketPrice * ticketQuantity}
+                                    onApplied={(discount) => setAppliedDiscount(discount)}
+                                    onRemoved={() => setAppliedDiscount(null)}
+                                    appliedCode={appliedDiscount?.code ?? null}
+                                />
+                                <BillingCard
+                                    ticketPrice={event.ticketPrice}
+                                    quantity={ticketQuantity}
+                                    platformFeePercentage={(event as any).platformFeePercentage ?? 5}
+                                    discountAmount={appliedDiscount?.amount ?? 0}
+                                    discountCode={appliedDiscount?.code}
+                                />
+                            </>
+                        )}
+                        {event.ticketPrice === 0 && (
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-gray-300">Total</span>
+                                <span className="text-2xl font-bold text-white">Free</span>
+                            </div>
+                        )}
                         <Button className="w-full" size="lg" onClick={purchaseTickets} disabled={isPurchasing}>
                             {isPurchasing ? 'Processing...' : event.ticketPrice === 0 ? 'Confirm Registration' : 'Get Tickets'}
                         </Button>
@@ -826,7 +875,7 @@ export default function EventDetailPage() {
                 size="md"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-400 text-sm">Share an update with your ticket holders. They will be notified about this post.</p>
+                    <p className="text-gray-300 text-sm">Share an update with your ticket holders. They will be notified about this post.</p>
 
                     {/* Text Content */}
                     <textarea
@@ -838,7 +887,7 @@ export default function EventDetailPage() {
 
                     {/* Image Upload */}
                     <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Add Images (optional)</label>
+                        <label className="text-sm text-gray-300 mb-2 block">Add Images (optional)</label>
                         <div className="flex flex-wrap gap-2">
                             {newPostImages.map((img, idx) => (
                                 <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden group">
@@ -862,12 +911,12 @@ export default function EventDetailPage() {
                                     disabled={isUploadingImage}
                                 />
                                 {isUploadingImage ? (
-                                    <svg className="w-5 h-5 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                     </svg>
                                 ) : (
-                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                     </svg>
                                 )}
@@ -897,6 +946,21 @@ export default function EventDetailPage() {
                         </Button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Inquiry Modal */}
+            <Modal
+                isOpen={isInquiryModalOpen}
+                onClose={() => setIsInquiryModalOpen(false)}
+                title="Ask a Question"
+                size="md"
+            >
+                <InquiryForm
+                    referenceType="event"
+                    referenceId={event._id!}
+                    referenceName={event.name}
+                    onClose={() => setIsInquiryModalOpen(false)}
+                />
             </Modal>
         </>
     );

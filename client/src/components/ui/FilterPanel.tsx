@@ -82,7 +82,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
         if (group.type === 'date') {
             return (
                 <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none z-10">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -141,7 +141,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                 )}
                 <div className="max-h-44 overflow-y-auto">
                     {filtered.length === 0 && (
-                        <p className="text-gray-500 text-sm text-center py-4">No matches</p>
+                        <p className="text-gray-300 text-sm text-center py-4">No matches</p>
                     )}
                     {filtered.map(option => (
                         <button
@@ -198,7 +198,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
             <div className="px-5 py-4 space-y-5 overflow-y-auto flex-1 min-h-0">
                 {groups.map(group => (
                     <div key={group.key}>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">{group.label}</p>
+                        <p className="text-xs uppercase tracking-wide text-gray-300 mb-2">{group.label}</p>
                         {renderGroup(group)}
                     </div>
                 ))}
@@ -248,7 +248,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                     onClick={() => group.onChange(group.defaultValue)}
                     className="hidden md:flex items-center gap-1.5 px-3 h-[30px] rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs hover:text-white hover:border-white/20 transition-all"
                 >
-                    <span className="text-gray-500">{group.label}:</span>
+                    <span className="text-gray-300">{group.label}:</span>
                     {labelFor(group)}
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

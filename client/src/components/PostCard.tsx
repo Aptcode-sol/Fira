@@ -147,7 +147,7 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
                     </div>
                     <div>
                         <h3 className="font-bold text-white">{displayName}</h3>
-                        <p className="text-gray-400 text-xs">
+                        <p className="text-gray-300 text-xs">
                             {getRelativeTime(post.createdAt)}
                             {post.isEdited && <span className="ml-2">(edited)</span>}
                         </p>
@@ -228,7 +228,7 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
                 </div>
             )}
 
-            <div className="flex items-center gap-6 pt-4 border-t border-white/5 text-gray-400">
+            <div className="flex items-center gap-6 pt-4 border-t border-white/5 text-gray-300">
                 <button
                     onClick={handleLike}
                     disabled={isLiking || !user}
@@ -278,7 +278,7 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
                     {/* Comments List */}
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                         {comments.length === 0 ? (
-                            <p className="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
+                            <p className="text-gray-300 text-sm">No comments yet. Be the first to comment!</p>
                         ) : (
                             comments.map((comment: any) => (
                                 <div key={comment._id} className="flex gap-3">
@@ -291,7 +291,7 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
                                                 className="object-cover"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
                                                 {comment.user?.name?.[0] || '?'}
                                             </div>
                                         )}
@@ -301,7 +301,7 @@ export default function PostCard({ post, type = 'brand', parentId }: PostProps) 
                                             <p className="text-sm font-medium text-white">{comment.user?.name || 'Unknown'}</p>
                                             <p className="text-sm text-gray-300">{comment.content}</p>
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-1">
+                                        <p className="text-xs text-gray-300 mt-1">
                                             {getRelativeTime(comment.createdAt)}
                                         </p>
                                     </div>

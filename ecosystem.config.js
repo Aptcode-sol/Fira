@@ -1,12 +1,14 @@
 module.exports = {
     apps: [
-        // Backend API - Cluster Mode (multi-core)
+        // Backend API - Cluster Mode (zero-downtime via `pm2 reload fira-api`)
         {
-            name: 'fira-backend',
+            name: 'fira-api',
             script: 'index.js',
-            instances: '2',
+            instances: 2,
             exec_mode: 'cluster',
             cwd: './server',
+            wait_ready: true,
+            listen_timeout: 10000,
             env: {
                 NODE_ENV: 'production',
                 PORT: 5000
@@ -20,8 +22,7 @@ module.exports = {
             autorestart: true,
             max_restarts: 10,
             min_uptime: '10s',
-            listen_timeout: 3000,
-            kill_timeout: 5000
+            kill_timeout: 30000
         },
 
         // Admin Dashboard - Fork Mode (Static served via serve)
@@ -76,7 +77,8 @@ module.exports = {
             ref: 'origin/main',
             repo: 'https://github.com/your-username/fira.git', // Your repo URL
             path: '/home/ec2-user/fira', // Deployment path on EC2
-            'post-deploy': 'npm install && npm run build:all && pm2 startOrRestart ecosystem.config.js --env production'
+            // ponytail: `pm2 reload` gives zero-downtime; `startOrRestart` does a hard restart.
+            'post-deploy': 'npm install && npm run build:all && pm2 reload ecosystem.config.js --env production'
         }
     }
 };

@@ -1,4 +1,12 @@
 const Venue = require('../models/Venue');
+const Booking = require('../models/Booking');
+const VenueReview = require('../models/VenueReview');
+
+const DEFAULT_CANCELLATION_POLICY = {
+    freeCancellationHours: 48,
+    partialRefundPercentage: 50,
+    noCancellationHours: 24
+};
 
 const venueService = {
     // Get all venues
@@ -170,6 +178,101 @@ const venueService = {
             throw new Error('Venue not found');
         }
         return venue;
+    },
+
+    // Submit a venue review (Req 14.1, 14.2, 14.4, 14.5)
+    async submitReview(userId, venueId, rating, comment) {
+        // 1. Check that user has a completed booking at this venue
+        const completedBooking = await Booking.findOne({
+            user: userId,
+            venue: venueId,
+            status: 'completed'
+        });
+        if (!completedBooking) {
+            const err = new Error('You must complete a booking before reviewing');
+            err.status = 403;
+            throw err;
+        }
+
+        // 2. Create review — unique index { user, venue } rejects duplicates
+        let review;
+        try {
+            review = await VenueReview.create({ user: userId, venue: venueId, rating, comment });
+        } catch (err) {
+            if (err.code === 11000) {
+                const dupErr = new Error('A review has already been submitted for this venue');
+                dupErr.status = 409;
+                throw dupErr;
+            }
+            throw err;
+        }
+
+        // 3. Recalculate venue rating
+        const venue = await Venue.findById(venueId);
+        const currentAverage = (venue.rating && venue.rating.average) || 0;
+        const currentCount = (venue.rating && venue.rating.count) || 0;
+        const newAverage = (currentAverage * currentCount + rating) / (currentCount + 1);
+        const newCount = currentCount + 1;
+
+        await Venue.findByIdAndUpdate(venueId, {
+            $set: { 'rating.average': newAverage, 'rating.count': newCount }
+        });
+
+        return review;
+    },
+
+    // Validate cancellation policy constraints
+    validateCancellationPolicy(policy) {
+        const { freeCancellationHours, noCancellationHours } = policy;
+        if (noCancellationHours >= freeCancellationHours) {
+            throw new Error('noCancellationHours must be less than freeCancellationHours');
+        }
+    },
+
+    // Process a booking cancellation according to venue cancellation policy
+    async processCancellation(bookingId, userId) {
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            throw new Error('Booking not found');
+        }
+
+        const venue = await Venue.findById(booking.venue);
+        if (!venue) {
+            throw new Error('Venue not found');
+        }
+
+        // Use venue's cancellationPolicy or defaults
+        const policy = venue.cancellationPolicy && venue.cancellationPolicy.freeCancellationHours
+            ? venue.cancellationPolicy
+            : DEFAULT_CANCELLATION_POLICY;
+
+        const { freeCancellationHours, partialRefundPercentage, noCancellationHours } = policy;
+
+        // Calculate hours remaining until booking start
+        const bookingDate = new Date(booking.bookingDate);
+        const [hours, minutes] = booking.startTime.split(':').map(Number);
+        bookingDate.setHours(hours, minutes, 0, 0);
+
+        const now = new Date();
+        const hoursRemaining = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        // Apply policy tiers
+        if (hoursRemaining <= noCancellationHours) {
+            throw new Error('Cancellation window has passed');
+        }
+
+        let result;
+        if (hoursRemaining > freeCancellationHours) {
+            result = { refundType: 'full', refundPercentage: 100 };
+        } else {
+            // noCancellationHours < hoursRemaining <= freeCancellationHours
+            result = { refundType: 'partial', refundPercentage: partialRefundPercentage };
+        }
+
+        // Update booking status to cancelled
+        await Booking.findByIdAndUpdate(bookingId, { $set: { status: 'cancelled' } });
+
+        return result;
     }
 };
 

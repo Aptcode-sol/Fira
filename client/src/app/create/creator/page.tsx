@@ -134,7 +134,7 @@ export default function CreateCreatorPage() {
                             <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
                                 You&apos;re a <span className="text-violet-400">Verified Creator</span>!
                             </h1>
-                            <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">
+                            <p className="text-gray-300 text-lg mb-8 max-w-md mx-auto">
                                 You already have a verified creator profile. Manage your profile and content from your dashboard.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -270,7 +270,7 @@ export default function CreateCreatorPage() {
                         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
                             Apply as a <span className="text-violet-400">Creator</span>
                         </h1>
-                        <p className="text-gray-400">Build your presence and connect with your audience</p>
+                        <p className="text-gray-300">Build your presence and connect with your audience</p>
                     </div>
 
                     {/* Steps */}
@@ -283,7 +283,7 @@ export default function CreateCreatorPage() {
                                     ? 'bg-violet-500 text-white'
                                     : currentStep > step.num
                                         ? 'bg-violet-500/20 text-violet-400'
-                                        : 'bg-white/5 text-gray-500'
+                                        : 'bg-white/5 text-gray-300'
                                     }`}
                             >
                                 <span className="w-6 h-6 rounded-full bg-black/30 flex items-center justify-center text-xs">
@@ -335,14 +335,14 @@ export default function CreateCreatorPage() {
                                         onChange={handleInputChange}
                                         placeholder="Tell us about yourself..."
                                         rows={4}
-                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-violet-500/50"
+                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-gray-300 focus:outline-none focus:border-violet-500/50"
                                     />
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Cities / Locations
-                                        <span className="text-gray-500 font-normal ml-2">(Add multiple cities where you operate)</span>
+                                        <span className="text-gray-300 font-normal ml-2">(Add multiple cities where you operate)</span>
                                     </label>
 
                                     {/* City Chips */}
@@ -422,7 +422,7 @@ export default function CreateCreatorPage() {
                                             Add
                                         </Button>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-2">Press Enter or click Add to add a city. Click ★ to set as primary.</p>
+                                    <p className="text-xs text-gray-300 mt-2">Press Enter or click Add to add a city. Click ★ to set as primary.</p>
                                 </div>
                             </div>
                         )}
@@ -437,7 +437,7 @@ export default function CreateCreatorPage() {
                                         {coverPreview ? (
                                             <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-300">
                                                 <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
@@ -461,7 +461,7 @@ export default function CreateCreatorPage() {
                                             {profilePreview ? (
                                                 <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="flex items-center justify-center h-full text-gray-500">
+                                                <div className="flex items-center justify-center h-full text-gray-300">
                                                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                     </svg>
@@ -474,9 +474,9 @@ export default function CreateCreatorPage() {
                                                 className="absolute inset-0 opacity-0 cursor-pointer"
                                             />
                                         </div>
-                                        <div className="text-gray-400 text-sm">
+                                        <div className="text-gray-300 text-sm">
                                             <p>Click to upload</p>
-                                            <p className="text-gray-500">Square image works best</p>
+                                            <p className="text-gray-300">Square image works best</p>
                                         </div>
                                     </div>
                                 </div>
@@ -486,7 +486,7 @@ export default function CreateCreatorPage() {
                         {/* Step 3: Social Links */}
                         {currentStep === 3 && (
                             <div className="space-y-4">
-                                <p className="text-gray-400 text-sm mb-4">Add your social media links (optional)</p>
+                                <p className="text-gray-300 text-sm mb-4">Add your social media links (optional)</p>
 
                                 {[
                                     { name: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/...' },
@@ -513,7 +513,7 @@ export default function CreateCreatorPage() {
                         {/* Step 4: Team Members */}
                         {currentStep === 4 && (
                             <div className="space-y-6">
-                                <p className="text-gray-400 text-sm">Add team members or band members (optional)</p>
+                                <p className="text-gray-300 text-sm">Add team members or band members (optional)</p>
 
                                 {/* Added Members */}
                                 {members.length > 0 && (
@@ -522,7 +522,7 @@ export default function CreateCreatorPage() {
                                             <div key={index} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-3">
                                                 <div>
                                                     <div className="font-medium text-white">{member.name}</div>
-                                                    <div className="text-sm text-gray-400">{member.role}</div>
+                                                    <div className="text-sm text-gray-300">{member.role}</div>
                                                 </div>
                                                 <button
                                                     type="button"

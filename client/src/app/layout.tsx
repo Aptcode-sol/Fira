@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import ScrollToTop from '@/components/ScrollToTop';
+import SkipLink from '@/components/SkipLink';
 import ClientLayout from './ClientLayout';
 import {
   SITE_URL,
@@ -13,11 +14,19 @@ import {
 } from '@/lib/siteConfig';
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/seo/jsonLd';
 
-import { Fascinate } from 'next/font/google';
+import { Inter, Fascinate } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 const fascinate = Fascinate({
   subsets: ['latin'],
   weight: ['400'],
+  display: 'swap',
   variable: '--font-fascinate',
 });
 
@@ -116,12 +125,6 @@ export default function RootLayout({
     // en-IN, not en: the audience, currency and city names are all Indian.
     <html lang="en-IN">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
         {/* Cuts a round-trip on the first events/venues fetch. */}
         {process.env.NEXT_PUBLIC_API_URL && (
           <link rel="preconnect" href={new URL(process.env.NEXT_PUBLIC_API_URL).origin} />
@@ -129,21 +132,15 @@ export default function RootLayout({
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <JsonLd data={siteGraph} />
       </head>
-      <body className={`${fascinate.variable} antialiased`}>
-        {/* REMOVED: a visually-hidden brand string used to sit here
-            ("FIRA (Lets FIRA, Let's FIRA, letsfira, ...)"). Because it was the
-            first text in the body on EVERY page, Google scraped it as the
-            search-result description for every sitelink - so every entry under
-            the main result read "FIRA (Lets FIRA, Let's FIRA, letsfira, FIRA
-            Events, FIRA App, FIRA ..." instead of describing the page.
-            The alternate names still reach Google properly via `alternateName`
-            in the Organization/WebSite JSON-LD, which is the correct channel
-            and does not pollute snippets. */}
+      <body className={`${inter.variable} ${fascinate.variable} antialiased`}>
+        <SkipLink />
         <AuthProvider>
           <ToastProvider>
             <ScrollToTop />
             <ClientLayout>
-              {children}
+              <main id="main-content" tabIndex={-1}>
+                {children}
+              </main>
             </ClientLayout>
           </ToastProvider>
         </AuthProvider>

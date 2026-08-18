@@ -177,7 +177,7 @@ export default function BrandProfilePage() {
                 <div className="flex flex-col items-center justify-center min-h-[70vh] text-white px-4">
                     <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
                     <h1 className="text-2xl font-bold mb-2">Brand not found</h1>
-                    <p className="text-gray-400 mb-6 text-center">The brand you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+                    <p className="text-gray-300 mb-6 text-center">The brand you&apos;re looking for doesn&apos;t exist or has been removed.</p>
                     <button
                         onClick={() => window.location.href = '/brands'}
                         className="px-6 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors"
@@ -194,7 +194,7 @@ export default function BrandProfilePage() {
             <Navbar />
 
             {/* Header Section */}
-            <BrandHeader brand={brand} onFollow={handleFollow} isFollowing={isFollowing} />
+            <BrandHeader brand={brand} onFollow={handleFollow} isFollowing={isFollowing} isOwnProfile={!!(user && (brand.user === user._id || brand.user?._id === user._id))} />
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 md:px-8 pb-20">
@@ -225,7 +225,7 @@ export default function BrandProfilePage() {
                                 {/* Bio Section */}
                                 <div className="bg-white/5 rounded-xl p-6 border border-white/5">
                                     <h3 className="text-lg font-semibold text-white mb-4">About</h3>
-                                    <p className="text-gray-400 whitespace-pre-line leading-relaxed">
+                                    <p className="text-gray-300 whitespace-pre-line leading-relaxed">
                                         {brand.bio || 'No bio available.'}
                                     </p>
                                 </div>
@@ -233,7 +233,7 @@ export default function BrandProfilePage() {
                                 {/* Contact / Enquiry Section */}
                                 <div className="bg-gradient-to-br from-violet-500/10 to-pink-500/10 rounded-xl p-6 border border-violet-500/20">
                                     <h3 className="text-lg font-semibold text-white mb-2">Get in Touch</h3>
-                                    <p className="text-gray-400 text-sm mb-4">
+                                    <p className="text-gray-300 text-sm mb-4">
                                         Want to book {brand.name} for your event or have an enquiry?
                                     </p>
                                     <div className="flex flex-wrap gap-3">
@@ -335,7 +335,7 @@ export default function BrandProfilePage() {
                                                 ))}
                                             </div>
                                         ) : brand.address && (
-                                            <p className="text-gray-400">
+                                            <p className="text-gray-300">
                                                 {brand.address.city && `${brand.address.city}, `}
                                                 {brand.address.state && `${brand.address.state}, `}
                                                 {brand.address.country || 'India'}
@@ -352,7 +352,7 @@ export default function BrandProfilePage() {
 
 
                                 {posts.length === 0 ? (
-                                    <div className="text-center py-20 text-gray-400">
+                                    <div className="text-center py-20 text-gray-300">
                                         <p>No posts yet from {brand.name}</p>
                                     </div>
                                 ) : (
@@ -364,7 +364,7 @@ export default function BrandProfilePage() {
                         {activeTab === 'events' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {events.length === 0 ? (
-                                    <div className="col-span-full text-center py-20 text-gray-400">
+                                    <div className="col-span-full text-center py-20 text-gray-300">
                                         <p>No upcoming events.</p>
                                     </div>
                                 ) : (
@@ -386,11 +386,11 @@ export default function BrandProfilePage() {
                                 <h4 className="font-bold mb-4 text-gray-200">Stats</h4>
                                 <div className="space-y-4">
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-gray-400">Joined</span>
+                                        <span className="text-gray-300">Joined</span>
                                         <span>{new Date(brand.createdAt).toLocaleDateString()}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-gray-400">Total Views</span>
+                                        <span className="text-gray-300">Total Views</span>
                                         <span>{brand.stats?.views?.toLocaleString() || 0}</span>
                                     </div>
                                 </div>
@@ -421,7 +421,7 @@ export default function BrandProfilePage() {
                                                 case 'youtube':
                                                     return <Youtube size={18} className="text-red-500" />;
                                                 default:
-                                                    return <LinkIcon size={18} className="text-gray-400" />;
+                                                    return <LinkIcon size={18} className="text-gray-300" />;
                                             }
                                         };
 
@@ -460,7 +460,7 @@ export default function BrandProfilePage() {
                                             </div>
                                             <div>
                                                 <div className="font-medium text-sm text-gray-200">{member.name}</div>
-                                                <div className="text-xs text-gray-500">{member.role}</div>
+                                                <div className="text-xs text-gray-300">{member.role}</div>
                                             </div>
                                         </div>
                                     ))}

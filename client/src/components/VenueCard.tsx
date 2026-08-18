@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Venue } from '@/lib/types';
 import { motion } from 'framer-motion';
 
@@ -33,10 +34,12 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                 {/* Image */}
                 <div className="relative h-48 overflow-hidden">
                     {venue.images && venue.images.length > 0 ? (
-                        <img
+                        <Image
                             src={venue.images[0]}
                             alt={venue.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-violet-500/20 to-pink-500/20 flex items-center justify-center">
@@ -71,7 +74,7 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                                     (venue.owner as { name?: string }).name?.charAt(0).toUpperCase()
                                 )}
                             </div>
-                            <span className="text-sm text-gray-400">{(venue.owner as { name?: string }).name}</span>
+                            <span className="text-sm text-gray-300">{(venue.owner as { name?: string }).name}</span>
                             <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
@@ -88,7 +91,7 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                     </div>
 
                     {/* Location */}
-                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-3">
+                    <div className="flex items-center gap-2 text-gray-300 text-sm mb-3">
                         <div className="flex items-center gap-1">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -115,7 +118,7 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                     </div>
 
                     {/* Capacity */}
-                    <div className="flex items-center gap-1 text-gray-500 text-sm mb-4">
+                    <div className="flex items-center gap-1 text-gray-300 text-sm mb-4">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
@@ -124,7 +127,7 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
 
                     {/* Amenities */}
                     {venue.amenities && venue.amenities.length > 0 && (
-                        <p className="text-gray-500 text-sm line-clamp-1">
+                        <p className="text-gray-300 text-sm line-clamp-1">
                             {venue.amenities.join(' • ')}
                         </p>
                     )}

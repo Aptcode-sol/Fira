@@ -58,7 +58,7 @@ export default function VenueOwnerSection() {
                                                 {feature.icon}
                                             </div>
                                             <h3 className="text-white font-medium mb-1">{feature.title}</h3>
-                                            <p className="text-gray-500 text-sm">{feature.description}</p>
+                                            <p className="text-gray-300 text-sm">{feature.description}</p>
                                         </div>
                                     </StaggerItem>
                                 ))}
@@ -78,7 +78,7 @@ export default function VenueOwnerSection() {
                                         Rent your venues for <span className="accent-text">events</span>?
                                     </h2>
 
-                                    <p className="text-gray-400 mb-8 leading-relaxed">
+                                    <p className="text-gray-300 mb-8 leading-relaxed">
                                         We are here for you. List your places and let organizers book your venue easily.
                                         Manage your bookings, set your prices, and earn from every event.
                                     </p>

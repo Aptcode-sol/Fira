@@ -63,7 +63,7 @@ export default function BrandBandSection() {
                                         Are you a <br /><span className="accent-text">Creator</span>?
                                     </h2>
 
-                                    <p className="text-gray-400 mb-8 leading-relaxed">
+                                    <p className="text-gray-300 mb-8 leading-relaxed">
                                         Don't worry, we care for you. Organize your events, parties, and celebrate the moments with ease.
                                         Get your dedicated space and connect with your fans like never before.
                                     </p>
@@ -89,7 +89,7 @@ export default function BrandBandSection() {
                                                 {feature.icon}
                                             </div>
                                             <h3 className="text-white font-medium mb-1">{feature.title}</h3>
-                                            <p className="text-gray-500 text-sm">{feature.description}</p>
+                                            <p className="text-gray-300 text-sm">{feature.description}</p>
                                         </div>
                                     </StaggerItem>
                                 ))}

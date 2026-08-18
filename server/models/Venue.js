@@ -109,6 +109,11 @@ const venueSchema = new mongoose.Schema({
     autoApproveBookings: {
         type: Boolean,
         default: false
+    },
+    cancellationPolicy: {
+        freeCancellationHours: { type: Number, min: 1, max: 720, default: 48 },
+        partialRefundPercentage: { type: Number, min: 0, max: 100, default: 50 },
+        noCancellationHours: { type: Number, min: 0, max: 720, default: 24 }
     }
 }, {
     timestamps: true

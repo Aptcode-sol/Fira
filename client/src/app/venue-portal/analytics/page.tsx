@@ -184,7 +184,7 @@ export default function VenuePortalAnalyticsPage() {
                 <SlideUp>
                     <div className="mb-6 sm:mb-8">
                         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Analytics</h1>
-                        <p className="text-sm sm:text-base text-gray-400">Track and analyze your venue performance</p>
+                        <p className="text-sm sm:text-base text-gray-300">Track and analyze your venue performance</p>
                     </div>
                 </SlideUp>
 
@@ -199,7 +199,7 @@ export default function VenuePortalAnalyticsPage() {
                         ].map((stat, i) => (
                             <div key={i} className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-4 sm:p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer">
                                 <div className="text-xl sm:text-2xl font-bold text-white mb-1">{stat.value}</div>
-                                <div className="text-xs sm:text-sm text-gray-400">{stat.label}</div>
+                                <div className="text-xs sm:text-sm text-gray-300">{stat.label}</div>
                             </div>
                         ))}
                     </div>
@@ -231,14 +231,14 @@ export default function VenuePortalAnalyticsPage() {
                                                         {m.bookings} Booking{m.bookings !== 1 ? 's' : ''}
                                                     </div>
                                                 </div>
-                                                <span className="text-[10px] sm:text-xs text-gray-500 font-medium">{m.month}</span>
+                                                <span className="text-[10px] sm:text-xs text-gray-300 font-medium">{m.month}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
                             ) : (
                                 <div className="h-48 flex items-center justify-center border border-dashed border-white/10 rounded-xl p-4 text-center">
-                                    <p className="text-gray-500 text-sm">No booking records found for chart</p>
+                                    <p className="text-gray-300 text-sm">No booking records found for chart</p>
                                 </div>
                             )}
                         </div>
@@ -266,14 +266,14 @@ export default function VenuePortalAnalyticsPage() {
                                                         ₹{m.revenue.toLocaleString()}
                                                     </div>
                                                 </div>
-                                                <span className="text-[10px] sm:text-xs text-gray-500 font-medium">{m.month}</span>
+                                                <span className="text-[10px] sm:text-xs text-gray-300 font-medium">{m.month}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
                             ) : (
                                 <div className="h-48 flex items-center justify-center border border-dashed border-white/10 rounded-xl p-4 text-center">
-                                    <p className="text-gray-500 text-sm">No revenue records found for chart</p>
+                                    <p className="text-gray-300 text-sm">No revenue records found for chart</p>
                                 </div>
                             )}
                         </div>
@@ -294,7 +294,7 @@ export default function VenuePortalAnalyticsPage() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="border-b border-white/10 text-xs sm:text-sm text-gray-400">
+                                        <tr className="border-b border-white/10 text-xs sm:text-sm text-gray-300">
                                             <th className="pb-3 font-semibold">Venue</th>
                                             <th className="pb-3 font-semibold text-center">Bookings</th>
                                             <th className="pb-3 font-semibold text-center font-mono">Rating</th>
@@ -316,7 +316,7 @@ export default function VenuePortalAnalyticsPage() {
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold text-white">{v.name}</div>
-                                                        <div className="text-[10px] text-gray-500 capitalize">{v.status}</div>
+                                                        <div className="text-[10px] text-gray-300 capitalize">{v.status}</div>
                                                     </div>
                                                 </td>
                                                 <td className="py-4 text-center font-medium">{v.bookingsCount}</td>
@@ -338,7 +338,7 @@ export default function VenuePortalAnalyticsPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                     </svg>
                                 </div>
-                                <p className="text-gray-500 text-sm">No venue data available yet</p>
+                                <p className="text-gray-300 text-sm">No venue data available yet</p>
                             </div>
                         )}
                     </div>

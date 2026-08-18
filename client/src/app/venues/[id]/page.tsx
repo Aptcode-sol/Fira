@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
@@ -9,6 +9,7 @@ import { venuesApi, bookingsApi } from '@/lib/api';
 import { Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import InquiryForm from '@/components/InquiryForm';
 
 /**
  * How long the success state stays on screen before we navigate to the
@@ -53,6 +54,17 @@ export default function VenueDetailPage() {
     const [hoveredDate, setHoveredDate] = useState<string | null>(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Review form state
+    const [canReview, setCanReview] = useState(false);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewError, setReviewError] = useState<string | null>(null);
+    const [reviewSuccess, setReviewSuccess] = useState<any>(null);
+
+    // Inquiry modal state
+    const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
 
     const loadRazorpay = () => {
         return new Promise((resolve) => {
@@ -134,6 +146,53 @@ export default function VenueDetailPage() {
             setVenue(getMockVenue(id));
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Check if user can leave a review (has completed booking at this venue)
+    const checkReviewEligibility = useCallback(async () => {
+        if (!isAuthenticated || !user?._id || !params.id) {
+            setCanReview(false);
+            return;
+        }
+        try {
+            const bookings = await bookingsApi.getUserBookings(user._id) as any[];
+            const hasCompleted = bookings.some(
+                (b: any) => (b.venue === params.id || b.venue?._id === params.id) && b.status === 'completed'
+            );
+            setCanReview(hasCompleted);
+        } catch {
+            setCanReview(false);
+        }
+    }, [isAuthenticated, user?._id, params.id]);
+
+    useEffect(() => {
+        checkReviewEligibility();
+    }, [checkReviewEligibility]);
+
+    const handleReviewSubmit = async () => {
+        if (!params.id || reviewRating < 1 || reviewRating > 5) return;
+        setReviewSubmitting(true);
+        setReviewError(null);
+        try {
+            const review = await venuesApi.submitReview(params.id as string, {
+                rating: reviewRating,
+                comment: reviewComment || undefined,
+            });
+            setReviewSuccess(review);
+            setCanReview(false); // hide form after success
+            showToast('Review submitted successfully!', 'success');
+        } catch (err: any) {
+            if (err.status === 403) {
+                setReviewError('Complete a booking to leave a review');
+            } else if (err.status === 409) {
+                setReviewError('You have already reviewed this venue');
+                setCanReview(false);
+            } else {
+                setReviewError(err.message || 'Failed to submit review');
+            }
+        } finally {
+            setReviewSubmitting(false);
         }
     };
 
@@ -298,7 +357,7 @@ export default function VenueDetailPage() {
                 <main className="relative z-20 min-h-screen pt-28 pb-16 px-4 flex items-center justify-center">
                     <div className="text-center">
                         <h1 className="text-2xl font-bold text-white mb-2">Venue not found</h1>
-                        <p className="text-gray-400 mb-6">The venue you&apos;re looking for doesn&apos;t exist.</p>
+                        <p className="text-gray-300 mb-6">The venue you&apos;re looking for doesn&apos;t exist.</p>
                         <Button onClick={() => router.push('/venues')}>Browse Venues</Button>
                     </div>
                 </main>
@@ -361,7 +420,7 @@ export default function VenueDetailPage() {
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 text-gray-400 mb-4">
+                                <div className="flex items-center gap-2 text-gray-300 mb-4">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     </svg>
@@ -398,7 +457,7 @@ export default function VenueDetailPage() {
                                                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                                 </svg>
                                             </div>
-                                            <span className="text-gray-400 text-sm">Venue Owner</span>
+                                            <span className="text-gray-300 text-sm">Venue Owner</span>
                                         </div>
                                     </div>
                                 )}
@@ -407,7 +466,7 @@ export default function VenueDetailPage() {
                             {/* Description */}
                             <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                                 <h2 className="text-xl font-semibold text-white mb-4">About this venue</h2>
-                                <p className="text-gray-400 leading-relaxed">{venue.description}</p>
+                                <p className="text-gray-300 leading-relaxed">{venue.description}</p>
                             </div>
 
                             {/* Amenities */}
@@ -433,7 +492,7 @@ export default function VenueDetailPage() {
                                     <h2 className="text-xl font-semibold text-white mb-4">Venue Rules</h2>
                                     <ul className="space-y-2">
                                         {venue.rules.map((rule, index) => (
-                                            <li key={index} className="flex items-start gap-2 text-gray-400">
+                                            <li key={index} className="flex items-start gap-2 text-gray-300">
                                                 <svg className="w-5 h-5 text-yellow-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                                 </svg>
@@ -444,28 +503,61 @@ export default function VenueDetailPage() {
                                 </div>
                             )}
 
+                            {/* Cancellation Policy */}
+                            {(() => {
+                                const policy = venue.cancellationPolicy;
+                                const freeCancellationHours = policy?.freeCancellationHours ?? 48;
+                                const partialRefundPercentage = policy?.partialRefundPercentage ?? 50;
+                                const noCancellationHours = policy?.noCancellationHours ?? 24;
+                                return (
+                                    <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+                                        <h2 className="text-xl font-semibold text-white mb-4">Cancellation Policy</h2>
+                                        <ul className="space-y-3">
+                                            <li className="flex items-start gap-3 text-gray-300">
+                                                <svg className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                <span>Free cancellation up to {freeCancellationHours} hours before the booking</span>
+                                            </li>
+                                            <li className="flex items-start gap-3 text-gray-300">
+                                                <svg className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+                                                </svg>
+                                                <span>{partialRefundPercentage}% refund within {noCancellationHours}–{freeCancellationHours} hours before the booking</span>
+                                            </li>
+                                            <li className="flex items-start gap-3 text-gray-300">
+                                                <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                                <span>No cancellation within {noCancellationHours} hours of the booking</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                );
+                            })()}
+
                             {/* Day-wise Availability Calendar */}
                             <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                                 <h2 className="text-xl font-semibold text-white mb-4">Availability Calendar</h2>
-                                <p className="text-gray-400 text-sm mb-6">Showing availability for the next 2 months. Day-wise booking only.</p>
+                                <p className="text-gray-300 text-sm mb-6">Showing availability for the next 2 months. Day-wise booking only.</p>
 
                                 {/* Legend */}
                                 <div className="flex flex-wrap gap-4 mb-6">
                                     <div className="flex items-center gap-2">
                                         <div className="w-4 h-4 rounded bg-green-500/30 border border-green-500/50"></div>
-                                        <span className="text-sm text-gray-400">Available</span>
+                                        <span className="text-sm text-gray-300">Available</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-4 h-4 rounded bg-red-500/30 border border-red-500/50"></div>
-                                        <span className="text-sm text-gray-400">Booked</span>
+                                        <span className="text-sm text-gray-300">Booked</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-4 h-4 rounded bg-orange-500/30 border border-orange-500/50"></div>
-                                        <span className="text-sm text-gray-400">Partially Booked</span>
+                                        <span className="text-sm text-gray-300">Partially Booked</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-4 h-4 rounded bg-gray-500/30 border border-gray-500/50"></div>
-                                        <span className="text-sm text-gray-400">Closed</span>
+                                        <span className="text-sm text-gray-300">Closed</span>
                                     </div>
                                 </div>
 
@@ -496,7 +588,7 @@ export default function VenueDetailPage() {
                                 <div className="grid grid-cols-7 gap-2">
                                     {/* Day headers */}
                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                                        <div key={day} className="text-center text-xs text-gray-500 font-medium py-2">
+                                        <div key={day} className="text-center text-xs text-gray-300 font-medium py-2">
                                             {day}
                                         </div>
                                     ))}
@@ -541,7 +633,7 @@ export default function VenueDetailPage() {
                                             } else if (isSelected) {
                                                 bgClass = 'bg-violet-500/30 border-violet-500 ring-2 ring-violet-500 text-white cursor-pointer';
                                             } else if (availability.isClosed) {
-                                                bgClass = 'bg-gray-500/20 border-gray-500/40 text-gray-500 cursor-not-allowed';
+                                                bgClass = 'bg-gray-500/20 border-gray-500/40 text-gray-300 cursor-not-allowed';
                                             } else if (availability.color === 'red') {
                                                 bgClass = 'bg-red-500/20 border-red-500/40 text-red-300 cursor-not-allowed';
                                             } else if (availability.color === 'orange') {
@@ -574,7 +666,7 @@ export default function VenueDetailPage() {
                                                                     {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                                 </div>
                                                                 {availability.isClosed ? (
-                                                                    <div className="flex items-center gap-1.5 text-gray-400">
+                                                                    <div className="flex items-center gap-1.5 text-gray-300">
                                                                         <span className="w-2 h-2 rounded-full bg-gray-500"></span>
                                                                         Closed
                                                                     </div>
@@ -611,6 +703,78 @@ export default function VenueDetailPage() {
                                     })()}
                                 </div>
                             </div>
+
+                            {/* Venue Review Form — shown only if user has completed booking */}
+                            {(canReview || reviewSuccess) && (
+                                <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+                                    <h2 className="text-xl font-semibold text-white mb-4">Leave a Review</h2>
+                                    {reviewSuccess ? (
+                                        <div className="space-y-3">
+                                            <p className="text-green-400 text-sm">Your review has been submitted!</p>
+                                            <div className="flex items-center gap-1">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <svg key={star} className={`w-5 h-5 ${star <= reviewSuccess.rating ? 'text-yellow-400' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                    </svg>
+                                                ))}
+                                            </div>
+                                            {reviewSuccess.comment && (
+                                                <p className="text-gray-300 text-sm">{reviewSuccess.comment}</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {/* Star Rating */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+                                                <div className="flex items-center gap-1">
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <button
+                                                            key={star}
+                                                            type="button"
+                                                            onClick={() => setReviewRating(star)}
+                                                            className="focus:outline-none"
+                                                            aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                                                        >
+                                                            <svg className={`w-8 h-8 transition-colors ${star <= reviewRating ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                            </svg>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Comment */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Comment (optional)</label>
+                                                <textarea
+                                                    value={reviewComment}
+                                                    onChange={(e) => setReviewComment(e.target.value.slice(0, 1000))}
+                                                    placeholder="Share your experience..."
+                                                    rows={3}
+                                                    maxLength={1000}
+                                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">{reviewComment.length}/1000</p>
+                                            </div>
+
+                                            {/* Error */}
+                                            {reviewError && (
+                                                <p className="text-red-400 text-sm">{reviewError}</p>
+                                            )}
+
+                                            {/* Submit */}
+                                            <Button
+                                                onClick={handleReviewSubmit}
+                                                disabled={reviewSubmitting || reviewRating === 0}
+                                                className="w-full"
+                                            >
+                                                {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Sidebar - Booking Card */}
@@ -620,10 +784,10 @@ export default function VenueDetailPage() {
                                 <div className="mb-6">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
-                                        <span className="text-gray-400">base price</span>
+                                        <span className="text-gray-300">base price</span>
                                     </div>
                                     {venue.pricing.pricePerHour && (
-                                        <p className="text-sm text-gray-500 mt-1">
+                                        <p className="text-sm text-gray-300 mt-1">
                                             + {formatPrice(venue.pricing.pricePerHour)} per hour
                                         </p>
                                     )}
@@ -632,18 +796,18 @@ export default function VenueDetailPage() {
                                 {/* Quick Info */}
                                 <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Capacity</span>
+                                        <span className="text-gray-300">Capacity</span>
                                         <span className="text-white">{venue.capacity.min} - {venue.capacity.max} guests</span>
                                     </div>
                                     {venue.rating.count > 0 && (
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">Rating</span>
+                                            <span className="text-gray-300">Rating</span>
                                             <div className="flex items-center gap-1">
                                                 <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                                 </svg>
                                                 <span className="text-white">{venue.rating.average.toFixed(1)}</span>
-                                                <span className="text-gray-500">({venue.rating.count} reviews)</span>
+                                                <span className="text-gray-300">({venue.rating.count} reviews)</span>
                                             </div>
                                         </div>
                                     )}
@@ -653,7 +817,18 @@ export default function VenueDetailPage() {
                                     Book Now
                                 </Button>
 
-                                <p className="text-xs text-gray-500 text-center mt-4">
+                                {/* Ask a Question button */}
+                                <button
+                                    onClick={() => setIsInquiryModalOpen(true)}
+                                    className="w-full mt-3 text-sm text-violet-400 hover:text-violet-300 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.065 2.386-1.772 3.772-1.772 1.928 0 3.5 1.21 3.5 2.772 0 1.561-1.572 2.772-3.5 2.772-.969 0-1.839-.258-2.438-.698M12 17h.01" />
+                                    </svg>
+                                    Ask a Question
+                                </button>
+
+                                <p className="text-xs text-gray-300 text-center mt-4">
                                     A 10% advance payment is required to secure your booking
                                 </p>
                             </div>
@@ -686,7 +861,7 @@ export default function VenueDetailPage() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-white mb-1">Create an Event</h3>
-                                <p className="text-sm text-gray-400">Plan a full event with invitations, setup details, and more</p>
+                                <p className="text-sm text-gray-300">Plan a full event with invitations, setup details, and more</p>
                             </div>
                         </div>
                     </button>
@@ -707,7 +882,7 @@ export default function VenueDetailPage() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-white mb-1">Book Venue Personally</h3>
-                                <p className="text-sm text-gray-400">Reserve the venue for personal use without creating an event</p>
+                                <p className="text-sm text-gray-300">Reserve the venue for personal use without creating an event</p>
                             </div>
                         </div>
                     </button>
@@ -803,12 +978,12 @@ export default function VenueDetailPage() {
 
                                 return (
                                     <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between text-gray-400">
+                                        <div className="flex justify-between text-gray-300">
                                             <span>Base Price</span>
                                             <span>{formatPrice(venue.pricing.basePrice)}</span>
                                         </div>
                                         {hours > 0 && hourlyRate > 0 && (
-                                            <div className="flex justify-between text-gray-400">
+                                            <div className="flex justify-between text-gray-300">
                                                 <span>Hourly Rate ({hours} hours)</span>
                                                 <span>{formatPrice(hours * hourlyRate)}</span>
                                             </div>
@@ -821,7 +996,7 @@ export default function VenueDetailPage() {
                                             <span>Required 10% Advance</span>
                                             <span>{formatPrice(advanceAmount)}</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-2 block">
+                                        <p className="text-xs text-gray-300 mt-2 block">
                                             * You are only paying the 10% non-refundable advance today to secure this booking. The remainder will be settled with the venue owner directly.
                                         </p>
                                     </div>
@@ -839,6 +1014,23 @@ export default function VenueDetailPage() {
                         </Button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Inquiry Modal */}
+            <Modal
+                isOpen={isInquiryModalOpen}
+                onClose={() => setIsInquiryModalOpen(false)}
+                title="Ask a Question"
+                size="md"
+            >
+                {venue && (
+                    <InquiryForm
+                        referenceType="venue"
+                        referenceId={venue._id}
+                        referenceName={venue.name}
+                        onClose={() => setIsInquiryModalOpen(false)}
+                    />
+                )}
             </Modal>
         </>
     );

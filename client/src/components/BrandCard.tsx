@@ -166,18 +166,18 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
                                 </svg>
                             </div>
                             {brand.user?.name && (
-                                <p className="text-sm text-gray-500">by {brand.user.name}</p>
+                                <p className="text-sm text-gray-300">by {brand.user.name}</p>
                             )}
                         </div>
 
-                        <p className="text-sm text-gray-400 line-clamp-2 min-h-[40px]">
+                        <p className="text-sm text-gray-300 line-clamp-2 min-h-[40px]">
                             {brand.bio || 'No bio available'}
                         </p>
 
                         <div className="pt-3 border-t border-white/5 space-y-3">
                             {/* Stats on their own line - followers pinned left,
                                 events pinned right. */}
-                            <div className="flex items-center justify-between text-xs font-medium text-gray-400">
+                            <div className="flex items-center justify-between text-xs font-medium text-gray-300">
                                 <div className="flex flex-col">
                                     <span className="text-white font-semibold">{formatFollowers(followersCount)}</span>
                                     <span className="text-[10px] uppercase tracking-wider">Followers</span>

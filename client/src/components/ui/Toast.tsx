@@ -59,10 +59,13 @@ interface ToastContainerProps {
 }
 
 function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
-    if (toasts.length === 0) return null;
-
     return (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+        <div
+            className="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+            aria-live="polite"
+            aria-atomic="false"
+            role="status"
+        >
             {toasts.map((toast) => (
                 <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
             ))}
@@ -119,6 +122,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
             <button
                 onClick={() => onRemove(toast.id)}
                 className="ml-auto text-gray-400 hover:text-white transition-colors"
+                aria-label="Dismiss notification"
             >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

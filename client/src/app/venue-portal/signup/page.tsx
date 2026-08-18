@@ -189,7 +189,7 @@ export default function VenueOwnerSignUpPage() {
                                     Venue Owner Account
                                 </div>
                                 <h1 className="text-3xl font-bold text-white mb-2">List Your Venue</h1>
-                                <p className="text-gray-400">Create a venue owner account to list and manage your venues on FIRA</p>
+                                <p className="text-gray-300">Create a venue owner account to list and manage your venues on FIRA</p>
                             </div>
 
                             <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-2xl p-8">
@@ -337,15 +337,15 @@ export default function VenueOwnerSignUpPage() {
                                                             </span>
                                                         ) : (
                                                             <>
-                                                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                                                 </svg>
-                                                                <span className="text-gray-400 text-sm">Click to upload Aadhaar / PAN document</span>
+                                                                <span className="text-gray-300 text-sm">Click to upload Aadhaar / PAN document</span>
                                                             </>
                                                         )}
                                                     </label>
                                                 </div>
-                                                <p className="mt-1.5 text-xs text-gray-500">Supported formats: JPG, PNG, PDF (max 5MB)</p>
+                                                <p className="mt-1.5 text-xs text-gray-300">Supported formats: JPG, PNG, PDF (max 5MB)</p>
                                             </div>
                                         </div>
                                     </div>
@@ -448,7 +448,7 @@ export default function VenueOwnerSignUpPage() {
                                     </Button>
                                 </form>
 
-                                <p className="mt-6 text-center text-sm text-gray-500">
+                                <p className="mt-6 text-center text-sm text-gray-300">
                                     By creating an account, you agree to our{' '}
                                     <Link href="/terms" className="text-violet-400 hover:text-violet-300">
                                         Terms
@@ -459,14 +459,14 @@ export default function VenueOwnerSignUpPage() {
                                     </Link>
                                 </p>
 
-                                <div className="mt-6 text-center text-sm text-gray-400">
+                                <div className="mt-6 text-center text-sm text-gray-300">
                                     Already have an account?{' '}
                                     <Link href="/venue-portal/signin" className="text-violet-400 hover:text-violet-300 transition-colors font-medium">
                                         Sign In
                                     </Link>
                                 </div>
 
-                                <div className="mt-4 text-center text-sm text-gray-500">
+                                <div className="mt-4 text-center text-sm text-gray-300">
                                     Looking to attend events?{' '}
                                     <Link href="/signup" className="text-violet-400 hover:text-violet-300 transition-colors">
                                         Create a regular account
@@ -478,7 +478,7 @@ export default function VenueOwnerSignUpPage() {
                         <>
                             <div className="text-center mb-8">
                                 <h1 className="text-3xl font-bold text-white mb-2">Verify your email</h1>
-                                <p className="text-gray-400">
+                                <p className="text-gray-300">
                                     We've sent a 4-digit code to<br />
                                     <span className="text-white font-medium">{formData.email}</span>
                                 </p>
@@ -507,7 +507,7 @@ export default function VenueOwnerSignUpPage() {
 
                                     <div className="text-center">
                                         {otpExpiry > 0 ? (
-                                            <p className="text-sm text-gray-400">
+                                            <p className="text-sm text-gray-300">
                                                 Code expires in{' '}
                                                 <span className="text-violet-400 font-medium">
                                                     {formatTime(otpExpiry)}
@@ -536,7 +536,7 @@ export default function VenueOwnerSignUpPage() {
                                             type="button"
                                             onClick={handleResendOTP}
                                             disabled={resendCooldown > 0 || isLoading}
-                                            className="text-sm text-violet-400 hover:text-violet-300 transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
+                                            className="text-sm text-violet-400 hover:text-violet-300 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
                                         >
                                             {resendCooldown > 0
                                                 ? `Resend code in ${resendCooldown}s`

@@ -38,6 +38,9 @@ export default function VenuePortalEditVenuePage() {
         state: '',
         pincode: '',
         locationLink: '',
+        freeCancellationHours: 48,
+        partialRefundPercentage: 50,
+        noCancellationHours: 24,
     });
 
     // Auth guard
@@ -72,6 +75,9 @@ export default function VenuePortalEditVenuePage() {
                     state: venue.address?.state || '',
                     pincode: venue.address?.pincode || '',
                     locationLink: venue.locationLink || '',
+                    freeCancellationHours: venue.cancellationPolicy?.freeCancellationHours ?? 48,
+                    partialRefundPercentage: venue.cancellationPolicy?.partialRefundPercentage ?? 50,
+                    noCancellationHours: venue.cancellationPolicy?.noCancellationHours ?? 24,
                 });
                 setExistingImages(venue.images || []);
             } catch (err) {
@@ -138,6 +144,10 @@ export default function VenuePortalEditVenuePage() {
             showToast('Please set a base price', 'error');
             return;
         }
+        if (formData.noCancellationHours >= formData.freeCancellationHours) {
+            showToast('No-cancellation hours must be less than free cancellation hours', 'error');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -171,6 +181,11 @@ export default function VenuePortalEditVenuePage() {
                     country: 'India',
                 },
                 locationLink: formData.locationLink,
+                cancellationPolicy: {
+                    freeCancellationHours: formData.freeCancellationHours,
+                    partialRefundPercentage: formData.partialRefundPercentage,
+                    noCancellationHours: formData.noCancellationHours,
+                },
             };
 
             await venuesApi.update(venueId, venueData);
@@ -216,7 +231,7 @@ export default function VenuePortalEditVenuePage() {
                         </button>
                         <div>
                             <h1 className="text-3xl font-bold text-white">Edit Venue</h1>
-                            <p className="text-gray-400 text-sm mt-0.5">Update your venue details</p>
+                            <p className="text-gray-300 text-sm mt-0.5">Update your venue details</p>
                         </div>
                     </div>
                 </SlideUp>
@@ -228,7 +243,7 @@ export default function VenuePortalEditVenuePage() {
                             <div key={s} className="flex items-center">
                                 <button
                                     onClick={() => setStep(s)}
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-500 hover:bg-white/20'}`}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
                                 >
                                     {s}
                                 </button>
@@ -379,7 +394,7 @@ export default function VenuePortalEditVenuePage() {
                                             onChange={(e) => setFormData({ ...formData, pricePerHour: parseInt(e.target.value) })}
                                             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                         />
-                                        <p className="mt-1 text-xs text-gray-500">Optional</p>
+                                        <p className="mt-1 text-xs text-gray-300">Optional</p>
                                     </div>
                                 </div>
 
@@ -403,6 +418,57 @@ export default function VenuePortalEditVenuePage() {
                                     />
                                 </div>
 
+                                {/* Cancellation Policy */}
+                                <div className="border-t border-white/10 pt-6">
+                                    <h3 className="text-lg font-medium text-white mb-1">Cancellation Policy</h3>
+                                    <p className="text-sm text-gray-400 mb-4">Define how cancellations are handled for advance bookings</p>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Free Cancellation Hours (1–720)</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={720}
+                                                value={formData.freeCancellationHours}
+                                                onChange={(e) => setFormData({ ...formData, freeCancellationHours: Math.max(1, Math.min(720, parseInt(e.target.value) || 1)) })}
+                                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-400">Hours before booking start for full refund</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Partial Refund Percentage (0–100)</label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={100}
+                                                value={formData.partialRefundPercentage}
+                                                onChange={(e) => setFormData({ ...formData, partialRefundPercentage: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })}
+                                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-400">Refund percentage for cancellations within the partial window</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">No Cancellation Hours (0–720)</label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={720}
+                                                value={formData.noCancellationHours}
+                                                onChange={(e) => setFormData({ ...formData, noCancellationHours: Math.max(0, Math.min(720, parseInt(e.target.value) || 0)) })}
+                                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-400">Hours before booking start within which cancellation is not allowed</p>
+                                        </div>
+
+                                        {formData.noCancellationHours >= formData.freeCancellationHours && (
+                                            <p className="text-sm text-red-400">No-cancellation hours must be less than free cancellation hours</p>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="flex justify-between">
                                     <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
                                     <Button variant="violet" onClick={() => setStep(4)}>Next</Button>
@@ -418,7 +484,7 @@ export default function VenuePortalEditVenuePage() {
                                 {/* Existing Images */}
                                 {existingImages.length > 0 && (
                                     <div>
-                                        <p className="text-sm text-gray-400 mb-2">Current Images</p>
+                                        <p className="text-sm text-gray-300 mb-2">Current Images</p>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {existingImages.map((url, index) => (
                                                 <div key={index} className="relative group">
@@ -439,7 +505,7 @@ export default function VenuePortalEditVenuePage() {
                                 {/* Upload New Images */}
                                 {totalImages < 5 && (
                                     <div>
-                                        <p className="text-sm text-gray-400 mb-2">Add New Images ({totalImages}/5 total)</p>
+                                        <p className="text-sm text-gray-300 mb-2">Add New Images ({totalImages}/5 total)</p>
                                         <input
                                             type="file"
                                             accept="image/*"
@@ -464,7 +530,7 @@ export default function VenuePortalEditVenuePage() {
                                 {/* New Image Previews */}
                                 {newImagePreviews.length > 0 && (
                                     <div>
-                                        <p className="text-sm text-gray-400 mb-2">New Images to Upload</p>
+                                        <p className="text-sm text-gray-300 mb-2">New Images to Upload</p>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {newImagePreviews.map((preview, index) => (
                                                 <div key={index} className="relative group">

@@ -195,7 +195,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                             className="w-8 h-8 object-contain flex-shrink-0"
                         />
                         <span
-                            className={`text-[10px] text-gray-400 font-medium tracking-wider uppercase whitespace-nowrap ${isOpen ? '' : 'mt-0.5'
+                            className={`text-[10px] text-gray-300 font-medium tracking-wider uppercase whitespace-nowrap ${isOpen ? '' : 'mt-0.5'
                                 }`}
                         >
                             Venues
@@ -243,7 +243,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                         {isOpen && (
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-white truncate">{user?.name || 'Venue Owner'}</div>
-                                <div className="text-xs text-gray-400 truncate">{user?.email}</div>
+                                <div className="text-xs text-gray-300 truncate">{user?.email}</div>
                             </div>
                         )}
                     </div>
@@ -268,7 +268,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
             </aside>
 
             {/* Main Content */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-16 lg:pt-4 pb-20 lg:pb-0 transition-all duration-300 ${
+            <main className={`flex-1 min-h-screen relative z-10 pt-20 lg:pt-24 pb-20 lg:pb-0 transition-all duration-300 ${
                 isMobile 
                     ? 'ml-0' 
                     : (isExpanded ? 'ml-64' : 'ml-20')

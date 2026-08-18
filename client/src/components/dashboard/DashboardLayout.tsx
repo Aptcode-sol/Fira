@@ -211,19 +211,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             >
                 {/* Logo and Mobile Toggle */}
                 <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-16 lg:h-20 relative">
-                    {/* Desktop Toggle Button */}
-                    <button 
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className="absolute left-4 hidden lg:flex text-gray-400 hover:text-white z-10"
-                        title={isExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </button>
+                    {/* Desktop Toggle Button — only visible when sidebar is expanded,
+                        otherwise the logo alone serves as the visual anchor and
+                        hover-to-peek opens the sidebar. */}
+                    {isOpen && (
+                        <button 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="absolute left-4 hidden lg:flex text-gray-400 hover:text-white z-10"
+                            title="Collapse Sidebar"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                    )}
                     
-                    {/* Logo - Hidden on mobile if not expanded */}
-                    <Link href="/" className={`flex items-center justify-center transition-opacity duration-300 ${(!isOpen && 'hidden lg:flex') || 'flex'} w-full`}>
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center justify-center w-full">
                         <img
                             src="/logo white.png"
                             alt="FIRA"
@@ -279,7 +283,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {isVenueOwner && (
                         <>
                             <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
-                                <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
                                     Venue Management
                                 </div>
                             </div>
@@ -318,7 +322,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {hasBrand && (
                         <>
                             <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
-                                <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
                                     Brand Profile
                                 </div>
                             </div>
@@ -346,7 +350,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {hasEvents && (
                         <>
                             <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
-                                <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
                                     Events Management
                                 </div>
                             </div>
@@ -401,7 +405,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
                 {/* Legal Links - Desktop */}
                 <div className={`mt-auto px-3 py-2 border-t border-white/[0.08] transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                    <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                    <div className="flex flex-wrap gap-2 text-xs text-gray-300">
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
                         <span>•</span>
                         <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -412,7 +416,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </aside>
 
             {/* Main Content */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-16 pb-20 lg:pb-0 lg:pt-20 transition-all duration-300 ml-0 lg:ml-16 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
+            <main className={`flex-1 min-h-screen relative z-10 pt-20 pb-20 lg:pb-0 lg:pt-24 transition-all duration-300 ml-0 lg:ml-20 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
                 }`}>
                 {children}
             </main>

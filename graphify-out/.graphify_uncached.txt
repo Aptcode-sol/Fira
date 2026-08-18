@@ -1,0 +1,78 @@
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.github\workflows\deploy.yml
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\Glossary .md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\designer-ui.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\designer-ux.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\engineer-ai.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\engineer-backend.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\engineer-frontend.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\engineer-infra.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\engineer-integrations.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\engineer-voice.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\improve-codebase-architecture.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\pm-lead.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\pm-requirements-challenger.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\property-examples.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\qa-engineer.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\requirements-red-team.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\tech-writer.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\agents\writing-great-skills.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\SKILL-8.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\designer-ui.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\designer-ux.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\add-watch.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\exports.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\extraction-spec.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\github-and-merge.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\hooks.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\query.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\transcribe.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\graphify\references\update.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\Architect\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\Developer\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\Performance\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\QA\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\README.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\Reliability\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\Security\SECURITY_GRAMMAR.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\Security\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\ai-engineer\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\business-analyst\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\data-engineer\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\devops-platform\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\documentation-engineer\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\incident-responder\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\index.yaml
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\overall_skill.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\product-manager\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\prompt-engineer\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\internal\workflow-orchestrator\SKILL.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\ponytail-audit.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\ponytail-debt.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\ponytail-help.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\ponytail-review.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\skills\requirements-red-team.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\steering\agents.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\steering\graphify.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\steering\ponytail.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\.kiro\steering\skills-index.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\README.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\admin\README.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\admin\index.html
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\client\README.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\FIRA_content.txt
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\index.html
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\graphify-out\converted\FIRA_cf67ef26.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\server\ENV_SETUP.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\server\SMTP_TROUBLESHOOTING.md
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\AptcodeOnboarding_FIRA.pdf
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\FIRA.pdf
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\completion certificate-AptcodeOnboarding_FIRA.pdf
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\admin\public\logo black.png
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\admin\public\logo white.png
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\admin\src\assets\logo.png
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\client\public\logo black.png
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\client\public\logo white.png
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\client\src\app\icon.png
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\1765732092622.jpg
+C:\Users\VARSHITHA\Desktop\Aptcode\Firaa\files\WhatsApp Image 2025-12-16 at 00.46.40.jpeg

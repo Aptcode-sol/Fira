@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const userService = require('../services/userService');
 const auth = require('../middleware/auth');
+const { noStoreCache } = require('../middleware/httpCache');
 
 // GET /api/users - Get all users (admin only)
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, noStoreCache, async (req, res) => {
     try {
         const users = await userService.getAllUsers(req.query);
         res.json(users);
@@ -19,6 +20,20 @@ router.get('/brands', async (req, res) => {
         // Pass query params: type, search, sort, lat, lng, page, limit
         const result = await userService.getBrands(req.query);
         res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PATCH /api/users/me/bank-details - Update bank details
+router.patch('/me/bank-details', auth, async (req, res) => {
+    try {
+        const { accountName, accountNumber, ifscCode, bankName } = req.body;
+        const result = await userService.updateBankDetails(req.user._id, { accountName, accountNumber, ifscCode, bankName });
+        if (result.error) {
+            return res.status(400).json(result);
+        }
+        res.json(result.bankDetails);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -81,7 +96,7 @@ router.post('/:id/unfollow', auth, async (req, res) => {
 });
 
 // GET /api/users/:id/following-brands - Get brands the user is following
-router.get('/:id/following-brands', auth, async (req, res) => {
+router.get('/:id/following-brands', auth, noStoreCache, async (req, res) => {
     try {
         if (req.user._id.toString() !== req.params.id) {
             return res.status(403).json({ error: 'Unauthorized' });

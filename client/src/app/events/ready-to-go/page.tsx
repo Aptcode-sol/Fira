@@ -115,7 +115,7 @@ export default function ReadyToGoPage() {
                                 <h1 className="text-4xl sm:text-5xl font-bold text-white mb-2">
                                     Ready to <span className="text-emerald-400">Go</span>
                                 </h1>
-                                <p className="text-gray-400 text-lg">
+                                <p className="text-gray-300 text-lg">
                                     Events starting within the next 24 hours — grab your tickets before it's too late!
                                 </p>
                             </div>
@@ -137,7 +137,7 @@ export default function ReadyToGoPage() {
                                         </svg>
                                     </div>
                                     <h3 className="text-2xl font-bold text-white mb-2">No events starting soon</h3>
-                                    <p className="text-gray-400 mb-6">Check back later or browse all upcoming events</p>
+                                    <p className="text-gray-300 mb-6">Check back later or browse all upcoming events</p>
                                     <Link
                                         href="/events"
                                         className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-colors"

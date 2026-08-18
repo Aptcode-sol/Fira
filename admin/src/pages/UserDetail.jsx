@@ -53,13 +53,13 @@ export default function UserDetail() {
 
     if (loading) {
         return (
-            <div className="p-12 text-center text-gray-500">Loading...</div>
+            <div className="p-12 text-center text-gray-300">Loading...</div>
         );
     }
 
     if (!user) {
         return (
-            <div className="p-12 text-center text-gray-500">
+            <div className="p-12 text-center text-gray-300">
                 <p>User not found</p>
                 <Link to="/users" className="text-violet-400 hover:text-violet-300 mt-4 inline-block">← Back to Users</Link>
             </div>
@@ -94,7 +94,7 @@ export default function UserDetail() {
                                         </span>
                                     )}
                                 </h1>
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-400 mt-1">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-300 mt-1">
                                     <span>{user.email}</span>
                                     {user.phoneNumber && (
                                         <>
@@ -129,7 +129,7 @@ export default function UserDetail() {
                                     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Total Spent</span>
+                            <span className="text-gray-300 font-medium">Total Spent</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{formatCurrency(stats?.totalSpent)}</div>
                     </div>
@@ -142,7 +142,7 @@ export default function UserDetail() {
                                     <path d="M16 2v4M8 2v4M3 10h18" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Bookings Made</span>
+                            <span className="text-gray-300 font-medium">Bookings Made</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{stats?.totalBookings || 0}</div>
                     </div>
@@ -154,7 +154,7 @@ export default function UserDetail() {
                                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Tickets Bought</span>
+                            <span className="text-gray-300 font-medium">Tickets Bought</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{stats?.totalTickets || 0}</div>
                     </div>
@@ -167,12 +167,12 @@ export default function UserDetail() {
                         <h2 className="text-lg font-semibold text-white mb-4">Recent Bookings</h2>
                         <div className="space-y-4">
                             {!bookings?.length ? (
-                                <p className="text-gray-500 text-sm">No bookings found</p>
+                                <p className="text-gray-300 text-sm">No bookings found</p>
                             ) : bookings.slice(0, 5).map((booking) => (
                                 <div key={booking._id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
                                     <div>
                                         <div className="font-medium text-white">{booking.venue?.name || 'Unknown Venue'}</div>
-                                        <div className="text-xs text-gray-500">{new Date(booking.date).toLocaleDateString()}</div>
+                                        <div className="text-xs text-gray-300">{new Date(booking.date).toLocaleDateString()}</div>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-sm font-medium text-white">{formatCurrency(booking.totalAmount)}</div>
@@ -190,18 +190,18 @@ export default function UserDetail() {
                         <h2 className="text-lg font-semibold text-white mb-4">Recent Tickets</h2>
                         <div className="space-y-4">
                             {!tickets?.length ? (
-                                <p className="text-gray-500 text-sm">No tickets found</p>
+                                <p className="text-gray-300 text-sm">No tickets found</p>
                             ) : tickets.slice(0, 5).map((ticket) => (
                                 <div key={ticket._id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
                                     <div>
                                         <div className="font-medium text-white">{ticket.event?.name || 'Unknown Event'}</div>
-                                        <div className="text-xs text-gray-500">
+                                        <div className="text-xs text-gray-300">
                                             {ticket.event?.venue?.name} • {new Date(ticket.event?.date).toLocaleDateString()}
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-sm font-medium text-white">{formatCurrency(ticket.price)}</div>
-                                        <div className="text-xs text-gray-500">x{ticket.quantity || 1}</div>
+                                        <div className="text-xs text-gray-300">x{ticket.quantity || 1}</div>
                                     </div>
                                 </div>
                             ))}

@@ -4,6 +4,7 @@ const Event = require('../models/Event');
 const BrandProfile = require('../models/BrandProfile');
 const Ticket = require('../models/Ticket');
 const Booking = require('../models/Booking');
+const AuditLog = require('../models/AuditLog');
 
 const adminService = {
     // ================== DASHBOARD STATS ==================
@@ -249,6 +250,27 @@ const adminService = {
         return event;
     },
 
+    async toggleFeatured(eventId, isFeatured, adminUserId) {
+        const event = await Event.findById(eventId);
+        if (!event) throw new Error('Event not found');
+
+        if (!['approved', 'upcoming'].includes(event.status)) {
+            throw new Error('Event must be in approved or upcoming status to be featured');
+        }
+
+        event.isFeatured = isFeatured;
+        await event.save();
+
+        await AuditLog.create({
+            adminUser: adminUserId,
+            action: isFeatured ? 'feature' : 'unfeature',
+            entityType: 'event',
+            entityId: eventId
+        });
+
+        return event;
+    },
+
     // ================== BRANDS ==================
     async getBrands(query = {}) {
         const { page = 1, limit = 20, search, status } = query;
@@ -312,6 +334,32 @@ const adminService = {
         );
         if (!brand) throw new Error('Brand not found');
         return brand;
+    },
+
+    // ================== AUDIT TRAIL ==================
+    async getAuditTrail({ page = 1, limit = 20, entityType, action } = {}) {
+        const filter = {};
+        if (entityType) filter.entityType = entityType;
+        if (action) filter.action = action;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const parsedLimit = parseInt(limit);
+
+        const [entries, total] = await Promise.all([
+            AuditLog.find(filter)
+                .populate('adminUser', 'name email')
+                .sort({ timestamp: -1 })
+                .skip(skip)
+                .limit(parsedLimit),
+            AuditLog.countDocuments(filter)
+        ]);
+
+        return {
+            entries,
+            total,
+            page: parseInt(page),
+            pages: Math.ceil(total / parsedLimit)
+        };
     }
 };
 

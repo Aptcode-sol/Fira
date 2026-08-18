@@ -35,7 +35,7 @@ export default function PushNotificationToggle({ className = '' }: { className?:
         return (
             <div className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${className}`}>
                 <p className="text-sm text-white font-medium mb-1">Push notifications</p>
-                <p className="text-xs text-gray-500 leading-relaxed">
+                <p className="text-xs text-gray-300 leading-relaxed">
                     This browser does not support push notifications. On iPhone or iPad, add FIRA to
                     your Home Screen first - Safari only allows notifications for installed apps.
                 </p>
@@ -50,7 +50,7 @@ export default function PushNotificationToggle({ className = '' }: { className?:
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                     <p className="text-sm text-white font-medium mb-1">Push notifications</p>
-                    <p className="text-xs text-gray-500 leading-relaxed">
+                    <p className="text-xs text-gray-300 leading-relaxed">
                         {isBlocked
                             ? 'Blocked. Allow notifications for this site in your browser settings, then reload.'
                             : isSubscribed

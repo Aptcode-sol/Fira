@@ -164,7 +164,7 @@ export default function ScannerPage() {
                     </Link>
                     <div>
                         <h1 className="text-xl font-bold text-white">{event?.name}</h1>
-                        <p className="text-sm text-gray-400">Ticket Scanner</p>
+                        <p className="text-sm text-gray-300">Ticket Scanner</p>
                     </div>
                 </div>
 
@@ -173,15 +173,15 @@ export default function ScannerPage() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                             <p className="text-2xl font-bold text-white">{stats.scannedAttendees}</p>
-                            <p className="text-xs text-gray-400">Checked In</p>
+                            <p className="text-xs text-gray-300">Checked In</p>
                         </div>
                         <div>
                             <p className="text-2xl font-bold text-violet-400">{stats.totalAttendees - stats.scannedAttendees}</p>
-                            <p className="text-xs text-gray-400">Remaining</p>
+                            <p className="text-xs text-gray-300">Remaining</p>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-gray-400">{stats.totalAttendees}</p>
-                            <p className="text-xs text-gray-400">Total</p>
+                            <p className="text-2xl font-bold text-gray-300">{stats.totalAttendees}</p>
+                            <p className="text-xs text-gray-300">Total</p>
                         </div>
                     </div>
                     {/* Progress bar */}
@@ -240,7 +240,7 @@ export default function ScannerPage() {
 
                 {/* Instructions */}
                 <div className="text-center mb-6">
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-300 text-sm">
                         Point camera at ticket QR code to scan
                     </p>
                 </div>
@@ -257,10 +257,10 @@ export default function ScannerPage() {
                                         <div className={`w-2 h-2 rounded-full ${scan.success ? 'bg-green-500' : 'bg-red-500'}`} />
                                         <span className="text-white text-sm">{scan.userName}</span>
                                         {scan.quantity > 1 && (
-                                            <span className="text-gray-400 text-xs">({scan.quantity})</span>
+                                            <span className="text-gray-300 text-xs">({scan.quantity})</span>
                                         )}
                                     </div>
-                                    <span className="text-gray-400 text-xs">{scan.time}</span>
+                                    <span className="text-gray-300 text-xs">{scan.time}</span>
                                 </div>
                             ))}
                         </div>

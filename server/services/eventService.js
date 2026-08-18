@@ -1,5 +1,8 @@
 const Event = require('../models/Event');
 const PrivateEventAccess = require('../models/PrivateEventAccess');
+const ScanningCode = require('../models/ScanningCode');
+const Ticket = require('../models/Ticket');
+const crypto = require('crypto');
 
 const eventService = {
     // Get all events
@@ -792,6 +795,106 @@ const eventService = {
         }
 
         await venue.save();
+    },
+
+    // Generate a 12-character alphanumeric code using crypto
+    generateAccessCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const bytes = crypto.randomBytes(12);
+        let code = '';
+        for (let i = 0; i < 12; i++) {
+            code += chars[bytes[i] % chars.length];
+        }
+        return code;
+    },
+
+    // Create scanning codes for an event (max 20 total per event)
+    async createScanningCodes(eventId, labels = [], organizerId) {
+        const event = await Event.findById(eventId);
+        if (!event) {
+            throw new Error('Event not found');
+        }
+        if (event.organizer.toString() !== organizerId.toString()) {
+            throw new Error('Only the event organizer can create scanning codes');
+        }
+
+        const existingCount = await ScanningCode.countDocuments({ event: eventId });
+        const requestedCount = labels.length || 1;
+
+        if (existingCount + requestedCount > 20) {
+            throw new Error(`Cannot exceed 20 scanning codes per event. Currently ${existingCount} exist, requested ${requestedCount}.`);
+        }
+
+        const codes = [];
+        for (const label of (labels.length ? labels : [''])) {
+            let code;
+            let attempts = 0;
+            // Ensure uniqueness — retry if collision (extremely unlikely with 12 chars)
+            while (attempts < 5) {
+                code = this.generateAccessCode();
+                const exists = await ScanningCode.findOne({ code });
+                if (!exists) break;
+                attempts++;
+            }
+            if (attempts >= 5) {
+                throw new Error('Failed to generate unique code');
+            }
+
+            const scanningCode = await ScanningCode.create({
+                event: eventId,
+                code,
+                label: label || '',
+                createdBy: organizerId
+            });
+            codes.push(scanningCode);
+        }
+
+        return codes;
+    },
+
+    // Validate an access code and check in a ticket
+    async validateScanAndCheckIn(accessCode, ticketId) {
+        const scanningCode = await ScanningCode.findOne({ code: accessCode });
+        if (!scanningCode) {
+            throw new Error('Access code is invalid');
+        }
+        if (!scanningCode.isActive) {
+            throw new Error('Access code has been deactivated');
+        }
+
+        const ticket = await Ticket.findById(ticketId);
+        if (!ticket) {
+            throw new Error('Ticket not found');
+        }
+        if (ticket.event.toString() !== scanningCode.event.toString()) {
+            throw new Error('Ticket belongs to a different event');
+        }
+        if (ticket.isUsed) {
+            throw new Error('Ticket has already been used');
+        }
+
+        ticket.isUsed = true;
+        ticket.usedAt = new Date();
+        ticket.checkedInBy = accessCode;
+        ticket.status = 'used';
+        await ticket.save();
+
+        return ticket;
+    },
+
+    // Deactivate a scanning code (organizer only)
+    async deactivateScanningCode(codeId, organizerId) {
+        const scanningCode = await ScanningCode.findById(codeId);
+        if (!scanningCode) {
+            throw new Error('Scanning code not found');
+        }
+        if (scanningCode.createdBy.toString() !== organizerId.toString()) {
+            throw new Error('Only the code creator can deactivate this code');
+        }
+
+        scanningCode.isActive = false;
+        await scanningCode.save();
+        return scanningCode;
     },
 
     // Helper: Create booking automatically when event is approved

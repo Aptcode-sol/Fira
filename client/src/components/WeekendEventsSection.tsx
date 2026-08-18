@@ -45,7 +45,7 @@ export default function WeekendEventsSection({ cityFilter }: WeekendEventsSectio
                         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 md:h-6 bg-gradient-to-b from-violet-500 to-pink-500 rounded-full"></span>
                         Weekend Events
                     </h2>
-                    <Link href={seeAllHref} className="text-gray-400 hover:text-white text-sm transition-colors">
+                    <Link href={seeAllHref} className="text-gray-300 hover:text-white text-sm transition-colors">
                         See All
                     </Link>
                 </div>

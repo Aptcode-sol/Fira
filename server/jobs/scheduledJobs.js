@@ -13,6 +13,11 @@ const emailService = require('../services/emailService');
 /**
  * Send event reminders 1 hour before events start
  * Runs every 10 minutes
+ *
+ * ponytail: Batch-fetches all tickets for all upcoming events in a single query
+ * (eliminates N+1 per-event ticket lookup). Notifications are still created
+ * individually because Mongoose doesn't return per-doc errors from insertMany
+ * with ordered:false in a useful way, but the heavy DB reads are O(1) not O(N).
  */
 async function sendEventReminders() {
     try {
@@ -33,53 +38,67 @@ async function sendEventReminders() {
             return;
         }
 
+        const eventIds = upcomingEvents.map(e => e._id);
+        const eventMap = new Map(upcomingEvents.map(e => [e._id.toString(), e]));
+
         console.log(`📅 Found ${upcomingEvents.length} events starting in ~1 hour`);
 
-        for (const event of upcomingEvents) {
-            // Find active tickets for this event that haven't had reminders sent
-            const tickets = await Ticket.find({
-                event: event._id,
-                status: 'active',
-                reminderSent: { $ne: true }
-            }).populate('user', 'name email');
+        // Single query for ALL tickets across all upcoming events (eliminates N+1)
+        const tickets = await Ticket.find({
+            event: { $in: eventIds },
+            status: 'active',
+            reminderSent: { $ne: true }
+        }).populate('user', 'name email');
 
-            if (tickets.length === 0) continue;
+        if (tickets.length === 0) {
+            console.log('✅ No pending reminders to send');
+            return;
+        }
 
-            console.log(`  📧 Sending ${tickets.length} reminders for "${event.name}"`);
+        console.log(`  📧 Sending ${tickets.length} reminders across ${upcomingEvents.length} events`);
 
-            for (const ticket of tickets) {
-                try {
-                    // Create in-app notification
-                    await Notification.create({
-                        user: ticket.user._id,
-                        type: 'event_reminder_1h',
-                        title: 'Event Starting Soon!',
-                        message: `${event.name} starts in 1 hour! Don't forget your ticket.`,
-                        data: {
-                            referenceId: event._id,
-                            referenceModel: 'Event',
-                            actionUrl: `/events/${event._id}`,
-                            extra: { ticketId: ticket.ticketId }
-                        },
-                        priority: 'high',
-                        channel: 'all'
-                    });
+        // Bulk-create notifications
+        const notifications = tickets.map(ticket => ({
+            user: ticket.user._id,
+            type: 'event_reminder_1h',
+            title: 'Event Starting Soon!',
+            message: `${eventMap.get(ticket.event.toString()).name} starts in 1 hour! Don't forget your ticket.`,
+            data: {
+                referenceId: ticket.event,
+                referenceModel: 'Event',
+                actionUrl: `/events/${ticket.event}`,
+                extra: { ticketId: ticket.ticketId }
+            },
+            priority: 'high',
+            channel: 'all'
+        }));
 
-                    // Send email reminder
-                    await emailService.sendEventReminderEmail(
-                        ticket.user.email,
-                        ticket.user.name,
-                        event,
-                        ticket
-                    );
+        await Notification.insertMany(notifications, { ordered: false }).catch(err => {
+            // Log but don't abort — some may have succeeded
+            console.error('  ⚠️ Some notifications failed to insert:', err.message);
+        });
 
-                    // Mark reminder as sent
-                    await Ticket.findByIdAndUpdate(ticket._id, { reminderSent: true });
-                } catch (err) {
-                    console.error(`  ❌ Failed to send reminder for ticket ${ticket.ticketId}:`, err.message);
-                }
+        // Send emails (IO-bound, can't avoid per-ticket, but DB reads are done)
+        for (const ticket of tickets) {
+            const event = eventMap.get(ticket.event.toString());
+            try {
+                await emailService.sendEventReminderEmail(
+                    ticket.user.email,
+                    ticket.user.name,
+                    event,
+                    ticket
+                );
+            } catch (err) {
+                console.error(`  ❌ Failed to email reminder for ticket ${ticket.ticketId}:`, err.message);
             }
         }
+
+        // Bulk-mark all tickets as reminded (single query)
+        const ticketIds = tickets.map(t => t._id);
+        await Ticket.updateMany(
+            { _id: { $in: ticketIds } },
+            { $set: { reminderSent: true } }
+        );
 
         console.log('✅ Event reminders job completed');
     } catch (error) {

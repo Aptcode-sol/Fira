@@ -35,12 +35,12 @@ export default function VenueDetail() {
     };
 
     if (loading) {
-        return <div className="p-12 text-center text-gray-500">Loading venue details...</div>;
+        return <div className="p-12 text-center text-gray-300">Loading venue details...</div>;
     }
 
     if (!venue) {
         return (
-            <div className="p-12 text-center text-gray-500">
+            <div className="p-12 text-center text-gray-300">
                 <p>Venue not found</p>
                 <Link to="/venues" className="text-violet-400 hover:text-violet-300 mt-4 inline-block">← Back to Venues</Link>
             </div>
@@ -62,7 +62,7 @@ export default function VenueDetail() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-2">{venue.name}</h1>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-400">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-300">
                                 <span className="flex items-center gap-1.5">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -75,7 +75,7 @@ export default function VenueDetail() {
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
-                                    Capacity: {venue.capacity}
+                                    Capacity: {venue.capacity?.min || 0}–{venue.capacity?.max || 0}
                                 </span>
                             </div>
                         </div>
@@ -99,7 +99,7 @@ export default function VenueDetail() {
                                     <path d="M16 2v4M8 2v4M3 10h18" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Total Bookings</span>
+                            <span className="text-gray-300 font-medium">Total Bookings</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{stats.totalBookings || 0}</div>
                     </div>
@@ -111,7 +111,7 @@ export default function VenueDetail() {
                                     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Total Revenue</span>
+                            <span className="text-gray-300 font-medium">Total Revenue</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{formatCurrency(stats.totalRevenue)}</div>
                     </div>
@@ -124,7 +124,7 @@ export default function VenueDetail() {
                                     <path d="M12 6v6l4 2" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Per Hour</span>
+                            <span className="text-gray-300 font-medium">Per Hour</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{formatCurrency(venue.pricePerHour)}</div>
                     </div>
@@ -136,7 +136,7 @@ export default function VenueDetail() {
                                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Rating</span>
+                            <span className="text-gray-300 font-medium">Rating</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{venue.rating?.average?.toFixed(1) || 'N/A'}</div>
                     </div>
@@ -151,15 +151,15 @@ export default function VenueDetail() {
                             <h2 className="text-lg font-semibold text-white mb-4">Owner Information</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                                 <div>
-                                    <div className="text-xs text-gray-500 mb-1">Name</div>
+                                    <div className="text-xs text-gray-300 mb-1">Name</div>
                                     <div className="text-white font-medium">{venue.owner?.name || 'N/A'}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 mb-1">Email</div>
+                                    <div className="text-xs text-gray-300 mb-1">Email</div>
                                     <div className="text-white">{venue.owner?.email || 'N/A'}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 mb-1">Phone</div>
+                                    <div className="text-xs text-gray-300 mb-1">Phone</div>
                                     <div className="text-white">{venue.owner?.phone || 'N/A'}</div>
                                 </div>
                             </div>
@@ -194,11 +194,11 @@ export default function VenueDetail() {
                             <h2 className="text-lg font-semibold text-white mb-4">Booking Summary</h2>
                             <div className="space-y-4">
                                 <div className="flex justifying-between items-center">
-                                    <span className="text-gray-400">Completed Bookings</span>
+                                    <span className="text-gray-300">Completed Bookings</span>
                                     <span className="text-white font-medium ml-auto">{stats.completedBookings || 0}</span>
                                 </div>
                                 <div className="pt-4 border-t border-white/10 flex justifying-between items-center">
-                                    <span className="text-gray-400">Total Revenue</span>
+                                    <span className="text-gray-300">Total Revenue</span>
                                     <span className="text-green-400 font-bold ml-auto text-lg">{formatCurrency(stats.totalRevenue)}</span>
                                 </div>
                             </div>

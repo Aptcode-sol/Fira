@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const Ticket = require('../models/Ticket');
 const pushService = require('./pushService');
 
 /**
@@ -118,6 +119,74 @@ const notificationService = {
         }
 
         return { message: `Sent ${userIds.length} notifications` };
+    },
+
+    /**
+     * Send notifications to all active ticket holders when an event is updated.
+     *
+     * @param {Object} event - The event document (must have _id and name)
+     * @param {string[]} changedFields - Array of field names that changed
+     * @param {Object} updatedBy - The user who triggered the update (must have _id)
+     *
+     * Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6
+     */
+    async sendEventUpdateNotifications(event, changedFields, updatedBy) {
+        const NOTIFIABLE_FIELDS = ['name', 'startDateTime', 'endDateTime', 'venue', 'description'];
+        const BATCH_SIZE = 500;
+
+        // 16.4 - Skip admin-triggered status transitions
+        const relevantChanges = changedFields.filter(f => NOTIFIABLE_FIELDS.includes(f));
+        if (relevantChanges.length === 0) return { notified: 0 };
+
+        // 16.1 - Get distinct user IDs from active tickets for this event
+        const userIds = await Ticket.distinct('user', {
+            event: event._id,
+            status: 'active'
+        });
+
+        if (userIds.length === 0) return { notified: 0 };
+
+        // 16.2 - Build notification content
+        const fieldSummary = relevantChanges
+            .map(f => `${f}: ${event[f] ?? '(updated)'}`)
+            .join(', ');
+
+        const title = `Event Updated: ${event.name}`;
+        const message = `The following details have been updated — ${fieldSummary}`;
+        const data = {
+            referenceId: event._id,
+            referenceModel: 'Event',
+            actionUrl: `/events/${event._id}`
+        };
+
+        let totalNotified = 0;
+
+        // 16.5 - Batch processing for >1000 users (batches of 500)
+        for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+            const batch = userIds.slice(i, i + BATCH_SIZE);
+            try {
+                const notifications = batch.map(userId => ({
+                    user: userId,
+                    type: 'event_update',
+                    title,
+                    message,
+                    data,
+                    channel: 'all'
+                }));
+
+                await Notification.insertMany(notifications);
+
+                // 16.3 - Dispatch push notifications
+                dispatchPush(batch, { title, message, data });
+
+                totalNotified += batch.length;
+            } catch (err) {
+                // 16.6 - Log batch failure, continue remaining batches
+                console.error(`Event update notification batch failed (offset ${i}):`, err.message);
+            }
+        }
+
+        return { notified: totalNotified };
     },
 
     // Notify all followers of a brand

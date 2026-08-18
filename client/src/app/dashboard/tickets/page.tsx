@@ -8,7 +8,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { ticketsApi } from '@/lib/api';
 import TicketDisplay from '@/components/TicketDisplay';
-import { CancellationModal } from '@/components/CancellationModal';
+
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
 
@@ -49,7 +49,6 @@ export default function TicketsPage() {
     }, [isLoading, isAuthenticated, router]);
 
     const [selectedTicket, setSelectedTicket] = useState<any>(null);
-    const [cancelTicket, setCancelTicket] = useState<Ticket | null>(null);
 
     useEffect(() => {
         const fetchTickets = async () => {
@@ -99,7 +98,7 @@ export default function TicketsPage() {
                 <SlideUp>
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-white mb-2">My Tickets</h1>
-                        <p className="text-gray-400">Your purchased tickets and event passes</p>
+                        <p className="text-gray-300">Your purchased tickets and event passes</p>
                     </div>
                 </SlideUp>
 
@@ -164,7 +163,7 @@ export default function TicketsPage() {
                                                         <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-800 mx-auto mb-1 sm:mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                                         </svg>
-                                                        <span className="text-[10px] sm:text-xs text-gray-600">Scan to enter</span>
+                                                        <span className="text-[10px] sm:text-xs text-gray-300">Scan to enter</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -181,7 +180,7 @@ export default function TicketsPage() {
                                                 <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'active'
                                                     ? 'bg-green-500/20 text-green-400'
                                                     : ticket.status === 'used'
-                                                        ? 'bg-gray-500/20 text-gray-400'
+                                                        ? 'bg-gray-500/20 text-gray-300'
                                                         : 'bg-red-500/20 text-red-400'
                                                     }`}>
                                                     {ticket.status === 'active' ? 'Valid' : ticket.status === 'used' ? 'Used' : 'Cancelled'}
@@ -192,14 +191,14 @@ export default function TicketsPage() {
                                                 instead of floating at different alignments. */}
                                             <dl className="space-y-2 text-sm">
                                                 <div className="flex items-baseline justify-between gap-4">
-                                                    <dt className="text-gray-500 shrink-0">Venue</dt>
+                                                    <dt className="text-gray-300 shrink-0">Venue</dt>
                                                     <dd className="text-gray-300 text-right break-words min-w-0">
                                                         {ticket.event?.venue?.name || 'TBA'}
                                                         {ticket.event?.venue?.address?.city ? `, ${ticket.event.venue.address.city}` : ''}
                                                     </dd>
                                                 </div>
                                                 <div className="flex items-baseline justify-between gap-4">
-                                                    <dt className="text-gray-500 shrink-0">When</dt>
+                                                    <dt className="text-gray-300 shrink-0">When</dt>
                                                     <dd className="text-gray-300 text-right">
                                                         {ticket.event?.startDateTime
                                                             ? formatDate(ticket.event.startDateTime)
@@ -211,27 +210,22 @@ export default function TicketsPage() {
                                                     </dd>
                                                 </div>
                                                 <div className="flex items-baseline justify-between gap-4">
-                                                    <dt className="text-gray-500 shrink-0">Ticket ID</dt>
+                                                    <dt className="text-gray-300 shrink-0">Ticket ID</dt>
                                                     <dd className="font-mono text-white text-right break-all min-w-0">{ticket.ticketId}</dd>
                                                 </div>
                                                 <div className="flex items-baseline justify-between gap-4">
-                                                    <dt className="text-gray-500 shrink-0">Type</dt>
+                                                    <dt className="text-gray-300 shrink-0">Type</dt>
                                                     <dd className="text-gray-300 text-right">
                                                         {ticket.quantity}x {ticket.ticketType || 'General Admission'}
                                                     </dd>
                                                 </div>
                                             </dl>
 
-                                            {/* Actions: full width and stacked on a narrow card,
-                                                inline once there is room. All three share the same
-                                                size so they read as one set. */}
+                                            {/* Actions: hidden entirely for cancelled tickets (Req 6.4).
+                                                For active tickets, full width and stacked on narrow,
+                                                inline once there is room. */}
+                                            {ticket.status !== 'cancelled' && (
                                             <div className="mt-5 pt-4 border-t border-white/[0.05] grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
-                                                {/* A cancelled or used ticket is
-                                                    not valid for entry, so there
-                                                    is nothing worth downloading -
-                                                    handing over a QR that will be
-                                                    rejected at the door is worse
-                                                    than offering nothing. */}
                                                 <Button
                                                     variant="secondary"
                                                     size="sm"
@@ -260,20 +254,8 @@ export default function TicketsPage() {
                                                         </Button>
                                                     </Link>
                                                 )}
-                                                {ticket.status === 'active' && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="w-full sm:w-auto justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                                        onClick={() => setCancelTicket(ticket)}
-                                                    >
-                                                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                        Cancel Ticket
-                                                    </Button>
-                                                )}
                                             </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -289,7 +271,7 @@ export default function TicketsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No tickets yet</h3>
-                        <p className="text-gray-400 mb-6">Start exploring events to get your first ticket!</p>
+                        <p className="text-gray-300 mb-6">Start exploring events to get your first ticket!</p>
                         <Button onClick={() => router.push('/events')}>Browse Events</Button>
                     </div>
                 )}
@@ -308,25 +290,7 @@ export default function TicketsPage() {
                     </div>
                 )}
 
-                {/* Cancellation Modal */}
-                {cancelTicket && user && (
-                    <CancellationModal
-                        isOpen={!!cancelTicket}
-                        onClose={() => setCancelTicket(null)}
-                        ticketId={cancelTicket._id}
-                        eventName={cancelTicket.event?.name || 'Event'}
-                        userId={user._id}
-                        onSuccess={() => {
-                            // Refresh tickets list
-                            setTickets(prev => prev.map(t =>
-                                t._id === cancelTicket._id
-                                    ? { ...t, status: 'cancelled' }
-                                    : t
-                            ));
-                            setCancelTicket(null);
-                        }}
-                    />
-                )}
+
             </div>
         </DashboardLayout>
     );

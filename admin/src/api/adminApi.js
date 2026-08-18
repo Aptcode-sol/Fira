@@ -129,6 +129,15 @@ const adminApi = {
         return handle(res, 'Failed to update event status');
     },
 
+    async toggleFeatured(eventId, isFeatured) {
+        const res = await fetch(`${API_BASE}/events/${eventId}/featured`, {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ isFeatured })
+        });
+        return handle(res, 'Failed to update featured status');
+    },
+
     // Get events pending admin approval (venue already approved)
     async getPendingEventApprovals(params = {}) {
         const query = new URLSearchParams(params).toString();
@@ -166,6 +175,40 @@ const adminApi = {
             body: JSON.stringify({ status })
         });
         return handle(res, 'Failed to update brand status');
+    },
+
+    // ================== AUDIT TRAIL ==================
+    async getAuditTrail(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        const res = await fetch(`${API_BASE}/audit-trail?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch audit trail');
+    },
+
+    // ================== DISCOUNT CODES ==================
+    async getDiscountCodes() {
+        const res = await fetch(`${MAIN_API_BASE}/discounts/admin/discount-codes`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch discount codes');
+    },
+
+    async getDiscountAnalytics(codeId) {
+        const res = await fetch(`${MAIN_API_BASE}/discounts/admin/discount-codes/${codeId}/analytics`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch discount analytics');
+    },
+
+    async activateDiscountCode(codeId) {
+        const res = await fetch(`${MAIN_API_BASE}/discounts/admin/discount-codes/${codeId}/activate`, {
+            method: 'PATCH',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to activate discount code');
+    },
+
+    async deactivateDiscountCode(codeId) {
+        const res = await fetch(`${MAIN_API_BASE}/discounts/admin/discount-codes/${codeId}/deactivate`, {
+            method: 'PATCH',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to deactivate discount code');
     }
 };
 

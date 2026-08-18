@@ -1,2 +1,7 @@
 start.txt
 logs
+nul
+
+# Environment files with secrets
+client/.env
+node_modules/

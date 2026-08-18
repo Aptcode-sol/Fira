@@ -1,0 +1,27 @@
+{
+  "name": "@fira/root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client",
+    "admin",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npx playwright test",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:admin": "npm run dev --workspace=admin"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "next": "16.0.10",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "typescript": "^5.9.3"
+  }
+}

@@ -189,8 +189,8 @@ export default function RequestsPage() {
             case 'accepted':
             case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
             case 'rejected': return 'bg-red-500/20 text-red-400 border-red-500/30';
-            case 'cancelled': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-            default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+            case 'cancelled': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+            default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
         }
     };
 
@@ -209,7 +209,7 @@ export default function RequestsPage() {
             <div className="max-w-6xl mx-auto py-8 px-4">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">Requests</h1>
-                    <p className="text-gray-400">Manage incoming booking and event requests for your venues</p>
+                    <p className="text-gray-300">Manage incoming booking and event requests for your venues</p>
                 </div>
 
                 {/* Tabs */}
@@ -282,25 +282,25 @@ export default function RequestsPage() {
                                 <div className="text-2xl font-bold text-yellow-400">
                                     {bookings.filter(b => b.status === 'pending').length}
                                 </div>
-                                <div className="text-sm text-gray-400">Pending</div>
+                                <div className="text-sm text-gray-300">Pending</div>
                             </div>
                             <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
                                 <div className="text-2xl font-bold text-green-400">
                                     {bookings.filter(b => b.status === 'accepted').length}
                                 </div>
-                                <div className="text-sm text-gray-400">Accepted</div>
+                                <div className="text-sm text-gray-300">Accepted</div>
                             </div>
                             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
                                 <div className="text-2xl font-bold text-red-400">
                                     {bookings.filter(b => b.status === 'rejected').length}
                                 </div>
-                                <div className="text-sm text-gray-400">Rejected</div>
+                                <div className="text-sm text-gray-300">Rejected</div>
                             </div>
                             <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-4">
                                 <div className="text-2xl font-bold text-violet-400">
                                     {formatPrice(bookings.filter(b => b.status === 'accepted').reduce((sum, b) => sum + b.totalAmount, 0))}
                                 </div>
-                                <div className="text-sm text-gray-400">Revenue</div>
+                                <div className="text-sm text-gray-300">Revenue</div>
                             </div>
                         </div>
 
@@ -309,7 +309,7 @@ export default function RequestsPage() {
                                 <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
                             </div>
                         ) : filteredBookings.length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
+                            <div className="text-center py-12 text-gray-300">
                                 No booking requests found
                             </div>
                         ) : (
@@ -322,7 +322,7 @@ export default function RequestsPage() {
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
                                                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                                                     </span>
-                                                    <span className="text-gray-500 text-sm">{formatDate(booking.createdAt)}</span>
+                                                    <span className="text-gray-300 text-sm">{formatDate(booking.createdAt)}</span>
                                                 </div>
 
                                                 <h3 className="text-lg font-semibold text-white mb-1">
@@ -331,33 +331,33 @@ export default function RequestsPage() {
 
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                                     <div>
-                                                        <span className="text-gray-500">Date:</span>
+                                                        <span className="text-gray-300">Date:</span>
                                                         <span className="text-white ml-2">{formatDate(booking.bookingDate)}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">Time:</span>
+                                                        <span className="text-gray-300">Time:</span>
                                                         <span className="text-white ml-2">{booking.startTime} - {booking.endTime}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">Guests:</span>
+                                                        <span className="text-gray-300">Guests:</span>
                                                         <span className="text-white ml-2">{booking.expectedGuests}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">Amount:</span>
+                                                        <span className="text-gray-300">Amount:</span>
                                                         <span className="text-white ml-2">{formatPrice(booking.totalAmount)}</span>
                                                     </div>
                                                 </div>
 
                                                 {booking.purpose && (
-                                                    <p className="text-gray-400 text-sm mt-2">
-                                                        <span className="text-gray-500">Purpose:</span> {booking.purpose}
+                                                    <p className="text-gray-300 text-sm mt-2">
+                                                        <span className="text-gray-300">Purpose:</span> {booking.purpose}
                                                     </p>
                                                 )}
 
                                                 <div className="mt-3 pt-3 border-t border-white/10">
-                                                    <span className="text-gray-500 text-sm">Customer: </span>
+                                                    <span className="text-gray-300 text-sm">Customer: </span>
                                                     <span className="text-white text-sm">{booking.user?.name}</span>
-                                                    <span className="text-gray-500 text-sm ml-3">{booking.user?.email}</span>
+                                                    <span className="text-gray-300 text-sm ml-3">{booking.user?.email}</span>
                                                 </div>
                                             </div>
 
@@ -392,13 +392,13 @@ export default function RequestsPage() {
                 {activeTab === 'events' && (
                     <>
                         <div className="mb-6">
-                            <p className="text-gray-400 text-sm">
+                            <p className="text-gray-300 text-sm">
                                 Events created at your venues need your approval before going live. Review and approve or reject event requests below.
                             </p>
                         </div>
 
                         {eventRequests.length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
+                            <div className="text-center py-12 text-gray-300">
                                 <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
@@ -414,7 +414,7 @@ export default function RequestsPage() {
                                                 {event.venue?.images?.[0] ? (
                                                     <img src={event.venue.images[0]} alt="" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-300">
                                                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                         </svg>
@@ -428,34 +428,34 @@ export default function RequestsPage() {
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(event.venueApproval?.status || 'pending')}`}>
                                                         Pending Your Approval
                                                     </span>
-                                                    <span className="text-gray-500 text-sm">{formatDate(event.createdAt)}</span>
+                                                    <span className="text-gray-300 text-sm">{formatDate(event.createdAt)}</span>
                                                 </div>
 
                                                 <h3 className="text-lg font-semibold text-white mb-1">{event.name}</h3>
 
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
                                                     <div>
-                                                        <span className="text-gray-500">Venue:</span>
+                                                        <span className="text-gray-300">Venue:</span>
                                                         <span className="text-white ml-2">{event.venue?.name}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">From:</span>
+                                                        <span className="text-gray-300">From:</span>
                                                         <span className="text-white ml-2">{formatDateTime(event.startDateTime)}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">To:</span>
+                                                        <span className="text-gray-300">To:</span>
                                                         <span className="text-white ml-2">{formatDateTime(event.endDateTime)}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500">Capacity:</span>
+                                                        <span className="text-gray-300">Capacity:</span>
                                                         <span className="text-white ml-2">{event.maxAttendees}</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="pt-3 border-t border-white/10">
-                                                    <span className="text-gray-500 text-sm">Organizer: </span>
+                                                    <span className="text-gray-300 text-sm">Organizer: </span>
                                                     <span className="text-white text-sm">{event.organizer?.name}</span>
-                                                    <span className="text-gray-500 text-sm ml-3">{event.organizer?.email}</span>
+                                                    <span className="text-gray-300 text-sm ml-3">{event.organizer?.email}</span>
                                                 </div>
                                             </div>
 
@@ -491,7 +491,7 @@ export default function RequestsPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-md w-full">
                         <h3 className="text-xl font-bold text-white mb-2">Reject Event?</h3>
-                        <p className="text-gray-400 mb-4">
+                        <p className="text-gray-300 mb-4">
                             Please provide a reason for rejecting "{rejectingEvent.name}"
                         </p>
                         <textarea

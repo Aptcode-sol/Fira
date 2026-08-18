@@ -21,7 +21,6 @@ const ticketSchema = new mongoose.Schema({
     },
     ticketType: {
         type: String,
-        enum: ['general', 'vip', 'early_bird'],
         default: 'general'
     },
     price: {
@@ -50,8 +49,7 @@ const ticketSchema = new mongoose.Schema({
         default: null
     },
     checkedInBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        type: String,
         default: null
     },
     status: {

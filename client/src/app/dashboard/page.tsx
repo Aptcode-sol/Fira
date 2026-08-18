@@ -183,7 +183,7 @@ export default function DashboardPage() {
 
     return (
         <DashboardLayout>
-            <div className="p-6 lg:p-8">
+            <div className="p-4 sm:p-6 lg:p-8 overflow-x-hidden">
                 {/* Header */}
                 <SlideUp>
                     <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                             <h1 className="text-3xl font-bold text-white mb-2">
                                 Welcome back, {user?.name?.split(' ')[0]}! 👋
                             </h1>
-                            <p className="text-gray-400">Here&apos;s what&apos;s happening with your account.</p>
+                            <p className="text-gray-300">Here&apos;s what&apos;s happening with your account.</p>
                         </div>
                         <button
                             onClick={() => setShowFollowingModal(true)}
@@ -215,7 +215,7 @@ export default function DashboardPage() {
 
                 {/* Quick Stats */}
                 <FadeIn delay={0.1}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
                         {quickStats.map((stat) => (
                             <Link key={stat.label} href={stat.href}>
                                 <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer h-full">
@@ -229,9 +229,9 @@ export default function DashboardPage() {
                                             stat.value.toLocaleString()
                                         )}
                                     </div>
-                                    <div className="text-sm text-gray-400">{stat.label}</div>
+                                    <div className="text-sm text-gray-300">{stat.label}</div>
                                     {/* Always render this row to maintain consistent height */}
-                                    <div className="text-xs text-gray-500 mt-1 min-h-[1rem]">
+                                    <div className="text-xs text-gray-300 mt-1 min-h-[1rem]">
                                         {!loading && stat.subValue ? stat.subValue : '\u00A0'}
                                     </div>
                                 </div>
@@ -347,13 +347,13 @@ export default function DashboardPage() {
                                                 <div className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors cursor-pointer">
                                                     <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 flex items-center justify-center flex-shrink-0">
                                                         <div className="text-center">
-                                                            <div className="text-xs text-gray-400">{month}</div>
+                                                            <div className="text-xs text-gray-300">{month}</div>
                                                             <div className="text-lg font-bold text-white">{day}</div>
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-white truncate">{event.name}</p>
-                                                        <p className="text-xs text-gray-400">
+                                                        <p className="text-xs text-gray-300">
                                                             {event.startTime} • {event.venue?.name || 'TBA'}
                                                         </p>
                                                         <div className="flex items-center gap-2 mt-1">
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                                                                     style={{ width: `${Math.min(attendeePercent, 100)}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-xs text-gray-500">
+                                                            <span className="text-xs text-gray-300">
                                                                 {event.currentAttendees}/{event.maxAttendees}
                                                             </span>
                                                         </div>
@@ -377,7 +377,7 @@ export default function DashboardPage() {
                                     })
                                 ) : (
                                     <div className="text-center py-6">
-                                        <p className="text-sm text-gray-500 mb-3">No events organized yet</p>
+                                        <p className="text-sm text-gray-300 mb-3">No events organized yet</p>
                                         <Link href="/create/event">
                                             <Button variant="secondary" size="sm">Create Your First Event</Button>
                                         </Link>
@@ -416,9 +416,9 @@ export default function DashboardPage() {
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm text-white">{activity.title}</p>
                                                 {activity.message && (
-                                                    <p className="text-xs text-gray-500 truncate">{activity.message}</p>
+                                                    <p className="text-xs text-gray-300 truncate">{activity.message}</p>
                                                 )}
-                                                <p className="text-xs text-gray-500 mt-1">{formatTime(activity.createdAt)}</p>
+                                                <p className="text-xs text-gray-300 mt-1">{formatTime(activity.createdAt)}</p>
                                             </div>
                                             {!activity.isRead && (
                                                 <div className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-sm text-gray-500 text-center py-4">No recent activity</p>
+                                    <p className="text-sm text-gray-300 text-center py-4">No recent activity</p>
                                 )}
                             </div>
                             <Link href="/dashboard/notifications" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
@@ -463,7 +463,7 @@ export default function DashboardPage() {
                                             {dashboardData.brandProfile.type}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
                                         <span>{dashboardData.brandProfile.followers.toLocaleString()} followers</span>
                                         <span>{dashboardData.brandProfile.events} events</span>
                                     </div>
@@ -495,7 +495,7 @@ export default function DashboardPage() {
                                 onClick={() => setShowFollowingModal(false)}
                                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                             >
-                                <X className="w-5 h-5 text-gray-400" />
+                                <X className="w-5 h-5 text-gray-300" />
                             </button>
                         </div>
 
@@ -503,8 +503,8 @@ export default function DashboardPage() {
                         <div className="overflow-y-auto max-h-[60vh] p-4">
                             {followingBrands.length === 0 ? (
                                 <div className="text-center py-8">
-                                    <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                                    <p className="text-gray-400 mb-4">You&apos;re not following any creators yet</p>
+                                    <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                    <p className="text-gray-300 mb-4">You&apos;re not following any creators yet</p>
                                     <Link href="/creators" onClick={() => setShowFollowingModal(false)}>
                                         <Button variant="secondary" size="sm">Discover Creators</Button>
                                     </Link>
@@ -536,7 +536,7 @@ export default function DashboardPage() {
                                                 {/* Info */}
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="font-medium text-white truncate">{brand.name}</h3>
-                                                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                    <div className="flex items-center gap-2 text-xs text-gray-300">
                                                         <span className="capitalize">{brand.type}</span>
                                                         <span>•</span>
                                                         <span>{brand.stats.followers} followers</span>
@@ -544,7 +544,7 @@ export default function DashboardPage() {
                                                 </div>
 
                                                 {/* Arrow */}
-                                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                 </svg>
                                             </div>

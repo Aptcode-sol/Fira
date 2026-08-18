@@ -278,7 +278,7 @@ export default function InboxPage() {
             default:
                 return (
                     <div className="w-10 h-10 rounded-xl bg-gray-500/20 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
@@ -335,7 +335,7 @@ export default function InboxPage() {
                     <div className="flex items-start justify-between mb-6">
                         <div>
                             <h1 className="text-2xl font-bold text-white mb-1">Notifications</h1>
-                            <p className="text-sm text-gray-400">
+                            <p className="text-sm text-gray-300">
                                 {unreadAlerts > 0
                                     ? `You have ${unreadAlerts} unread notification${unreadAlerts === 1 ? '' : 's'}`
                                     : "You're all caught up!"}
@@ -404,7 +404,7 @@ export default function InboxPage() {
                                 <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                                 </svg>
-                                <p className="text-gray-400">No alerts yet</p>
+                                <p className="text-gray-300">No alerts yet</p>
                             </div>
                         ) : (
                             notifications.map((notification) => (
@@ -423,8 +423,8 @@ export default function InboxPage() {
                                             </h3>
                                             {!notification.read && <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0 mt-1" />}
                                         </div>
-                                        <p className="text-sm text-gray-400 mb-1 leading-snug">{notification.message}</p>
-                                        <p className="text-xs text-gray-500">{formatTime(notification.createdAt)}</p>
+                                        <p className="text-sm text-gray-300 mb-1 leading-snug">{notification.message}</p>
+                                        <p className="text-xs text-gray-300">{formatTime(notification.createdAt)}</p>
                                     </div>
                                 </div>
                             ))
@@ -445,7 +445,7 @@ export default function InboxPage() {
                                 <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                 </svg>
-                                <p className="text-gray-400">No messages yet</p>
+                                <p className="text-gray-300">No messages yet</p>
                             </div>
                         ) : (
                             conversations.map(conversation => {
@@ -473,11 +473,11 @@ export default function InboxPage() {
                                         <div className="flex-1 text-left min-w-0">
                                             <div className="flex items-center justify-between gap-2">
                                                 <h3 className="font-semibold text-white truncate">{displayInfo.name}</h3>
-                                                <span className="text-xs text-gray-500 flex-shrink-0">
+                                                <span className="text-xs text-gray-300 flex-shrink-0">
                                                     {formatMessageTime(conversation.lastMessage?.timestamp || conversation.updatedAt)}
                                                 </span>
                                             </div>
-                                            <p className="text-sm text-gray-400 truncate">{conversation.lastMessage?.content || 'Say hi!'}</p>
+                                            <p className="text-sm text-gray-300 truncate">{conversation.lastMessage?.content || 'Say hi!'}</p>
                                         </div>
                                     </button>
                                 );
@@ -527,7 +527,7 @@ export default function InboxPage() {
                                 <div key={message._id} className={`flex ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[80%] ${message.sender._id === user._id ? 'bg-violet-600 text-white' : 'bg-white/10 text-white'} rounded-2xl px-4 py-2`}>
                                         <p className="break-words text-sm">{message.content}</p>
-                                        <p className={`text-[10px] mt-1 text-right ${message.sender._id === user._id ? 'text-violet-200' : 'text-gray-400'}`}>
+                                        <p className={`text-[10px] mt-1 text-right ${message.sender._id === user._id ? 'text-violet-200' : 'text-gray-300'}`}>
                                             {formatMessageTime(message.createdAt)}
                                         </p>
                                     </div>

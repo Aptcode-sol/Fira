@@ -99,7 +99,7 @@ export default function VenuePortalVenuesPage() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 sm:mb-8 gap-4">
                         <div>
                             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">My Venues</h1>
-                            <p className="text-sm sm:text-base text-gray-400">Manage all your listed venues</p>
+                            <p className="text-sm sm:text-base text-gray-300">Manage all your listed venues</p>
                         </div>
                         <Link href="/venue-portal/venues/create">
                             <Button variant="violet" className="shadow-lg shadow-violet-500/25 w-full sm:w-auto">
@@ -127,7 +127,7 @@ export default function VenuePortalVenuesPage() {
                                     {filter === 'rejected' && `Rejected (${venues.filter(v => v.status === 'rejected').length})`}
                                 </span>
                                 <svg
-                                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${filterOpen ? 'rotate-180' : ''}`}
+                                    className={`w-4 h-4 text-gray-300 transition-transform duration-200 ${filterOpen ? 'rotate-180' : ''}`}
                                     fill="none" stroke="currentColor" viewBox="0 0 24 24"
                                 >
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -197,14 +197,14 @@ export default function VenuePortalVenuesPage() {
                                     </div>
                                     <div className="p-4">
                                         <h3 className="font-semibold text-white truncate mb-1">{venue.name}</h3>
-                                        <p className="text-sm text-gray-500 mb-3">
+                                        <p className="text-sm text-gray-300 mb-3">
                                             {venue.address?.city}, {venue.address?.state}
                                         </p>
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">
+                                            <span className="text-gray-300">
                                                 ₹{venue.pricing?.basePrice?.toLocaleString()}
                                             </span>
-                                            <span className="text-gray-500">
+                                            <span className="text-gray-300">
                                                 {venue.capacity?.min}-{venue.capacity?.max} guests
                                             </span>
                                         </div>
@@ -228,7 +228,7 @@ export default function VenuePortalVenuesPage() {
                                 </svg>
                             </div>
                             <h3 className="text-xl font-semibold text-white mb-2">No venues found</h3>
-                            <p className="text-gray-400 mb-6">
+                            <p className="text-gray-300 mb-6">
                                 {filter === 'all'
                                     ? "You haven't listed any venues yet. Start by adding your first venue."
                                     : `No ${filter} venues found.`}

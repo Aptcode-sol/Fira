@@ -101,7 +101,7 @@ export default function AboutPage() {
 
             <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
                 <div className="max-w-3xl mx-auto">
-                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-500">
+                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-300">
                         <ol className="flex items-center gap-2">
                             <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
                             <li aria-hidden="true">/</li>
@@ -113,7 +113,7 @@ export default function AboutPage() {
                         About <span className="text-violet-400">FIRA</span>
                     </h1>
 
-                    <div className="space-y-5 text-gray-400 text-lg leading-relaxed">
+                    <div className="space-y-5 text-gray-300 text-lg leading-relaxed">
                         <p>
                             <strong className="text-white">FIRA</strong> - also written as{' '}
                             {SITE_ALTERNATE_NAMES.slice(0, 3).map((name, i) => (
@@ -141,7 +141,7 @@ export default function AboutPage() {
 
                     <section className="mt-14">
                         <h2 className="text-2xl font-bold text-white mb-4">What you can do on FIRA</h2>
-                        <ul className="space-y-3 text-gray-400">
+                        <ul className="space-y-3 text-gray-300">
                             {[
                                 'Discover events happening in your city, filtered by date, category and ticket price',
                                 'Buy tickets online and get a QR code by email instantly',
@@ -159,7 +159,7 @@ export default function AboutPage() {
 
                     <section className="mt-14">
                         <h2 className="text-2xl font-bold text-white mb-4">Where FIRA operates</h2>
-                        <p className="text-gray-400 mb-5">
+                        <p className="text-gray-300 mb-5">
                             FIRA lists events and venues across major Indian cities. Pick a city to
                             see what is on:
                         </p>
@@ -182,7 +182,7 @@ export default function AboutPage() {
                             {faqs.map(faq => (
                                 <div key={faq.q} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
                                     <h3 className="text-white font-semibold mb-2">{faq.q}</h3>
-                                    <p className="text-gray-400 leading-relaxed">{faq.a}</p>
+                                    <p className="text-gray-300 leading-relaxed">{faq.a}</p>
                                 </div>
                             ))}
                         </div>
@@ -190,7 +190,7 @@ export default function AboutPage() {
 
                     <section className="mt-14 rounded-2xl border border-white/10 bg-black/50 p-8 text-center">
                         <h2 className="text-2xl font-bold text-white mb-3">Get started</h2>
-                        <p className="text-gray-400 mb-6">
+                        <p className="text-gray-300 mb-6">
                             Free to join. Find something to go to, or host your own.
                         </p>
                         <div className="flex flex-wrap gap-3 justify-center">

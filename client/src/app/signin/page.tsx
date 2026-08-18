@@ -9,6 +9,7 @@ import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { authApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { useFormErrors } from '@/hooks/useFormErrors';
 
 // Inner component that uses useSearchParams
 function SignInContent() {
@@ -19,6 +20,7 @@ function SignInContent() {
     const [isLoading, setIsLoading] = useState(false);
     const { showToast } = useToast();
     const [error, setError] = useState('');
+    const { formRef, focusFirstError } = useFormErrors();
 
     /**
      * Surface a failure. Errors previously rendered only as a banner at the top
@@ -29,6 +31,8 @@ function SignInContent() {
     const fail = (message: string) => {
         setError(message);
         showToast(message, 'error');
+        // Focus first invalid field after state update renders
+        setTimeout(() => focusFirstError(), 0);
     };
     const [showPassword, setShowPassword] = useState(false);
     const [showResendVerification, setShowResendVerification] = useState(false);
@@ -97,13 +101,13 @@ function SignInContent() {
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-white mb-2">Welcome back</h1>
-                        <p className="text-gray-400">Sign in to your FIRA account</p>
+                        <p className="text-gray-300">Sign in to your FIRA account</p>
                     </div>
 
                     {/* Form Card */}
                     <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-2xl p-8">
                         {error && (
-                            <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
+                            <div role="alert" aria-live="assertive" className="mb-6 px-4 py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
                                 {error}
                             </div>
                         )}
@@ -114,7 +118,7 @@ function SignInContent() {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
                             <Input
                                 label="Email"
                                 type="email"
@@ -169,7 +173,7 @@ function SignInContent() {
                                         type="checkbox"
                                         className="w-4 h-4 rounded border-white/[0.1] bg-white/[0.05] text-violet-500 focus:ring-violet-500/50 focus:ring-offset-0"
                                     />
-                                    <span className="text-gray-400">Remember me</span>
+                                    <span className="text-gray-300">Remember me</span>
                                 </label>
                                 <Link href="/forgot-password" className="text-violet-400 hover:text-violet-300 transition-colors">
                                     Forgot password?
@@ -203,7 +207,7 @@ function SignInContent() {
                             )}
                         </form>
 
-                        <div className="mt-6 text-center text-sm text-gray-400">
+                        <div className="mt-6 text-center text-sm text-gray-300">
                             Don&apos;t have an account?{' '}
                             <Link href="/signup" className="text-violet-400 hover:text-violet-300 transition-colors font-medium">
                                 Sign Up

@@ -75,6 +75,11 @@ export interface Venue {
         date: string;
         reason: string;
     }[];
+    cancellationPolicy?: {
+        freeCancellationHours: number;
+        partialRefundPercentage: number;
+        noCancellationHours: number;
+    };
     status: 'pending' | 'approved' | 'rejected' | 'suspended';
     rating: {
         average: number;
@@ -86,6 +91,14 @@ export interface Venue {
 }
 
 // Event Types
+export interface TicketTier {
+    name: string;
+    price: number;
+    description?: string;
+    maxQuantity: number;
+    soldCount: number;
+}
+
 export interface Event {
     _id: string;
     organizer: string | User;
@@ -107,6 +120,7 @@ export interface Event {
     termsAndConditions?: string;
     status: 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'approved';
     isFeatured: boolean;
+    ticketTiers?: TicketTier[];
     createdAt: string;
     updatedAt: string;
 }

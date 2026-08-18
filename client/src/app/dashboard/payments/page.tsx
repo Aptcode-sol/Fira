@@ -108,7 +108,7 @@ export default function PaymentsPage() {
             default:
                 return (
                     <div className="w-10 h-10 rounded-xl bg-gray-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
@@ -134,17 +134,17 @@ export default function PaymentsPage() {
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">Payments</h1>
-                    <p className="text-gray-400">Track your transactions and earnings</p>
+                    <p className="text-gray-300">Track your transactions and earnings</p>
                 </div>
 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                        <div className="text-sm text-gray-400 mb-1">Total Spent</div>
+                        <div className="text-sm text-gray-300 mb-1">Total Spent</div>
                         <div className="text-2xl font-bold text-white">₹{totalSpent.toLocaleString()}</div>
                     </div>
                     <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                        <div className="text-sm text-gray-400 mb-1">Total Earnings</div>
+                        <div className="text-sm text-gray-300 mb-1">Total Earnings</div>
                         <div className="text-2xl font-bold text-emerald-400">₹{totalEarnings.toLocaleString()}</div>
                     </div>
                     <div className="bg-gradient-to-r from-violet-500/20 to-pink-500/20 backdrop-blur-sm border border-violet-500/20 rounded-2xl p-5">
@@ -193,7 +193,7 @@ export default function PaymentsPage() {
                                     {getTypeIcon(payment.referenceType || payment.type)}
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-white truncate">{payment.description}</p>
-                                        <p className="text-xs text-gray-500">{formatDate(payment.createdAt)}</p>
+                                        <p className="text-xs text-gray-300">{formatDate(payment.createdAt)}</p>
                                     </div>
                                     <div className={`text-right font-semibold ${payment.amount > 0 ? 'text-emerald-400' : 'text-white'}`}>
                                         {payment.amount > 0 ? '+' : ''}₹{Math.abs(payment.amount).toLocaleString()}
@@ -211,7 +211,7 @@ export default function PaymentsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No {activeTab} yet</h3>
-                        <p className="text-gray-400">Your payment history will appear here.</p>
+                        <p className="text-gray-300">Your payment history will appear here.</p>
                     </div>
                 )}
             </div>

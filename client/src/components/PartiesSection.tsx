@@ -71,7 +71,7 @@ export default function PartiesSection() {
                                     <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 text-white">
                                         Upcoming <span className="accent-text">Parties</span>
                                     </h2>
-                                    <p className="text-gray-500 max-w-xl mx-auto">
+                                    <p className="text-gray-300 max-w-xl mx-auto">
                                         Discover the hottest events happening around you
                                     </p>
                                 </div>
@@ -79,7 +79,7 @@ export default function PartiesSection() {
 
                             {/* Loading Skeleton */}
                             {isLoading && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                                     {[1, 2, 3, 4].map((i) => (
                                         <div key={i} className="glass-card overflow-hidden animate-pulse">
                                             <div className="h-40 bg-white/10"></div>
@@ -95,7 +95,7 @@ export default function PartiesSection() {
                             {/* Empty State */}
                             {!isLoading && parties.length === 0 && (
                                 <div className="text-center py-12">
-                                    <p className="text-gray-400 text-lg">No upcoming events found</p>
+                                    <p className="text-gray-300 text-lg">No upcoming events found</p>
                                     <Link href="/events" className="text-violet-400 hover:text-violet-300 mt-2 inline-block">
                                         Browse all events →
                                     </Link>
@@ -104,7 +104,7 @@ export default function PartiesSection() {
 
                             {/* Parties Grid */}
                             {!isLoading && parties.length > 0 && (
-                                <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <StaggerContainer className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                                     {parties.map((party) => {
                                         const { day, month } = formatDate(party.startDateTime);
                                         const venueName = party.venue?.name || party.venueName || 'Venue TBA';
@@ -143,13 +143,13 @@ export default function PartiesSection() {
                                                             <h3 className="text-sm font-medium text-white mb-1 line-clamp-1 group-hover:text-violet-400 transition-colors">
                                                                 {party.name}
                                                             </h3>
-                                                            <p className="text-gray-500 text-xs flex items-center gap-1 mb-2">
+                                                            <p className="text-gray-300 text-xs flex items-center gap-1 mb-2">
                                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                                 </svg>
                                                                 {displayVenue}
                                                             </p>
-                                                            <div className="flex items-center justify-between text-xs text-gray-600">
+                                                            <div className="flex items-center justify-between text-xs text-gray-300">
                                                                 <span>{formatTime(party.startTime)}</span>
                                                                 <span>{(party.currentAttendees || 0)}+ going</span>
                                                             </div>

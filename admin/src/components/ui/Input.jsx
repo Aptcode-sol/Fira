@@ -10,7 +10,7 @@ export const Input = forwardRef(({ label, error, helperText, leftIcon, rightIcon
             )}
             <div className="relative">
                 {leftIcon && (
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
                         {leftIcon}
                     </div>
                 )}
@@ -30,7 +30,7 @@ export const Input = forwardRef(({ label, error, helperText, leftIcon, rightIcon
                     {...props}
                 />
                 {rightIcon && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 flex items-center justify-center">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 flex items-center justify-center">
                         {rightIcon}
                     </div>
                 )}
@@ -39,7 +39,7 @@ export const Input = forwardRef(({ label, error, helperText, leftIcon, rightIcon
                 <p className="mt-2 text-sm text-red-400">{error}</p>
             )}
             {helperText && !error && (
-                <p className="mt-2 text-sm text-gray-500">{helperText}</p>
+                <p className="mt-2 text-sm text-gray-300">{helperText}</p>
             )}
         </div>
     );

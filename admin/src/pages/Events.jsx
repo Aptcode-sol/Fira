@@ -64,7 +64,7 @@ export default function Events() {
     const fetchEvents = async () => {
         try {
             setLoading(true);
-            const params = { page: currentPage, limit: ITEMS_PER_PAGE };
+            const params = { page: currentPage, limit: ITEMS_PER_PAGE, includeCompleted: true };
             if (filter === 'public' || filter === 'private') {
                 params.eventType = filter;
             } else if (filter !== 'all') {
@@ -120,9 +120,13 @@ export default function Events() {
     const getStatusColor = (status) => {
         switch (status) {
             case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
+            case 'upcoming': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+            case 'ongoing': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+            case 'completed': return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
             case 'pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
             case 'rejected': return 'bg-red-500/20 text-red-400 border-red-500/30';
             case 'cancelled': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+            case 'blocked': return 'bg-red-700/20 text-red-300 border-red-700/30';
             default: return 'bg-gray-500/20 text-gray-400';
         }
     };
@@ -133,7 +137,7 @@ export default function Events() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-white mb-2">Events</h1>
-                        <div className="flex items-center gap-2 text-gray-400">
+                        <div className="flex items-center gap-2 text-gray-300">
                             <span>Manage and approve event listings</span>
                             <span className="w-1 h-1 rounded-full bg-gray-600"></span>
                             <span>{total} total</span>
@@ -201,12 +205,12 @@ export default function Events() {
                         </div>
 
                         {loading ? (
-                            <div className="p-12 text-center text-gray-500">Loading events...</div>
+                            <div className="p-12 text-center text-gray-300">Loading events...</div>
                         ) : pendingEvents.length === 0 ? (
                             <div className="p-12 text-center border-2 border-dashed border-white/10 rounded-2xl">
                                 <div className="text-4xl mb-4">✅</div>
                                 <h3 className="text-white font-medium text-lg">All Caught Up!</h3>
-                                <p className="text-gray-400">No events pending approval</p>
+                                <p className="text-gray-300">No events pending approval</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -226,29 +230,29 @@ export default function Events() {
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mt-4">
                                                     <div>
-                                                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Venue & Location</span>
+                                                        <span className="text-gray-300 block text-xs uppercase tracking-wider mb-1">Venue & Location</span>
                                                         <span className="text-gray-300 block">
                                                             {event.customVenue?.isCustom ? event.customVenue.name : (event.venue?.name || 'N/A')}
                                                         </span>
-                                                        <span className="text-gray-500 text-xs">
+                                                        <span className="text-gray-300 text-xs">
                                                             {event.customVenue?.isCustom ? event.customVenue.city : (event.venue?.address?.city || 'Unknown Location')}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Start Time</span>
+                                                        <span className="text-gray-300 block text-xs uppercase tracking-wider mb-1">Start Time</span>
                                                         <span className="text-gray-300">{formatDateTime(event.startDateTime)}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">End Time</span>
+                                                        <span className="text-gray-300 block text-xs uppercase tracking-wider mb-1">End Time</span>
                                                         <span className="text-gray-300">{formatDateTime(event.endDateTime)}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Capacity</span>
+                                                        <span className="text-gray-300 block text-xs uppercase tracking-wider mb-1">Capacity</span>
                                                         <span className="text-gray-300">{event.maxAttendees}</span>
                                                     </div>
                                                 </div>
 
-                                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-sm text-gray-500">
+                                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-sm text-gray-300">
                                                     <span>Organizer:</span>
                                                     <span className="text-gray-300">{event.organizer?.name}</span>
                                                     <span className="w-1 h-1 rounded-full bg-gray-700"></span>
@@ -293,7 +297,7 @@ export default function Events() {
                         {/* Filters & Search */}
                         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
                             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                                {['all', 'approved', 'pending', 'rejected', 'cancelled'].map(status => (
+                                {['all', 'upcoming', 'approved', 'ongoing', 'completed', 'cancelled', 'rejected', 'pending', 'blocked'].map(status => (
                                     <button
                                         key={status}
                                         onClick={() => { setFilter(status); setCurrentPage(1); }}
@@ -316,7 +320,7 @@ export default function Events() {
                                         onChange={(e) => setSearchInput(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
                                     />
-                                    <svg className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
                                 </div>
@@ -332,26 +336,33 @@ export default function Events() {
                         {/* Table */}
                         <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
                             {loading ? (
-                                <div className="p-12 text-center text-gray-500">Loading events...</div>
+                                <div className="p-12 text-center text-gray-300">Loading events...</div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                             <tr>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Event</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Organizer</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Venue</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Approvals</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Event</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Organizer</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Venue</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Date</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Approvals</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/[0.05]">
                                             {events.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                                                        No events found matching your criteria
+                                                    <td colSpan="7" className="px-6 py-12 text-center">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className="text-2xl">📭</span>
+                                                            <span className="text-gray-300">
+                                                                {filter !== 'all'
+                                                                    ? `No ${filter} events found`
+                                                                    : 'No events found matching your criteria'}
+                                                            </span>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ) : events.map((event) => (
@@ -374,13 +385,13 @@ export default function Events() {
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col">
                                                             <span className="text-white text-sm">{event.organizer?.name || 'N/A'}</span>
-                                                            <span className="text-gray-500 text-xs">{event.organizer?.email}</span>
+                                                            <span className="text-gray-300 text-xs">{event.organizer?.email}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col">
                                                             <span className="text-gray-300 text-sm">{event.customVenue?.isCustom ? event.customVenue.name : (event.venue?.name || 'N/A')}</span>
-                                                            <span className="text-gray-500 text-xs">{event.customVenue?.isCustom ? event.customVenue.city : (event.venue?.address?.city || 'Unknown Location')}</span>
+                                                            <span className="text-gray-300 text-xs">{event.customVenue?.isCustom ? event.customVenue.city : (event.venue?.address?.city || 'Unknown Location')}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-gray-300 text-sm">{formatDateTime(event.startDateTime)}</td>
@@ -474,7 +485,7 @@ export default function Events() {
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                         <div className="bg-[#1f2937] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl">
                             <h3 className="text-xl font-bold text-white mb-2">Reject Event?</h3>
-                            <p className="text-gray-400 text-sm mb-4">
+                            <p className="text-gray-300 text-sm mb-4">
                                 Please provide a reason for rejecting "{rejectingEvent.name}". This will be sent to the organizer.
                             </p>
                             <textarea

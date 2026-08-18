@@ -336,7 +336,7 @@ export default function BrandDashboardPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No Brand Profile</h3>
-                        <p className="text-gray-400 mb-6">Create your brand profile to build your presence.</p>
+                        <p className="text-gray-300 mb-6">Create your brand profile to build your presence.</p>
                         <Link href="/create/creator">
                             <Button>Create Brand Profile</Button>
                         </Link>
@@ -354,7 +354,7 @@ export default function BrandDashboardPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 mb-8">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-2">My Brand</h1>
-                            <p className="text-gray-400">Manage your brand profile and content</p>
+                            <p className="text-gray-300">Manage your brand profile and content</p>
                         </div>
                         <div className="flex flex-wrap gap-3">
                             <Link href={`/brands/${brand._id}`}>
@@ -433,7 +433,7 @@ export default function BrandDashboardPage() {
                                                 {editTab === 'basic' && (
                                                     <>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Name</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Name</label>
                                                             <input
                                                                 type="text"
                                                                 value={editForm.name}
@@ -442,7 +442,7 @@ export default function BrandDashboardPage() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Bio</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Bio</label>
                                                             <textarea
                                                                 value={editForm.bio}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
@@ -451,7 +451,7 @@ export default function BrandDashboardPage() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Location</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Location</label>
                                                             <input
                                                                 type="text"
                                                                 value={editForm.address}
@@ -466,63 +466,63 @@ export default function BrandDashboardPage() {
                                                 {editTab === 'social' && (
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Instagram</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Instagram</label>
                                                             <input
                                                                 type="url"
                                                                 value={editForm.instagram}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, instagram: e.target.value }))}
                                                                 placeholder="https://instagram.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-600"
+                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Twitter</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Twitter</label>
                                                             <input
                                                                 type="url"
                                                                 value={editForm.twitter}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, twitter: e.target.value }))}
                                                                 placeholder="https://twitter.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-600"
+                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Facebook</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Facebook</label>
                                                             <input
                                                                 type="url"
                                                                 value={editForm.facebook}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, facebook: e.target.value }))}
                                                                 placeholder="https://facebook.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-600"
+                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Website</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Website</label>
                                                             <input
                                                                 type="url"
                                                                 value={editForm.website}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))}
                                                                 placeholder="https://..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-600"
+                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">Spotify</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">Spotify</label>
                                                             <input
                                                                 type="url"
                                                                 value={editForm.spotify}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, spotify: e.target.value }))}
                                                                 placeholder="https://open.spotify.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-600"
+                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-1">YouTube</label>
+                                                            <label className="block text-sm text-gray-300 mb-1">YouTube</label>
                                                             <input
                                                                 type="url"
                                                                 value={editForm.youtube}
                                                                 onChange={(e) => setEditForm(prev => ({ ...prev, youtube: e.target.value }))}
                                                                 placeholder="https://youtube.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-600"
+                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
                                                             />
                                                         </div>
                                                     </div>
@@ -532,7 +532,7 @@ export default function BrandDashboardPage() {
                                                 {editTab === 'photos' && (
                                                     <div className="space-y-4">
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-2">Profile Photo</label>
+                                                            <label className="block text-sm text-gray-300 mb-2">Profile Photo</label>
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
                                                                     {profilePreview || brand.profilePhoto ? (
@@ -550,13 +550,13 @@ export default function BrandDashboardPage() {
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="block text-sm text-gray-400 mb-2">Cover Photo</label>
+                                                            <label className="block text-sm text-gray-300 mb-2">Cover Photo</label>
                                                             <div className="relative h-32 rounded-lg overflow-hidden bg-gray-800">
                                                                 {coverPreview || brand.coverPhoto ? (
                                                                     <img src={coverPreview || brand.coverPhoto || ''} alt="Cover" className="w-full h-full object-cover" />
                                                                 ) : (
                                                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/30 to-blue-500/30">
-                                                                        <span className="text-gray-500">No cover photo</span>
+                                                                        <span className="text-gray-300">No cover photo</span>
                                                                     </div>
                                                                 )}
                                                                 <label className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-lg text-white text-sm cursor-pointer hover:bg-black/80 transition-colors">
@@ -576,9 +576,9 @@ export default function BrandDashboardPage() {
                                                         {brand.type}
                                                     </span>
                                                 </div>
-                                                <p className="text-gray-400 mb-4">{brand.bio || 'No bio yet'}</p>
+                                                <p className="text-gray-300 mb-4">{brand.bio || 'No bio yet'}</p>
                                                 {brand.address && (
-                                                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                                                    <div className="flex items-center gap-2 text-gray-300 text-sm">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                         </svg>
@@ -609,7 +609,7 @@ export default function BrandDashboardPage() {
                                         )
                                     ))}
                                     {!Object.values(brand.socialLinks || {}).some(v => v) && (
-                                        <p className="text-gray-500">No social links added</p>
+                                        <p className="text-gray-300">No social links added</p>
                                     )}
                                 </div>
                             </div>
@@ -626,7 +626,7 @@ export default function BrandDashboardPage() {
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-medium text-white">{member.name}</div>
-                                                    <div className="text-xs text-gray-500">{member.role}</div>
+                                                    <div className="text-xs text-gray-300">{member.role}</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -642,15 +642,15 @@ export default function BrandDashboardPage() {
                                 <h3 className="text-lg font-semibold text-white mb-4">Stats</h3>
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">Followers</span>
+                                        <span className="text-gray-300">Followers</span>
                                         <span className="text-white font-semibold">{brand.stats.followers.toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">Events</span>
+                                        <span className="text-gray-300">Events</span>
                                         <span className="text-white font-semibold">{brand.stats.events}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">Profile Views</span>
+                                        <span className="text-gray-300">Profile Views</span>
                                         <span className="text-white font-semibold">{brand.stats.views.toLocaleString()}</span>
                                     </div>
                                 </div>
@@ -679,7 +679,7 @@ export default function BrandDashboardPage() {
 
                             {/* Member Since */}
                             <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                                <div className="text-sm text-gray-500">Member since</div>
+                                <div className="text-sm text-gray-300">Member since</div>
                                 <div className="text-white font-medium">{new Date(brand.createdAt).toLocaleDateString()}</div>
                             </div>
                         </div>
@@ -699,7 +699,7 @@ export default function BrandDashboardPage() {
 
                         {posts.length === 0 ? (
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-12 text-center">
-                                <p className="text-gray-400">No posts yet. Create your first post!</p>
+                                <p className="text-gray-300">No posts yet. Create your first post!</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -708,7 +708,7 @@ export default function BrandDashboardPage() {
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex-1">
                                                 <p className="text-white whitespace-pre-wrap">{post.content}</p>
-                                                {post.isEdited && <span className="text-xs text-gray-500 mt-1">(edited)</span>}
+                                                {post.isEdited && <span className="text-xs text-gray-300 mt-1">(edited)</span>}
                                             </div>
                                             <div className="flex gap-2 ml-4">
                                                 <button
@@ -736,7 +736,7 @@ export default function BrandDashboardPage() {
                                                 ))}
                                             </div>
                                         )}
-                                        <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                                        <div className="flex items-center gap-4 mt-4 text-sm text-gray-300">
                                             <span>{post.likes?.length || 0} likes</span>
                                             <span>{new Date(post.createdAt).toLocaleDateString()}</span>
                                         </div>

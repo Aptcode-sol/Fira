@@ -26,6 +26,8 @@ export default function EventDetail() {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [featuredLoading, setFeaturedLoading] = useState(false);
+    const [toastError, setToastError] = useState(null);
 
     useEffect(() => {
         fetchEvent();
@@ -42,6 +44,26 @@ export default function EventDetail() {
             console.error('Failed to fetch event:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const canToggleFeatured = event && ['approved', 'upcoming'].includes(event.status);
+
+    const handleToggleFeatured = async () => {
+        if (!canToggleFeatured || featuredLoading) return;
+        const newValue = !event.isFeatured;
+        // Optimistic update
+        setEvent(prev => ({ ...prev, isFeatured: newValue }));
+        setFeaturedLoading(true);
+        try {
+            await adminApi.toggleFeatured(id, newValue);
+        } catch (err) {
+            // Revert on failure
+            setEvent(prev => ({ ...prev, isFeatured: !newValue }));
+            setToastError(err.message || 'Failed to update featured status');
+            setTimeout(() => setToastError(null), 4000);
+        } finally {
+            setFeaturedLoading(false);
         }
     };
 
@@ -65,12 +87,12 @@ export default function EventDetail() {
     };
 
     if (loading) {
-        return <div className="p-12 text-center text-gray-500">Loading event details...</div>;
+        return <div className="p-12 text-center text-gray-300">Loading event details...</div>;
     }
 
     if (!event) {
         return (
-            <div className="p-12 text-center text-gray-500">
+            <div className="p-12 text-center text-gray-300">
                 <p>Event not found</p>
                 <Link to="/events" className="text-violet-400 hover:text-violet-300 mt-4 inline-block">← Back to Events</Link>
             </div>
@@ -92,7 +114,7 @@ export default function EventDetail() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-2">{event.name}</h1>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-400">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-300">
                                 <span className="flex items-center gap-1.5">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -109,13 +131,41 @@ export default function EventDetail() {
                                 </span>
                             </div>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium border ${event.status === 'approved' || event.status === 'upcoming' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                                event.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                                    event.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
-                                        'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                            }`}>
-                            {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium border ${event.status === 'approved' || event.status === 'upcoming' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                    event.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                        event.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                            'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                                }`}>
+                                {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                            </span>
+
+                            {/* Featured Toggle */}
+                            <div className="relative group">
+                                <button
+                                    onClick={handleToggleFeatured}
+                                    disabled={!canToggleFeatured || featuredLoading}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                                        !canToggleFeatured
+                                            ? 'bg-gray-500/10 text-gray-500 border-gray-500/20 cursor-not-allowed opacity-50'
+                                            : event.isFeatured
+                                                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30'
+                                                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                    aria-label={event.isFeatured ? 'Remove from featured' : 'Mark as featured'}
+                                >
+                                    <svg className="w-4 h-4" fill={event.isFeatured ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                    </svg>
+                                    {featuredLoading ? 'Updating...' : event.isFeatured ? 'Featured' : 'Feature'}
+                                </button>
+                                {!canToggleFeatured && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 border border-white/10 rounded-lg text-xs text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                        Only approved or upcoming events can be featured
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -128,7 +178,7 @@ export default function EventDetail() {
                                     <path d="M2 9a3 3 0 013-3h14a3 3 0 013 3M2 9v8a3 3 0 003 3h14a3 3 0 003-3V9M2 9l10 6 10-6" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Tickets Sold</span>
+                            <span className="text-gray-300 font-medium">Tickets Sold</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1 relative z-10">{stats.ticketsSold || event.currentAttendees || 0}</div>
 
@@ -140,7 +190,7 @@ export default function EventDetail() {
                                     style={{ width: `${Math.min(((event.currentAttendees || 0) / event.maxAttendees) * 100, 100)}%` }}
                                 />
                             </div>
-                            <div className="flex justify-between mt-1 text-xs text-gray-500">
+                            <div className="flex justify-between mt-1 text-xs text-gray-300">
                                 <span>{Math.round(((event.currentAttendees || 0) / event.maxAttendees) * 100)}% sold</span>
                                 <span>{event.maxAttendees} total</span>
                             </div>
@@ -154,7 +204,7 @@ export default function EventDetail() {
                                     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Total Revenue</span>
+                            <span className="text-gray-300 font-medium">Total Revenue</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{formatCurrency(stats.totalRevenue)}</div>
                     </div>
@@ -167,7 +217,7 @@ export default function EventDetail() {
                                     <path d="M2 10h20" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Ticket Price</span>
+                            <span className="text-gray-300 font-medium">Ticket Price</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{formatCurrency(event.ticketPrice)}</div>
                     </div>
@@ -181,7 +231,7 @@ export default function EventDetail() {
                                     <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
                                 </svg>
                             </div>
-                            <span className="text-gray-400 font-medium">Total Bookings</span>
+                            <span className="text-gray-300 font-medium">Total Bookings</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{stats.totalBookings || tickets.length}</div>
                     </div>
@@ -199,7 +249,7 @@ export default function EventDetail() {
                                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
                                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
                             />
-                            <svg className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
@@ -209,18 +259,18 @@ export default function EventDetail() {
                         <table className="w-full text-left">
                             <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Buyer</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Phone</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tickets</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Buyer</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Phone</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Tickets</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Amount</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.05]">
                                 {paginatedTickets.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan="6" className="px-6 py-12 text-center text-gray-300">
                                             No tickets found
                                         </td>
                                     </tr>
@@ -233,7 +283,7 @@ export default function EventDetail() {
                                                 </div>
                                                 <div>
                                                     <div className="font-medium text-white">{ticket.user?.name || 'N/A'}</div>
-                                                    <div className="text-xs text-gray-500">{ticket.user?.email || ''}</div>
+                                                    <div className="text-xs text-gray-300">{ticket.user?.email || ''}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -242,7 +292,7 @@ export default function EventDetail() {
                                         <td className="px-6 py-4 text-green-400 font-medium">
                                             {formatCurrency(ticket.price)}
                                         </td>
-                                        <td className="px-6 py-4 text-gray-400 text-sm">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-gray-300 text-sm">{new Date(ticket.createdAt).toLocaleDateString()}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${ticket.status === 'confirmed'
                                                     ? 'bg-green-500/20 text-green-400 border-green-500/30'
@@ -292,6 +342,21 @@ export default function EventDetail() {
                     )}
                 </div>
             </FadeIn>
+
+            {/* Error Toast */}
+            {toastError && (
+                <div className="fixed bottom-6 right-6 z-50 bg-red-500/90 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in">
+                    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm">{toastError}</span>
+                    <button onClick={() => setToastError(null)} className="ml-2 text-white/70 hover:text-white">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

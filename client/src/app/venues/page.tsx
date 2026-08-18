@@ -415,7 +415,7 @@ export default function VenuesPage() {
                                     the whole page. */}
                                 Discover <span className="text-violet-400">Venues</span>
                             </h1>
-                            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
                                 Find the perfect space for your next event. From intimate gatherings to grand celebrations.
                             </p>
                         </div>
@@ -433,7 +433,7 @@ export default function VenuesPage() {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="bg-black/40 border-white/10 focus:bg-black/60 h-[42px] w-full"
                                         leftIcon={
-                                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                             </svg>
                                         }
@@ -475,7 +475,7 @@ export default function VenuesPage() {
 
                     {/* Loading State */}
                     {isLoading && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                             {Array.from({ length: 8 }).map((_, i) => (
                                 <motion.div
                                     key={i}
@@ -513,7 +513,7 @@ export default function VenuesPage() {
                                             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
                                                 Looking to list a venue?
                                             </h2>
-                                            <p className="text-gray-400 mb-8 max-w-xl mx-auto text-lg">
+                                            <p className="text-gray-300 mb-8 max-w-xl mx-auto text-lg">
                                                 Partner with us and reach thousands of event organizers.
                                             </p>
                                             <Link href="/venue-portal/signin">
@@ -554,7 +554,7 @@ export default function VenuesPage() {
                                             </div>
                                         ) : (
                                             <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/5">
-                                                <p className="text-gray-400">No venues found near your location.</p>
+                                                <p className="text-gray-300">No venues found near your location.</p>
                                             </div>
                                         )
                                     ) : (
@@ -567,7 +567,7 @@ export default function VenuesPage() {
                                                     </svg>
                                                 </div>
                                                 <h3 className="text-xl font-bold text-white mb-2">Locate Venues Nearby</h3>
-                                                <p className="text-gray-400 max-w-md mb-6">
+                                                <p className="text-gray-300 max-w-md mb-6">
                                                     Enable location access to discover venues near you.
                                                 </p>
                                                 <Button onClick={handleEnableLocation} variant="violet">
@@ -586,13 +586,13 @@ export default function VenuesPage() {
                     {!isLoading && isFiltered && (
                         <>
                             <div className="mb-4 flex items-center justify-between">
-                                <p className="text-gray-400 text-sm">
+                                <p className="text-gray-300 text-sm">
                                     Showing {gridData.length} venues
                                     {selectedSort !== defaultSort && ` • Sorted by ${sortOptions.find(o => o.value === selectedSort)?.label}`}
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                                 {gridData.map((venue) => (
                                     <VenueCard key={venue._id} venue={venue} />
                                 ))}
@@ -609,7 +609,7 @@ export default function VenuesPage() {
 
                             {/* No results */}
                             {gridData.length === 0 && (
-                                <div className="text-center py-20 text-gray-500">
+                                <div className="text-center py-20 text-gray-300">
                                     <p className="text-xl mb-4">
                                         No venues found matching your criteria
                                         {selectedCity ? ` in ${selectedCity}` : ''}
@@ -629,7 +629,7 @@ export default function VenuesPage() {
 
                             {/* End of results */}
                             {!hasMore && gridData.length > 0 && (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 text-gray-300">
                                     <p>You&apos;ve seen all venues</p>
                                 </div>
                             )}
@@ -640,7 +640,7 @@ export default function VenuesPage() {
                         engines a path to every city landing page from the main
                         listing, and let visitors jump straight to a city. */}
                     <nav aria-label="Venues by city" className="mt-20 pt-10 border-t border-white/5">
-                        <h2 className="text-sm font-semibold text-gray-400 mb-4">Browse venues by city</h2>
+                        <h2 className="text-sm font-semibold text-gray-300 mb-4">Browse venues by city</h2>
                         <div className="flex flex-wrap gap-2">
                             {CITIES.map(city => (
                                 <Link

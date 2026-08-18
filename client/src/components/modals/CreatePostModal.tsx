@@ -113,7 +113,7 @@ export default function CreatePostModal({ isOpen, onClose, brandId }: CreatePost
                                 </svg>
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">Post Created!</h3>
-                            <p className="text-gray-400">Your post has been published successfully.</p>
+                            <p className="text-gray-300">Your post has been published successfully.</p>
                         </div>
                     ) : (
                         <>

@@ -3,6 +3,7 @@ const router = express.Router();
 const ticketService = require('../services/ticketService');
 
 const auth = require('../middleware/auth');
+const { noStoreCache } = require('../middleware/httpCache');
 
 // GET /api/tickets - Get all tickets
 router.get('/', async (req, res) => {
@@ -15,7 +16,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/tickets/user/:userId - Get user's tickets
-router.get('/user/:userId', auth, async (req, res) => {
+router.get('/user/:userId', auth, noStoreCache, async (req, res) => {
     try {
         if (req.params.userId !== req.user._id.toString()) {
             return res.status(403).json({ error: 'Unauthorized' });
@@ -110,14 +111,14 @@ router.get('/event/:eventId/stats', async (req, res) => {
     }
 });
 
-// POST /api/tickets/:id/cancel - Cancel ticket
+// POST /api/tickets/:id/cancel - Cancel ticket (admin-only)
 router.post('/:id/cancel', auth, async (req, res) => {
     try {
-        // Enforce user
-        // Assuming service can handle reason separately or part of object
-        // The service method signature (id, userId, reason) was seen in api.ts so let's check assumptions or use update
-        // Looking at api.ts: cancel: (ticketId, userId, reason)
-        // Let's assume service follows similar pattern or verify
+        // Only admins can cancel tickets
+        if (req.user.role !== 'admin' && !req.user.adminRole) {
+            return res.status(403).json({ error: "Ticket cancellation is not available for non-admin users" });
+        }
+
         const ticket = await ticketService.cancelTicket(req.params.id, req.user._id.toString(), req.body.reason);
         res.json(ticket);
     } catch (error) {

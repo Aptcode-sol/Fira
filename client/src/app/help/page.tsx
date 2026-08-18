@@ -28,7 +28,7 @@ export default function HelpSupport() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </summary>
-                                    <p className="mt-2 text-sm text-gray-400">
+                                    <p className="mt-2 text-sm text-gray-300">
                                         You can create an account by clicking on the "Sign Up" button in the top right corner.
                                         Fill in your details, verify your email, and you're good to go!
                                     </p>
@@ -41,7 +41,7 @@ export default function HelpSupport() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </summary>
-                                    <p className="mt-2 text-sm text-gray-400">
+                                    <p className="mt-2 text-sm text-gray-300">
                                         To list your venue, go to the Venue Portal link in the footer or menu, create a venue owner account,
                                         and follow the steps to add your venue details and photos.
                                     </p>
@@ -54,7 +54,7 @@ export default function HelpSupport() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </summary>
-                                    <p className="mt-2 text-sm text-gray-400">
+                                    <p className="mt-2 text-sm text-gray-300">
                                         We accept all major credit/debit cards, UPI, and net banking through our secure payment gateway.
                                     </p>
                                 </details>
@@ -70,7 +70,7 @@ export default function HelpSupport() {
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-cyan-500/50 transition-colors">
                                     <h3 className="text-lg font-medium text-white mb-2">Email Support</h3>
-                                    <p className="text-sm text-gray-400 mb-4">For general inquiries and account help.</p>
+                                    <p className="text-sm text-gray-300 mb-4">For general inquiries and account help.</p>
                                     <a href="mailto:support@letsfira.com" className="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center gap-2">
                                         support@letsfira.com
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,7 +81,7 @@ export default function HelpSupport() {
 
                                 <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-blue-500/50 transition-colors">
                                     <h3 className="text-lg font-medium text-white mb-2">Partner Support</h3>
-                                    <p className="text-sm text-gray-400 mb-4">For venue owners and event organizers.</p>
+                                    <p className="text-sm text-gray-300 mb-4">For venue owners and event organizers.</p>
                                     <a href="mailto:support@letsfira.com" className="text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-2">
                                         support@letsfira.com
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,7 +100,7 @@ export default function HelpSupport() {
                             </p>
                         </section>
 
-                        <div className="pt-8 border-t border-white/10 text-sm text-gray-500">
+                        <div className="pt-8 border-t border-white/10 text-sm text-gray-300">
                             Last updated: February 2026
                         </div>
                     </div>

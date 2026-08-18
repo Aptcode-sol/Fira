@@ -84,12 +84,19 @@ const userService = {
         let usersQuery;
 
         if (sort === 'top' || sort === 'trending') {
-            // Use Aggregate for sorting by followers length
+            // Use Aggregate for sorting by followers length, excluding self-references
              const pipeline = [
                 { $match: filter },
                 {
                     $addFields: {
-                        followersCount: { $size: { $ifNull: ["$followers", []] } }
+                        followersCount: {
+                            $size: {
+                                $filter: {
+                                    input: { $ifNull: ["$followers", []] },
+                                    cond: { $ne: ["$$this", "$_id"] }
+                                }
+                            }
+                        }
                     }
                 },
                 { $sort: { followersCount: -1 } },
@@ -141,6 +148,14 @@ const userService = {
         if (!user) {
             throw new Error('User not found');
         }
+        // Exclude self-references from followers/following (legacy data)
+        const idStr = user._id.toString();
+        if (user.followers) {
+            user.followers = user.followers.filter(f => f.toString() !== idStr);
+        }
+        if (user.following) {
+            user.following = user.following.filter(f => f.toString() !== idStr);
+        }
         return user;
     },
 
@@ -171,8 +186,8 @@ const userService = {
 
     // Follow user
     async followUser(userId, targetUserId) {
-        if (userId === targetUserId) {
-            throw new Error('Cannot follow yourself');
+        if (userId.toString() === targetUserId.toString()) {
+            throw new Error('A user cannot follow themselves');
         }
 
         const [user, targetUser] = await Promise.all([
@@ -195,12 +210,44 @@ const userService = {
 
     // Unfollow user
     async unfollowUser(userId, targetUserId) {
+        if (userId.toString() === targetUserId.toString()) {
+            throw new Error('A user cannot follow themselves');
+        }
+
         await Promise.all([
             User.findByIdAndUpdate(userId, { $pull: { following: targetUserId } }),
             User.findByIdAndUpdate(targetUserId, { $pull: { followers: userId } })
         ]);
 
         return { message: 'Successfully unfollowed user' };
+    },
+
+    // Update bank details with validation
+    async updateBankDetails(userId, { accountName, accountNumber, ifscCode, bankName }) {
+        if (!accountName || !accountName.trim()) {
+            return { error: "Account holder name is required", field: "accountName" };
+        }
+        if (!bankName || !bankName.trim()) {
+            return { error: "Bank name is required", field: "bankName" };
+        }
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+            return { error: "Invalid IFSC code format", field: "ifscCode" };
+        }
+        if (!/^\d{9,18}$/.test(accountNumber)) {
+            return { error: "Account number must be 9-18 digits", field: "accountNumber" };
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $set: { bankDetails: { accountName: accountName.trim(), accountNumber, ifscCode, bankName: bankName.trim() } } },
+            { new: true }
+        ).select('-password');
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        return { success: true, bankDetails: user.bankDetails };
     },
 
     // Get brands the user is following

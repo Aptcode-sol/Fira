@@ -14,7 +14,7 @@ import type { Event, Venue } from '@/lib/types';
  */
 export function CityEventsGrid({ events }: { events: Event[] }) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
             {events.map((event, index) => (
                 <EventCard key={event._id} event={event} index={index} />
             ))}
@@ -24,7 +24,7 @@ export function CityEventsGrid({ events }: { events: Event[] }) {
 
 export function CityVenuesGrid({ venues }: { venues: Venue[] }) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
             {venues.map((venue, index) => (
                 <VenueCard key={venue._id} venue={venue} index={index} />
             ))}

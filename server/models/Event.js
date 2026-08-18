@@ -141,7 +141,14 @@ const eventSchema = new mongoose.Schema({
     isFeatured: {
         type: Boolean,
         default: false
-    }
+    },
+    ticketTiers: [{
+        name: { type: String, required: true, trim: true, maxlength: 50 },
+        price: { type: Number, required: true, min: 0 },
+        description: { type: String, maxlength: 200, default: '' },
+        maxQuantity: { type: Number, required: true, min: 1 },
+        soldCount: { type: Number, default: 0 }
+    }]
 }, {
     timestamps: true
 });

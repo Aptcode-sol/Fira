@@ -54,7 +54,7 @@ export default function WhatWeDoSection() {
                             <br className="hidden sm:block" />{' '}
                             <span className="accent-text">in one place</span>.
                         </h2>
-                        <p className="text-gray-400 text-lg leading-relaxed">
+                        <p className="text-gray-300 text-lg leading-relaxed">
                             FIRA is where you find the night out — and where you book the room, sell
                             the tickets and run it yourself. Two sides of the same thing, for people
                             who go out and the people who make it happen.
@@ -76,7 +76,7 @@ export default function WhatWeDoSection() {
                                         {pillar.title}
                                     </h3>
                                 </div>
-                                <p className="text-gray-500 leading-relaxed text-[15px]">
+                                <p className="text-gray-300 leading-relaxed text-[15px]">
                                     {pillar.body}
                                 </p>
                             </div>

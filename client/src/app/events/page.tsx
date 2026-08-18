@@ -21,6 +21,7 @@ interface EventsResponse {
     totalPages: number;
     currentPage: number;
     total: number;
+    completedEvents?: Event[];
 }
 
 const categories = [
@@ -68,12 +69,14 @@ export default function EventsPage() {
         popular: Event[];
         upcoming: Event[];
         weekend: Event[];
+        completed: Event[];
     }>({
         nearYou: [],
         today: [],
         popular: [],
         upcoming: [],
-        weekend: []
+        weekend: [],
+        completed: []
     });
 
     // Filtered/paginated data
@@ -231,12 +234,13 @@ export default function EventsPage() {
                     }) as Promise<EventsResponse>
                     : Promise.resolve<EventsResponse>({ events: [], totalPages: 0, currentPage: 1, total: 0 });
 
-                const [nearYouRes, todayRes, popularRes, upcomingRes, weekendRes] = await Promise.all([
+                const [nearYouRes, todayRes, popularRes, upcomingRes, weekendRes, completedRes] = await Promise.all([
                     nearYouRequest,
                     eventsApi.getAll({ eventType: 'public', dateFilter: 'today', sort: 'upcoming' }) as Promise<EventsResponse>,
                     eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'top' }) as Promise<EventsResponse>,
                     eventsApi.getAll({ status: 'upcoming', eventType: 'public', sort: 'upcoming' }) as Promise<EventsResponse>,
                     eventsApi.getAll({ eventType: 'public', weekend: 'true', sort: 'upcoming' }) as Promise<EventsResponse>,
+                    eventsApi.getAll({ eventType: 'public', includeCompleted: 'true' }) as Promise<EventsResponse>,
                 ]);
 
                 setSections({
@@ -245,6 +249,7 @@ export default function EventsPage() {
                     popular: popularRes.events || [],
                     upcoming: upcomingRes.events || [],
                     weekend: weekendRes.events || [],
+                    completed: completedRes.completedEvents || [],
                 });
             } catch (error) {
                 console.error('Failed to fetch events:', error);
@@ -427,7 +432,7 @@ export default function EventsPage() {
                                     the whole page. */}
                                 Discover <span className="text-violet-400">Events</span>
                             </h1>
-                            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
                                 Find parties, concerts, festivals and more happening around you.
                             </p>
                         </div>
@@ -445,7 +450,7 @@ export default function EventsPage() {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="bg-black/40 border-white/10 h-[42px]"
                                         leftIcon={
-                                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                             </svg>
                                         }
@@ -487,7 +492,7 @@ export default function EventsPage() {
 
                     {/* Loading */}
                     {isLoading && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                             {Array.from({ length: 8 }).map((_, i) => (
                                 <motion.div
                                     key={i}
@@ -518,12 +523,36 @@ export default function EventsPage() {
                             <Section title="Upcoming Events" data={sections.upcoming} sort="upcoming" />
                             <Section title="This Weekend" data={sections.weekend} sort="weekend" />
 
+                            {/* Past Events — completed events with reduced opacity and badge */}
+                            {sections.completed.length > 0 && (
+                                <FadeIn>
+                                    <div className="mb-12">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h2 className="text-xl md:text-2xl font-bold text-white relative pl-4">
+                                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 md:h-6 bg-gradient-to-b from-gray-500 to-gray-600 rounded-full"></span>
+                                                Past Events
+                                            </h2>
+                                        </div>
+                                        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                                            {sections.completed.map((event, index) => (
+                                                <div key={event._id} className="flex-shrink-0 w-[280px] md:w-[300px] snap-start opacity-60 relative">
+                                                    <div className="absolute top-3 right-3 z-10 px-2 py-1 rounded-full bg-gray-700/80 backdrop-blur-sm border border-gray-500/30 text-gray-200 text-xs font-medium">
+                                                        Completed
+                                                    </div>
+                                                    <EventCard event={event} index={index} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </FadeIn>
+                            )}
+
                             {/* CTA */}
                             <FadeIn>
                                 <div className="my-20 rounded-3xl border border-white/10 bg-black/70 backdrop-blur-sm p-8 md:p-12 text-center">
                                     <SlideUp>
                                         <h2 className="text-3xl font-bold text-white mb-4">Host Your Own Event</h2>
-                                        <p className="text-gray-400 mb-8 max-w-xl mx-auto">
+                                        <p className="text-gray-300 mb-8 max-w-xl mx-auto">
                                             Create events, sell tickets, and connect with your audience.
                                         </p>
                                         <Link href="/create/event">
@@ -553,7 +582,7 @@ export default function EventsPage() {
                                             </div>
                                         ) : (
                                             <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/5">
-                                                <p className="text-gray-400">No events found near your location.</p>
+                                                <p className="text-gray-300">No events found near your location.</p>
                                             </div>
                                         )
                                     ) : (
@@ -565,7 +594,7 @@ export default function EventsPage() {
                                                     </svg>
                                                 </div>
                                                 <h3 className="text-xl font-bold text-white mb-2">Find Events Nearby</h3>
-                                                <p className="text-gray-400 max-w-md mb-6">Enable location to discover events around you.</p>
+                                                <p className="text-gray-300 max-w-md mb-6">Enable location to discover events around you.</p>
                                                 <Button onClick={handleEnableLocation} variant="violet">Enable Location</Button>
                                             </div>
                                         </SlideUp>
@@ -587,11 +616,11 @@ export default function EventsPage() {
                                             {activeSortLabel === 'Today' ? 'Today' : activeSortLabel === 'Popular' ? 'Popular Events' : activeSortLabel === 'Upcoming' ? 'Upcoming Events' : 'This Weekend'}
                                         </h2>
                                     )}
-                                    <p className="text-gray-400 text-sm">Showing {gridData.length} events</p>
+                                    <p className="text-gray-300 text-sm">Showing {gridData.length} events</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                                 {gridData.map((event) => (
                                     <EventCard key={event._id} event={event} />
                                 ))}
@@ -606,7 +635,7 @@ export default function EventsPage() {
                             )}
 
                             {gridData.length === 0 && (
-                                <div className="text-center py-20 text-gray-500">
+                                <div className="text-center py-20 text-gray-300">
                                     <p className="text-xl mb-4">
                                         No events found{selectedCity ? ` in ${selectedCity}` : ''}
                                     </p>
@@ -622,7 +651,7 @@ export default function EventsPage() {
                             )}
 
                             {!hasMore && gridData.length > 0 && (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 text-gray-300">
                                     <p>You&apos;ve seen all events</p>
                                 </div>
                             )}
@@ -633,7 +662,7 @@ export default function EventsPage() {
                         engines a path to every city landing page from the main
                         listing, and let visitors jump straight to a city. */}
                     <nav aria-label="Events by city" className="mt-20 pt-10 border-t border-white/5">
-                        <h2 className="text-sm font-semibold text-gray-400 mb-4">Browse events by city</h2>
+                        <h2 className="text-sm font-semibold text-gray-300 mb-4">Browse events by city</h2>
                         <div className="flex flex-wrap gap-2">
                             {CITIES.map(city => (
                                 <Link

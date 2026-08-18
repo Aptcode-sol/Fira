@@ -4,9 +4,76 @@ const notificationService = require('../services/notificationService');
 const pushService = require('../services/pushService');
 
 const auth = require('../middleware/auth');
+const { noStoreCache } = require('../middleware/httpCache');
+
+/* ------------------------------------------------------------------ *
+ * SSE — Real-time notification stream
+ *
+ * GET /api/v1/notifications/stream
+ * Requires authentication. Streams events as text/event-stream.
+ * Sends a heartbeat comment every 30s to prevent proxy idle-timeout.
+ * ------------------------------------------------------------------ */
+
+// ponytail: in-process map of userId → Set<Response>. Fine for single-server;
+// ceiling: multi-server needs Redis pub/sub fan-out.
+const sseClients = new Map();
+
+router.get('/stream', auth, (req, res) => {
+    const userId = req.user._id.toString();
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no' // disable Nginx buffering
+    });
+
+    // Initial comment so the client knows the stream is alive
+    res.write(':connected\n\n');
+
+    // Heartbeat every 30s
+    const heartbeat = setInterval(() => {
+        res.write(':heartbeat\n\n');
+    }, 30_000);
+
+    // Register this connection
+    if (!sseClients.has(userId)) {
+        sseClients.set(userId, new Set());
+    }
+    sseClients.get(userId).add(res);
+
+    // Cleanup on disconnect
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        const clients = sseClients.get(userId);
+        if (clients) {
+            clients.delete(res);
+            if (clients.size === 0) sseClients.delete(userId);
+        }
+    });
+});
+
+/**
+ * Send a notification event to all active SSE connections for a user.
+ * Call this from anywhere in the server after creating a notification.
+ *
+ * @param {string} userId - The user's _id as a string
+ * @param {object} data - Notification payload (serializable to JSON)
+ */
+function sendNotification(userId, data) {
+    const clients = sseClients.get(String(userId));
+    if (!clients || clients.size === 0) return;
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) {
+        res.write(payload);
+    }
+}
+
+// Expose for use by other modules (e.g. notificationService after creating a notification)
+router.sendNotification = sendNotification;
 
 // GET /api/notifications - Get user's notifications
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, noStoreCache, async (req, res) => {
     try {
         const notifications = await notificationService.getUserNotifications(req.user._id);
         res.json(notifications);
@@ -127,3 +194,4 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.sendNotification = sendNotification;

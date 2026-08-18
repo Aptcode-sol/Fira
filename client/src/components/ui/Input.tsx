@@ -1,6 +1,6 @@
 'use client';
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useId } from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
@@ -11,22 +11,36 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ label, error, helperText, leftIcon, rightIcon, className = '', ...props }, ref) => {
+    ({ label, error, helperText, leftIcon, rightIcon, className = '', id: externalId, ...props }, ref) => {
+        const generatedId = useId();
+        const inputId = externalId || generatedId;
+        const errorId = `${inputId}-error`;
+        const helperId = `${inputId}-helper`;
+
+        // Build aria-describedby from present descriptors
+        const describedBy = [
+            error ? errorId : null,
+            helperText && !error ? helperId : null,
+        ].filter(Boolean).join(' ') || undefined;
+
         return (
             <div className="w-full">
                 {label && (
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label htmlFor={inputId} className="block text-sm font-medium text-gray-300 mb-2">
                         {label}
                     </label>
                 )}
                 <div className="relative">
                     {leftIcon && (
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
                             {leftIcon}
                         </div>
                     )}
                     <input
                         ref={ref}
+                        id={inputId}
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={describedBy}
                         className={`
               w-full px-4 py-3 rounded-xl
               bg-white/5 border border-white/10
@@ -41,16 +55,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                         {...props}
                     />
                     {rightIcon && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 flex items-center justify-center">
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 flex items-center justify-center">
                             {rightIcon}
                         </div>
                     )}
                 </div>
                 {error && (
-                    <p className="mt-2 text-sm text-red-400">{error}</p>
+                    <p id={errorId} role="alert" className="mt-2 text-sm text-red-400">{error}</p>
                 )}
                 {helperText && !error && (
-                    <p className="mt-2 text-sm text-gray-500">{helperText}</p>
+                    <p id={helperId} className="mt-2 text-sm text-gray-300">{helperText}</p>
                 )}
             </div>
         );

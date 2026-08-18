@@ -1,14 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import ErrorBoundary from './ErrorBoundary';
 
 const navItems = [
     { href: '/', icon: 'home', label: 'Dashboard' },
     { href: '/venues', icon: 'building', label: 'Venues' },
     { href: '/events', icon: 'ticket', label: 'Events' },
-    { href: '/brands', icon: 'star', label: 'Brands' }, // User used 'star' icon logic? Need to check.
+    { href: '/brands', icon: 'star', label: 'Brands' },
     { href: '/users', icon: 'users', label: 'Users' },
+    { href: '/audit-trail', icon: 'clipboard', label: 'Audit Trail' },
+    { href: '/discount-codes', icon: 'tag', label: 'Discount Codes' },
 ];
+
+// ponytail: decode JWT payload without a library — it's just base64url JSON.
+function getAdminRoleFromToken() {
+    try {
+        const token = localStorage.getItem('fira_admin_token');
+        if (!token) return null;
+        const payload = token.split('.')[1];
+        if (!payload) return null;
+        const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        return decoded.adminRole || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Role-based nav visibility (Requirements 3.3, 3.4):
+ * - super_admin: sees everything
+ * - admin: hide admin role assignment (no dedicated nav item yet, so full nav)
+ * - moderator: hide Users (block/unblock), Payments/Payouts, role management
+ */
+function getVisibleNavItems(adminRole) {
+    if (!adminRole || adminRole === 'super_admin') return navItems;
+    if (adminRole === 'moderator') {
+        // Hide Users page (contains block/unblock) and Audit Trail — Payments/Payouts and role
+        // management pages don't exist as nav items yet; they'll be filtered here
+        // when added.
+        const hidden = new Set(['/users', '/audit-trail']);
+        return navItems.filter((item) => !hidden.has(item.href));
+    }
+    // 'admin' — currently sees everything in nav; admin role assignment is
+    // guarded server-side and will be filtered when that nav item is added.
+    return navItems;
+}
 
 // `onLogout` is passed by App.jsx but was not destructured here, so
 // handleLogout's `props.onLogout` threw "props is not defined" and logging out
@@ -35,6 +72,10 @@ export default function AdminDashboardLayout({ children, onLogout }) {
     // What the sidebar should LOOK like. Not used for the main content margin -
     // on hover it overlays the page rather than pushing it sideways.
     const isOpen = isExpanded || (!isMobile && isHovered);
+
+    // Decode adminRole from JWT and compute visible nav items.
+    const adminRole = useMemo(() => getAdminRoleFromToken(), []);
+    const visibleNavItems = useMemo(() => getVisibleNavItems(adminRole), [adminRole]);
 
     // Load the signed-in admin. This used to hardcode "Admin User /
     // admin@fira.com" regardless of who was logged in; the real details are
@@ -123,10 +164,20 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
             ),
+            'clipboard': (
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+            ),
             'cog': (
                 <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            ),
+            'tag': (
+                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
             ),
         };
@@ -151,26 +202,41 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-white/20 via-white/3 to-transparent blur-3xl"></div>
             </div>
 
-            {/* Backdrop for the expanded drawer on mobile - without it there is
-                no way to dismiss the sidebar once it covers the page. */}
+            {/* Backdrop overlay on mobile when sidebar is open */}
             {isMobile && isExpanded && (
                 <div
-                    className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+                    className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
                     onClick={() => setIsExpanded(false)}
+                    aria-hidden="true"
                 />
+            )}
+
+            {/* Single hamburger button — always in DOM on mobile (req 2.3) */}
+            {isMobile && (
+                <button
+                    onClick={() => setIsExpanded(prev => !prev)}
+                    className="fixed top-4 left-4 z-50 p-2.5 bg-black/80 backdrop-blur-md border border-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
+                    aria-label={isExpanded ? 'Close navigation' : 'Open navigation'}
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
             )}
 
             {/* Sidebar - icon rail by default, expands to labels */}
             <aside
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
+                role="navigation"
+                aria-label="Admin navigation"
                 // inset-y-0 rather than top-0 + h-full: `height:100%` on a fixed
                 // element resolves against the viewport, which mobile browsers
                 // resize as the URL bar hides on scroll - that made the pinned
                 // bottom section drift.
                 // Width follows isOpen on ALL sizes now - previously mobile was
                 // locked to a 68px rail with no way to expand it.
-                className={`fixed left-0 inset-y-0 bg-black/95 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-40 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-[68px] lg:w-20'}`}
+                className={`fixed left-0 inset-y-0 bg-black/95 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-40 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-0 overflow-hidden lg:w-20 lg:overflow-visible'}`}
             >
                 {/* Logo + collapse toggle */}
                 <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-20 relative">
@@ -178,28 +244,31 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                         <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
                             <img src={logo} alt="Fira Logo" className="w-full h-full object-contain" />
                         </div>
-                        <span className="text-[10px] text-gray-400 font-medium tracking-wider uppercase mt-1">
+                        <span className="text-[10px] text-gray-300 font-medium tracking-wider uppercase mt-1">
                             Admin
                         </span>
                     </Link>
 
-                    {/* There was no toggle at all before - the sidebar could
-                        only hover-expand and never stay pinned. */}
-                    <button
-                        onClick={() => setIsExpanded(prev => !prev)}
-                        className={`absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1 transition-opacity ${isOpen ? 'right-3 opacity-100' : 'right-2 opacity-0 pointer-events-none lg:opacity-60 lg:pointer-events-auto'}`}
-                        title={isExpanded ? 'Collapse sidebar' : 'Pin sidebar open'}
-                        aria-label={isExpanded ? 'Collapse sidebar' : 'Pin sidebar open'}
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </button>
+                    {/* Desktop-only pin/collapse toggle — only visible when sidebar
+                        is expanded. In collapsed state the logo is the visual anchor
+                        and hover-to-peek opens the sidebar. */}
+                    {!isMobile && isOpen && (
+                        <button
+                            onClick={() => setIsExpanded(prev => !prev)}
+                            className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 hover:text-white p-1"
+                            title="Collapse sidebar"
+                            aria-label="Collapse sidebar"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
 
                 {/* Navigation */}
                 <nav className="flex-1 p-2 lg:p-3 space-y-1 overflow-y-auto">
-                    {navItems.map((item) => {
+                    {visibleNavItems.map((item) => {
                         const isActive = location.pathname === item.href;
                         return (
                             <Link
@@ -236,7 +305,7 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                         {isOpen && (
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-white truncate break-words">{user?.name || 'Admin'}</div>
-                                <div className="text-xs text-gray-400 truncate">{user?.email}</div>
+                                <div className="text-xs text-gray-300 truncate">{user?.email}</div>
                             </div>
                         )}
                     </div>
@@ -245,6 +314,7 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                         onClick={handleLogout}
                         className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${isOpen ? '' : 'justify-center'}`}
                         title="Sign Out"
+                        aria-label="Sign Out"
                     >
                         <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -259,8 +329,10 @@ export default function AdminDashboardLayout({ children, onLogout }) {
             {/* Main Content */}
             {/* Margin tracks the COLLAPSED rail only, so hovering or opening the
                 drawer overlays the page rather than shoving it sideways. */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-4 pb-20 lg:pb-0 transition-all duration-300 ${!isMobile && isExpanded ? 'ml-64' : 'ml-[68px] lg:ml-20'}`}>
-                {children}
+            <main className={`flex-1 min-h-screen relative z-10 pt-16 pb-20 lg:pt-4 lg:pb-0 transition-all duration-300 ${!isMobile && isExpanded ? 'ml-64' : 'ml-0 lg:ml-20'}`}>
+                <ErrorBoundary fallbackMessage="Something went wrong in the admin panel.">
+                    {children}
+                </ErrorBoundary>
             </main>
         </div>
     );

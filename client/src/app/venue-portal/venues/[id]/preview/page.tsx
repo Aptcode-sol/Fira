@@ -135,7 +135,7 @@ export default function VenueOwnerPreviewPage() {
                             </svg>
                         </button>
                         <div>
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-0.5">Venue Preview</p>
+                            <p className="text-xs text-gray-300 uppercase tracking-wider mb-0.5">Venue Preview</p>
                             <h1 className="text-lg font-semibold text-white">{venue.name}</h1>
                         </div>
                     </div>
@@ -199,7 +199,7 @@ export default function VenueOwnerPreviewPage() {
                                     </span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-2 text-gray-400 mb-4 flex-wrap">
+                            <div className="flex items-center gap-2 text-gray-300 mb-4 flex-wrap">
                                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 </svg>
@@ -223,7 +223,7 @@ export default function VenueOwnerPreviewPage() {
                         {/* Description */}
                         <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                             <h3 className="text-xl font-semibold text-white mb-4">About this venue</h3>
-                            <p className="text-gray-400 leading-relaxed whitespace-pre-line">{venue.description}</p>
+                            <p className="text-gray-300 leading-relaxed whitespace-pre-line">{venue.description}</p>
                         </div>
 
                         {/* Amenities */}
@@ -249,7 +249,7 @@ export default function VenueOwnerPreviewPage() {
                                 <h3 className="text-xl font-semibold text-white mb-4">Venue Rules</h3>
                                 <ul className="space-y-2">
                                     {venue.rules.map((rule, index) => (
-                                        <li key={index} className="flex items-start gap-2 text-gray-400">
+                                        <li key={index} className="flex items-start gap-2 text-gray-300">
                                             <svg className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                             </svg>
@@ -263,7 +263,7 @@ export default function VenueOwnerPreviewPage() {
                         {/* Availability Calendar (read-only) */}
                         <div className="bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                             <h3 className="text-xl font-semibold text-white mb-2">Availability Calendar</h3>
-                            <p className="text-gray-400 text-sm mb-6">Current booking status for the next 2 months.</p>
+                            <p className="text-gray-300 text-sm mb-6">Current booking status for the next 2 months.</p>
 
                             {/* Legend */}
                             <div className="flex flex-wrap gap-4 mb-6">
@@ -275,7 +275,7 @@ export default function VenueOwnerPreviewPage() {
                                 ].map(({ color, label }) => (
                                     <div key={label} className="flex items-center gap-2">
                                         <div className={`w-4 h-4 rounded border ${color}`} />
-                                        <span className="text-sm text-gray-400">{label}</span>
+                                        <span className="text-sm text-gray-300">{label}</span>
                                     </div>
                                 ))}
                             </div>
@@ -306,7 +306,7 @@ export default function VenueOwnerPreviewPage() {
                             {/* Calendar Grid */}
                             <div className="grid grid-cols-7 gap-2">
                                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                                    <div key={d} className="text-center text-xs text-gray-500 font-medium py-2">{d}</div>
+                                    <div key={d} className="text-center text-xs text-gray-300 font-medium py-2">{d}</div>
                                 ))}
                                 {(() => {
                                     const slots = [];
@@ -330,8 +330,8 @@ export default function VenueOwnerPreviewPage() {
                                         const availability = getDateAvailability(date);
 
                                         let bgClass = '';
-                                        if (isPast) bgClass = 'bg-gray-800/30 border-gray-700/30 text-gray-600';
-                                        else if (availability.isClosed) bgClass = 'bg-gray-500/20 border-gray-500/40 text-gray-500';
+                                        if (isPast) bgClass = 'bg-gray-800/30 border-gray-700/30 text-gray-300';
+                                        else if (availability.isClosed) bgClass = 'bg-gray-500/20 border-gray-500/40 text-gray-300';
                                         else if (availability.color === 'red') bgClass = 'bg-red-500/20 border-red-500/40 text-red-300';
                                         else if (availability.color === 'orange') bgClass = 'bg-orange-500/20 border-orange-500/40 text-orange-300';
                                         else bgClass = 'bg-green-500/20 border-green-500/40 text-green-300';
@@ -352,7 +352,7 @@ export default function VenueOwnerPreviewPage() {
                                                                 {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                             </div>
                                                             {availability.isClosed ? (
-                                                                <div className="flex items-center gap-1.5 text-gray-400">
+                                                                <div className="flex items-center gap-1.5 text-gray-300">
                                                                     <span className="w-2 h-2 rounded-full bg-gray-500" /> Closed
                                                                 </div>
                                                             ) : availability.slots.length > 0 ? (
@@ -392,10 +392,10 @@ export default function VenueOwnerPreviewPage() {
                             <div>
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
-                                    <span className="text-gray-400 text-sm">base price</span>
+                                    <span className="text-gray-300 text-sm">base price</span>
                                 </div>
                                 {venue.pricing.pricePerHour && (
-                                    <p className="text-sm text-gray-500 mt-1">
+                                    <p className="text-sm text-gray-300 mt-1">
                                         + {formatPrice(venue.pricing.pricePerHour)} per hour
                                     </p>
                                 )}
@@ -404,23 +404,23 @@ export default function VenueOwnerPreviewPage() {
                             {/* Quick Info */}
                             <div className="space-y-3 pb-6 border-b border-white/10">
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-400">Capacity</span>
+                                    <span className="text-gray-300">Capacity</span>
                                     <span className="text-white">{venue.capacity.min} – {venue.capacity.max} guests</span>
                                 </div>
                                 {venue.rating.count > 0 && (
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Rating</span>
+                                        <span className="text-gray-300">Rating</span>
                                         <div className="flex items-center gap-1">
                                             <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                             </svg>
                                             <span className="text-white">{venue.rating.average.toFixed(1)}</span>
-                                            <span className="text-gray-500">({venue.rating.count})</span>
+                                            <span className="text-gray-300">({venue.rating.count})</span>
                                         </div>
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-400">Status</span>
+                                    <span className="text-gray-300">Status</span>
                                     <span className={`capitalize font-medium ${
                                         venue.status === 'approved' ? 'text-green-400'
                                         : venue.status === 'pending' ? 'text-yellow-400'
@@ -447,7 +447,7 @@ export default function VenueOwnerPreviewPage() {
                                 </button>
                             </div>
 
-                            <p className="text-xs text-gray-600 text-center">
+                            <p className="text-xs text-gray-300 text-center">
                                 This is your owner preview. Customers see this page with a booking option.
                             </p>
                         </div>

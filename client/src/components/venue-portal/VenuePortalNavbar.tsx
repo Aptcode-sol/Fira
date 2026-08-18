@@ -120,7 +120,7 @@ export default function VenuePortalNavbar() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="text-white font-medium truncate">{user?.name || 'Venue Owner'}</div>
-                            <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+                            <div className="text-xs text-gray-300 truncate">{user?.email}</div>
                         </div>
                     </div>
                     <button

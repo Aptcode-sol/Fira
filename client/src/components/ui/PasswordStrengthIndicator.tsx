@@ -53,7 +53,7 @@ export default function PasswordStrengthIndicator({ password }: PasswordStrength
             {/* Strength Bar */}
             <div>
                 <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-gray-400">Password Strength</span>
+                    <span className="text-xs text-gray-300">Password Strength</span>
                     {strength !== 'none' && (
                         <span className="text-xs font-medium text-white">
                             {strengthLabels[strength]}
@@ -85,7 +85,7 @@ export default function PasswordStrengthIndicator({ password }: PasswordStrength
                                 </svg>
                             )}
                         </div>
-                        <span className={req.met ? 'text-white' : 'text-gray-500'}>
+                        <span className={req.met ? 'text-white' : 'text-gray-300'}>
                             {req.label}
                         </span>
                     </div>

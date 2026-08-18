@@ -84,7 +84,7 @@ export default function HowItWorks() {
                             <h2 className="text-3xl md:text-4xl font-semibold mb-4 text-white">
                                 How <span className="accent-text">FIRA</span> Works
                             </h2>
-                            <p className="text-gray-500 max-w-xl mx-auto">
+                            <p className="text-gray-300 max-w-xl mx-auto">
                                 From listing your venue to hosting unforgettable events - simple and seamless.
                             </p>
                         </div>
@@ -111,7 +111,7 @@ export default function HowItWorks() {
 
                                     {/* Content */}
                                     <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
-                                    <p className="text-gray-500 text-sm leading-relaxed">{step.description}</p>
+                                    <p className="text-gray-300 text-sm leading-relaxed">{step.description}</p>
                                 </div>
                             </StaggerItem>
                         ))}

@@ -1,0 +1,11 @@
+{
+  "name": "@fira/design-tokens",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./tokens": "./tokens.js",
+    "./theme.css": "./theme.css"
+  }
+}

@@ -18,9 +18,10 @@ interface BrandHeaderProps {
     };
     onFollow: () => void;
     isFollowing: boolean;
+    isOwnProfile?: boolean;
 }
 
-export default function BrandHeader({ brand, onFollow, isFollowing }: BrandHeaderProps) {
+export default function BrandHeader({ brand, onFollow, isFollowing, isOwnProfile }: BrandHeaderProps) {
     return (
         <div className="relative mb-8">
             {/* Cover Photo */}
@@ -64,7 +65,7 @@ export default function BrandHeader({ brand, onFollow, isFollowing }: BrandHeade
                         </p>
 
                         <div className="flex flex-col gap-2 mt-4">
-                            <div className="flex flex-wrap gap-4 text-sm font-medium text-gray-400">
+                            <div className="flex flex-wrap gap-4 text-sm font-medium text-gray-300">
                                 <div className="flex items-center gap-1">
                                     <Users size={16} />
                                     <span className="text-white">{brand.stats.followers.toLocaleString()}</span> Followers
@@ -78,6 +79,7 @@ export default function BrandHeader({ brand, onFollow, isFollowing }: BrandHeade
                     </div>
 
                     {/* Actions */}
+                    {!isOwnProfile && (
                     <div className="flex gap-3 mb-4 w-full md:w-auto">
                         <button
                             onClick={onFollow}
@@ -89,6 +91,7 @@ export default function BrandHeader({ brand, onFollow, isFollowing }: BrandHeade
                             {isFollowing ? 'Following' : 'Follow'}
                         </button>
                     </div>
+                    )}
                 </div>
             </div>
         </div>

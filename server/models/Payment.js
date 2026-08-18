@@ -71,6 +71,26 @@ const paymentSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    subtotal: {
+        type: Number,
+        default: 0
+    },
+    gstAmount: {
+        type: Number,
+        default: 0
+    },
+    totalAmount: {
+        type: Number,
+        default: 0
+    },
+    discountCode: {
+        type: String,
+        default: null
+    },
+    discountAmount: {
+        type: Number,
+        default: 0
+    },
     metadata: {
         type: mongoose.Schema.Types.Mixed,
         default: {}
@@ -79,10 +99,13 @@ const paymentSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Calculate net amount before saving
+// Calculate net amount before saving (only when billing breakdown not explicitly set)
 paymentSchema.pre('save', function () {
     if (this.amount && this.platformFeePercentage) {
-        this.platformFee = Math.round(this.amount * (this.platformFeePercentage / 100));
+        // Only auto-calculate if platformFee wasn't explicitly set during creation
+        if (!this.platformFee) {
+            this.platformFee = Math.round(this.amount * (this.platformFeePercentage / 100));
+        }
         this.netAmount = this.amount - this.platformFee;
     }
 });

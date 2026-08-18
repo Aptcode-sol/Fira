@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui';
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 
 interface TicketDisplayProps {
     ticket: any;
@@ -13,6 +13,7 @@ interface TicketDisplayProps {
 export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayProps) {
     const ticketRef = useRef<HTMLDivElement>(null);
     const [downloading, setDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState('');
 
     if (!ticket || !event) return null;
 
@@ -31,20 +32,78 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
         if (!ticketRef.current) return;
 
         setDownloading(true);
-        try {
-            const dataUrl = await toPng(ticketRef.current, {
-                quality: 0.95,
-                pixelRatio: 2,
-                cacheBust: true,
+        setDownloadError('');
+
+        const fileName = `ticket-${ticket.ticketId}.png`;
+
+        // ponytail: html2canvas with useCORS + scale=2 for iOS WebKit compatibility.
+        // Output width = max(element, 540) × 2 = 1080px min (Req 7.4).
+        // 10s timeout triggers fallback chain (Req 7.3).
+        const renderCanvas = () =>
+            Promise.race([
+                html2canvas(ticketRef.current!, {
+                    useCORS: true,
+                    allowTaint: false,
+                    scale: 2,
+                    width: Math.max(ticketRef.current!.offsetWidth, 1080 / 2),
+                    windowWidth: 1080,
+                    backgroundColor: '#0f0f0f',
+                }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('timeout')), 10000)
+                ),
+            ]);
+
+        const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
+            new Promise((resolve, reject) => {
+                canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('blob-failed'))), 'image/png');
             });
 
+        try {
+            const canvas = await renderCanvas();
+            const blob = await canvasToBlob(canvas);
+
+            // Primary: anchor tag with download attribute + blob URL
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `ticket-${ticket.ticketId}.png`;
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
             link.click();
-        } catch (err) {
-            console.error('Download error:', err);
-            alert('Failed to save image.');
+            document.body.removeChild(link);
+
+            // ponytail: on iOS Safari the anchor download silently fails (opens in tab instead).
+            // Wait briefly then attempt Web Share as a more reliable iOS path.
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+            if (isIOS) {
+                // Give the anchor method a moment; then proactively offer share sheet
+                await new Promise((r) => setTimeout(r, 300));
+                const file = new File([blob], fileName, { type: 'image/png' });
+                if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                    await navigator.share({ files: [file] });
+                }
+            }
+
+            URL.revokeObjectURL(url);
+        } catch (primaryErr) {
+            // Fallback: Web Share API (Req 7.3)
+            try {
+                const canvas = await renderCanvas();
+                const blob = await canvasToBlob(canvas);
+                const file = new File([blob], fileName, { type: 'image/png' });
+
+                if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                    await navigator.share({ files: [file] });
+                } else {
+                    throw new Error('share-unavailable');
+                }
+            } catch (fallbackErr) {
+                // Both primary and fallback failed — show inline error (Req 7.3)
+                console.error('Ticket download failed:', primaryErr, fallbackErr);
+                setDownloadError('Unable to save ticket image. Please take a screenshot instead.');
+            }
         } finally {
             setDownloading(false);
         }
@@ -123,10 +182,22 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
                 </div>
             </div>
 
+            {downloadError && (
+                <p className="mt-3 text-xs text-red-400 text-center max-w-[260px]">{downloadError}</p>
+            )}
+
             <div className="mt-4 flex gap-2 w-full max-w-[260px]">
                 <Button variant="secondary" className="flex-1 text-xs h-9" onClick={onClose}>Close</Button>
                 <Button className="flex-1 text-xs h-9" onClick={handleDownload} disabled={downloading}>
-                    {downloading ? 'Saving...' : 'Save Image'}
+                    {downloading ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                            <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                            </svg>
+                            Saving…
+                        </span>
+                    ) : 'Save Image'}
                 </Button>
             </div>
         </div>

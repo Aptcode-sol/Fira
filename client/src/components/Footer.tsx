@@ -97,6 +97,7 @@ export default function Footer() {
             initial="hidden"
             animate={isInView ? "visible" : "hidden"}
             variants={containerVariants}
+            role="contentinfo"
         >
             <div className="max-w-6xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
@@ -114,7 +115,7 @@ export default function Footer() {
                                 transition={{ type: "spring", stiffness: 400 }}
                             />
                         </Link>
-                        <p className="text-gray-400 text-sm mb-6 leading-relaxed max-w-sm">
+                        <p className="text-gray-300 text-sm mb-6 leading-relaxed max-w-sm">
                             Your ultimate platform for discovering venues and creating unforgettable parties.
                             Connect, celebrate, and make memories with Fira.
                         </p>
@@ -189,8 +190,8 @@ export default function Footer() {
                         {FEATURED_CITIES.map(city => (
                             <div key={city.slug} className="flex flex-col gap-2">
                                 {[
-                                    { href: `/events/in/${city.slug}`, label: `Events in ${city.name}`, tone: 'text-gray-400' },
-                                    { href: `/venues/in/${city.slug}`, label: `Venues in ${city.name}`, tone: 'text-gray-500' },
+                                    { href: `/events/in/${city.slug}`, label: `Events in ${city.name}`, tone: 'text-gray-300' },
+                                    { href: `/venues/in/${city.slug}`, label: `Venues in ${city.name}`, tone: 'text-gray-300' },
                                 ].map(item => (
                                     <Link
                                         key={item.href}
@@ -222,7 +223,7 @@ export default function Footer() {
                 >
                     <div className="text-center md:text-left">
                         <motion.p
-                            className="text-gray-500 text-sm mb-1"
+                            className="text-gray-300 text-sm mb-1"
                             initial={{ opacity: 0 }}
                             animate={isInView ? { opacity: 1 } : {}}
                             transition={{ delay: 0.6 }}
@@ -232,7 +233,7 @@ export default function Footer() {
                     </div>
 
                     <motion.p
-                        className="text-gray-600 text-sm flex items-center gap-1.5"
+                        className="text-gray-300 text-sm flex items-center gap-1.5"
                         initial={{ opacity: 0 }}
                         animate={isInView ? { opacity: 1 } : {}}
                         transition={{ delay: 0.7 }}

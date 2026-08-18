@@ -139,7 +139,7 @@ export default async function EventsInCityPage({
                 <div className="max-w-7xl mx-auto">
                     {/* Visible breadcrumb trail - matches the markup above and
                         gives crawlers an internal link back up the hierarchy. */}
-                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-500">
+                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-300">
                         <ol className="flex flex-wrap items-center gap-2">
                             <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
                             <li aria-hidden="true">/</li>
@@ -153,7 +153,7 @@ export default async function EventsInCityPage({
                         <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">
                             Events in <span className="text-violet-400">{city.name}</span>
                         </h1>
-                        <p className="text-gray-400 text-lg max-w-3xl leading-relaxed">
+                        <p className="text-gray-300 text-lg max-w-3xl leading-relaxed">
                             Everything happening in {city.name}, {city.state} - parties, live concerts,
                             DJ nights, festivals and community meetups. Browse what is on, compare
                             ticket prices, and book in a couple of taps. New events are added by
@@ -183,7 +183,7 @@ export default async function EventsInCityPage({
                             <h2 className="text-xl font-bold text-white mb-2">
                                 No events listed in {city.name} yet
                             </h2>
-                            <p className="text-gray-400 mb-6 max-w-xl mx-auto">
+                            <p className="text-gray-300 mb-6 max-w-xl mx-auto">
                                 We are just getting started here. Be the first to host something in {city.name},
                                 or browse events in a nearby city.
                             </p>
@@ -210,7 +210,7 @@ export default async function EventsInCityPage({
                         <h2 className="text-2xl font-bold text-white mb-3">
                             Hosting something in {city.name}?
                         </h2>
-                        <p className="text-gray-400 mb-6 max-w-2xl">
+                        <p className="text-gray-300 mb-6 max-w-2xl">
                             Browse verified banquet halls, rooftops, clubs and farmhouses in {city.name}.
                             Compare capacity and pricing, check availability, and send a booking request
                             to the owner directly.
@@ -233,7 +233,7 @@ export default async function EventsInCityPage({
                             {faqs.map(faq => (
                                 <div key={faq.q} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
                                     <h3 className="text-white font-semibold mb-2">{faq.q}</h3>
-                                    <p className="text-gray-400 leading-relaxed">{faq.a}</p>
+                                    <p className="text-gray-300 leading-relaxed">{faq.a}</p>
                                 </div>
                             ))}
                         </div>

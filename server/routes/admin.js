@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const adminService = require('../services/adminService');
 const adminAuth = require('../middleware/adminAuth');
+const roleGuard = require('../middleware/roleGuard');
+const User = require('../models/User');
 
 // Gate EVERY admin route behind a valid token + admin role.
 // Applied with router.use rather than per-route so a route added later cannot
@@ -149,6 +151,54 @@ router.put('/brands/:id/status', async (req, res) => {
         res.json(brand);
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+// ================== FEATURED TOGGLE ==================
+router.patch('/events/:id/featured', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const { isFeatured } = req.body;
+        if (typeof isFeatured !== 'boolean') {
+            return res.status(400).json({ error: 'isFeatured must be a boolean' });
+        }
+        const event = await adminService.toggleFeatured(req.params.id, isFeatured, req.user._id);
+        res.json(event);
+    } catch (error) {
+        if (error.message.includes('approved or upcoming')) {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ================== AUDIT TRAIL ==================
+router.get('/audit-trail', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.getAuditTrail(req.query);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ================== ADMIN ROLE ASSIGNMENT ==================
+router.patch('/users/:id/role', roleGuard(['super_admin']), async (req, res) => {
+    try {
+        const { adminRole } = req.body;
+        if (!['super_admin', 'admin', 'moderator'].includes(adminRole)) {
+            return res.status(400).json({ error: 'Invalid role. Must be one of: super_admin, admin, moderator' });
+        }
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: { adminRole } },
+            { new: true }
+        ).select('-password');
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

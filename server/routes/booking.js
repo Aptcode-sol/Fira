@@ -1,11 +1,18 @@
+// @ts-check
 const express = require('express');
 const router = express.Router();
 const bookingService = require('../services/bookingService');
 
 const auth = require('../middleware/auth');
+const { noStoreCache } = require('../middleware/httpCache');
+
+/**
+ * @typedef {import('../middleware/types').AuthenticatedRequest} AuthenticatedRequest
+ * @typedef {import('express').Response} Response
+ */
 
 // GET /api/bookings - Get all bookings
-router.get('/', async (req, res) => {
+router.get('/', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const bookings = await bookingService.getAllBookings(req.query);
         res.json(bookings);
@@ -15,7 +22,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/bookings/user/:userId - Get user's bookings
-router.get('/user/:userId', auth, async (req, res) => {
+router.get('/user/:userId', auth, noStoreCache, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         if (req.params.userId !== req.user._id.toString()) {
             return res.status(403).json({ error: 'Unauthorized' });
@@ -28,7 +35,7 @@ router.get('/user/:userId', auth, async (req, res) => {
 });
 
 // GET /api/bookings/venue/:venueId - Get venue's bookings
-router.get('/venue/:venueId', async (req, res) => {
+router.get('/venue/:venueId', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const bookings = await bookingService.getVenueBookings(req.params.venueId);
         res.json(bookings);
@@ -38,7 +45,7 @@ router.get('/venue/:venueId', async (req, res) => {
 });
 
 // GET /api/bookings/:id - Get booking by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const booking = await bookingService.getBookingById(req.params.id);
         res.json(booking);
@@ -48,7 +55,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/bookings - Create new booking
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const bookingData = { ...req.body, user: req.user._id };
         const booking = await bookingService.createBooking(bookingData);
@@ -59,7 +66,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT /api/bookings/:id - Update booking
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const booking = await bookingService.updateBooking(req.params.id, req.body);
         res.json(booking);
@@ -69,7 +76,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // PUT /api/bookings/:id/status - Accept/Reject booking (venue owner)
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const booking = await bookingService.updateBookingStatus(req.params.id, req.body);
         res.json(booking);
@@ -78,19 +85,23 @@ router.put('/:id/status', async (req, res) => {
     }
 });
 
-// POST /api/bookings/:id/cancel - Cancel booking
-router.post('/:id/cancel', auth, async (req, res) => {
+// POST /api/bookings/:id/cancel - Cancel booking with venue cancellation policy enforcement
+router.post('/:id/cancel', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
-        // Pass auth user for verification in service if needed, or check here
-        const result = await bookingService.cancelBooking(req.params.id, req.user._id.toString(), req.body.reason);
+        const venueService = require('../services/venueService');
+        const result = await venueService.processCancellation(req.params.id, req.user._id);
         res.json(result);
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        const message = error.message || 'Cancellation failed';
+        if (message === 'Cancellation window has passed') {
+            return res.status(400).json({ error: message });
+        }
+        res.status(400).json({ error: message });
     }
 });
 
 // POST /api/bookings/:id/initiate-payment - Initiate Razorpay payment
-router.post('/:id/initiate-payment', auth, async (req, res) => {
+router.post('/:id/initiate-payment', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         // Enforce using authenticated user
         const result = await bookingService.initiateBookingPayment(req.params.id, req.user._id);
@@ -101,7 +112,7 @@ router.post('/:id/initiate-payment', auth, async (req, res) => {
 });
 
 // POST /api/bookings/:id/verify-payment - Verify payment after Razorpay callback
-router.post('/:id/verify-payment', async (req, res) => {
+router.post('/:id/verify-payment', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const { gatewayOrderId, gatewayPaymentId, gatewaySignature } = req.body;
         const result = await bookingService.completeBookingPayment(req.params.id, {

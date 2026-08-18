@@ -34,7 +34,7 @@ export default function FilterDropdown({ label, value, options, onChange }: Filt
 
     return (
         <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-400">{label}</label>
+            <label className="text-sm text-gray-300">{label}</label>
             <div className="relative" ref={dropdownRef}>
                 {/* Trigger Button */}
                 <button
@@ -44,7 +44,7 @@ export default function FilterDropdown({ label, value, options, onChange }: Filt
                 >
                     {selectedOption?.label || 'Select...'}
                     <svg
-                        className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

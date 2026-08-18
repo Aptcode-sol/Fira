@@ -313,6 +313,72 @@ const ticketService = {
     async checkRefundEligibility(ticketId) {
         const refundService = require('./refundService');
         return await refundService.checkTicketRefundEligibility(ticketId);
+    },
+
+    // Tier-based ticket purchase with atomic soldCount increment
+    async purchaseTicketByTier(eventId, tierName, quantity, userId) {
+        const event = await Event.findById(eventId);
+        if (!event) {
+            throw new Error('Event not found');
+        }
+
+        // Backward compatibility: if no ticketTiers but has ticketPrice, treat as one "General" tier
+        if (!event.ticketTiers || event.ticketTiers.length === 0) {
+            if (event.ticketPrice != null) {
+                // Synthesize a General tier from legacy fields
+                const syntheticTier = {
+                    name: 'General',
+                    price: event.ticketPrice,
+                    maxQuantity: event.maxAttendees,
+                    soldCount: event.currentAttendees || 0
+                };
+
+                if (tierName !== 'General') {
+                    throw new Error('Tier not found');
+                }
+
+                // Use atomic update on currentAttendees for legacy events
+                const updated = await Event.findOneAndUpdate(
+                    {
+                        _id: eventId,
+                        currentAttendees: { $lte: event.maxAttendees - quantity }
+                    },
+                    { $inc: { currentAttendees: quantity } },
+                    { new: true }
+                );
+
+                if (!updated) {
+                    throw new Error(`Tier '${tierName}' is sold out`);
+                }
+
+                return { event: updated, tier: syntheticTier, quantity };
+            }
+            throw new Error('Tier not found');
+        }
+
+        // Find the tier by name
+        const tier = event.ticketTiers.find(t => t.name === tierName);
+        if (!tier) {
+            throw new Error('Tier not found');
+        }
+
+        // Atomic update: only succeeds if soldCount + quantity <= maxQuantity
+        const updated = await Event.findOneAndUpdate(
+            {
+                _id: eventId,
+                'ticketTiers.name': tierName,
+                'ticketTiers.soldCount': { $lte: tier.maxQuantity - quantity }
+            },
+            { $inc: { 'ticketTiers.$.soldCount': quantity } },
+            { new: true }
+        );
+
+        if (!updated) {
+            throw new Error(`Tier '${tierName}' is sold out`);
+        }
+
+        const updatedTier = updated.ticketTiers.find(t => t.name === tierName);
+        return { event: updated, tier: updatedTier, quantity };
     }
 };
 

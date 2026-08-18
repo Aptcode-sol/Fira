@@ -106,9 +106,9 @@ export default function VenuePortalFooter() {
                                 <span className="text-black font-bold text-xs">F</span>
                             </motion.div>
                             <span className="text-lg font-semibold text-white group-hover:text-gray-300 transition-colors">FIRA</span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-400">Venues</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-300">Venues</span>
                         </Link>
-                        <p className="text-gray-600 text-xs mb-4 leading-relaxed">
+                        <p className="text-gray-300 text-xs mb-4 leading-relaxed">
                             The ultimate platform for venue owners to list spaces and connect with event organizers.
                         </p>
                         <div className="flex gap-4">
@@ -116,7 +116,7 @@ export default function VenuePortalFooter() {
                                 <motion.a
                                     key={social.name}
                                     href={social.href}
-                                    className="text-gray-600 hover:text-white transition-colors"
+                                    className="text-gray-300 hover:text-white transition-colors"
                                     whileHover={{ scale: 1.2, y: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                     initial={{ opacity: 0, y: 10 }}
@@ -142,7 +142,7 @@ export default function VenuePortalFooter() {
                                 >
                                     <Link
                                         href={link.href}
-                                        className="text-gray-600 hover:text-gray-300 text-xs transition-colors inline-flex items-center gap-1"
+                                        className="text-gray-300 hover:text-gray-300 text-xs transition-colors inline-flex items-center gap-1"
                                     >
                                         {link.label}
                                     </Link>
@@ -164,7 +164,7 @@ export default function VenuePortalFooter() {
                                 >
                                     <Link
                                         href={link.href}
-                                        className="text-gray-600 hover:text-gray-300 text-xs transition-colors"
+                                        className="text-gray-300 hover:text-gray-300 text-xs transition-colors"
                                     >
                                         {link.label}
                                     </Link>
@@ -186,7 +186,7 @@ export default function VenuePortalFooter() {
                                 >
                                     <Link
                                         href={link.href}
-                                        className="text-gray-600 hover:text-gray-300 text-xs transition-colors"
+                                        className="text-gray-300 hover:text-gray-300 text-xs transition-colors"
                                     >
                                         {link.label}
                                     </Link>
@@ -202,7 +202,7 @@ export default function VenuePortalFooter() {
                     variants={itemVariants}
                 >
                     <motion.p
-                        className="text-gray-600 text-xs"
+                        className="text-gray-300 text-xs"
                         initial={{ opacity: 0 }}
                         animate={isInView ? { opacity: 1 } : {}}
                         transition={{ delay: 0.6 }}

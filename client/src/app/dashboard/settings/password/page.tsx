@@ -71,14 +71,14 @@ export default function ChangePasswordPage() {
         <DashboardLayout>
             <div className="p-6 lg:p-8 max-w-xl">
                 <SlideUp>
-                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-500">
+                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-300">
                         <Link href="/dashboard/settings" className="hover:text-white transition-colors">
                             ← Settings
                         </Link>
                     </nav>
 
                     <h1 className="text-3xl font-bold text-white mb-2">Change Password</h1>
-                    <p className="text-gray-400 mb-8">
+                    <p className="text-gray-300 mb-8">
                         You&apos;ll stay signed in on this device. We&apos;ll email you a confirmation.
                     </p>
                 </SlideUp>
@@ -175,7 +175,7 @@ export default function ChangePasswordPage() {
                         </Link>
                     </div>
 
-                    <p className="text-xs text-gray-500 pt-2 border-t border-white/[0.05]">
+                    <p className="text-xs text-gray-300 pt-2 border-t border-white/[0.05]">
                         Forgotten your current password?{' '}
                         <Link href="/forgot-password" className="text-violet-400 hover:text-violet-300">
                             Reset it by email

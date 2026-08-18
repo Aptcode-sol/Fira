@@ -92,7 +92,7 @@ export default function Brands() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-white mb-2">Creators</h1>
-                        <div className="flex items-center gap-2 text-gray-400">
+                        <div className="flex items-center gap-2 text-gray-300">
                             <span>Manage and approve creator profiles</span>
                             <span className="w-1 h-1 rounded-full bg-gray-600"></span>
                             <span>{total} total</span>
@@ -132,7 +132,7 @@ export default function Brands() {
                                 onChange={(e) => setSearchInput(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
                             />
-                            <svg className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
@@ -148,25 +148,25 @@ export default function Brands() {
                 {/* Table */}
                 <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
                     {loading ? (
-                        <div className="p-12 text-center text-gray-500">Loading creators...</div>
+                        <div className="p-12 text-center text-gray-300">Loading creators...</div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                     <tr>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Creator</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Owner</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Followers</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Events</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Creator</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Owner</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Followers</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Events</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {brands.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-300">
                                                 No creators found matching your criteria
                                             </td>
                                         </tr>
@@ -191,7 +191,7 @@ export default function Brands() {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-white text-sm">{brand.owner?.name || 'N/A'}</span>
-                                                    <span className="text-gray-500 text-xs">{brand.owner?.email}</span>
+                                                    <span className="text-gray-300 text-xs">{brand.owner?.email}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-300 text-sm capitalize">{brand.type || 'Individual'}</td>

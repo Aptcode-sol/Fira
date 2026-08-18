@@ -13,6 +13,10 @@ const PrivateEventAccess = require('./PrivateEventAccess');
 const Conversation = require('./Conversation');
 const Message = require('./Message');
 const BrandProfile = require('./BrandProfile');
+const ScanningCode = require('./ScanningCode');
+const Inquiry = require('./Inquiry');
+const DiscountCode = require('./DiscountCode');
+const VenueReview = require('./VenueReview');
 
 module.exports = {
     User,
@@ -28,5 +32,9 @@ module.exports = {
     PrivateEventAccess,
     Conversation,
     Message,
-    BrandProfile
+    BrandProfile,
+    ScanningCode,
+    Inquiry,
+    DiscountCode,
+    VenueReview
 };

@@ -65,7 +65,7 @@ export default function UpcomingEvents() {
                                 <h2 className="text-3xl md:text-4xl font-semibold mb-3 text-white">
                                     Upcoming <span className="accent-text">Events</span>
                                 </h2>
-                                <p className="text-gray-500 text-sm">
+                                <p className="text-gray-300 text-sm">
                                     Don't miss out on the hottest events near you.
                                 </p>
                             </div>
@@ -75,7 +75,7 @@ export default function UpcomingEvents() {
                                         key={filter}
                                         className={`px-4 py-1.5 rounded-full text-xs transition-colors ${idx === 0
                                             ? 'bg-white text-black'
-                                            : 'text-gray-500 hover:text-white hover:bg-white/5'
+                                            : 'text-gray-300 hover:text-white hover:bg-white/5'
                                             }`}
                                     >
                                         {filter}
@@ -105,7 +105,7 @@ export default function UpcomingEvents() {
                                             {/* Date & Time */}
                                             <div className="flex items-center gap-3 text-xs mb-2">
                                                 <span className="text-violet-400">{event.date}</span>
-                                                <span className="text-gray-600">{event.time}</span>
+                                                <span className="text-gray-300">{event.time}</span>
                                             </div>
 
                                             {/* Title */}
@@ -114,7 +114,7 @@ export default function UpcomingEvents() {
                                             </h3>
 
                                             {/* Venue */}
-                                            <p className="text-gray-500 text-xs mb-2 flex items-center gap-1">
+                                            <p className="text-gray-300 text-xs mb-2 flex items-center gap-1">
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                 </svg>
@@ -123,7 +123,7 @@ export default function UpcomingEvents() {
 
                                             {/* Organizer */}
                                             <div className="flex items-center gap-2">
-                                                <span className="text-gray-500 text-xs">{event.organizer}</span>
+                                                <span className="text-gray-300 text-xs">{event.organizer}</span>
                                                 {event.verified && (
                                                     <svg className="w-3 h-3 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -134,7 +134,7 @@ export default function UpcomingEvents() {
 
                                         {/* Footer */}
                                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
-                                            <span className="text-gray-600 text-xs">{event.attendees}+ going</span>
+                                            <span className="text-gray-300 text-xs">{event.attendees}+ going</span>
                                             <span className={`font-medium text-sm ${event.price === 'Free' ? 'text-emerald-400' : 'text-white'}`}>
                                                 {event.price}
                                             </span>

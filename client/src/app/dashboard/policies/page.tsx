@@ -80,7 +80,7 @@ export default function PoliciesPage() {
                 <SlideUp>
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-white mb-2">Policies & Guidelines</h1>
-                        <p className="text-gray-400">Review our policies, terms, and community guidelines.</p>
+                        <p className="text-gray-300">Review our policies, terms, and community guidelines.</p>
                     </div>
                 </SlideUp>
 
@@ -96,7 +96,7 @@ export default function PoliciesPage() {
                                     <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-violet-400 transition-colors">
                                         {policy.title}
                                     </h3>
-                                    <p className="text-sm text-gray-400">
+                                    <p className="text-sm text-gray-300">
                                         {policy.description}
                                     </p>
                                     <div className="mt-4 flex items-center text-sm text-violet-400 group-hover:gap-2 transition-all">
@@ -117,7 +117,7 @@ export default function PoliciesPage() {
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
                                 <h3 className="text-lg font-semibold text-white mb-1">Have questions?</h3>
-                                <p className="text-gray-400 text-sm">
+                                <p className="text-gray-300 text-sm">
                                     Our support team is here to help you with any policy-related questions.
                                 </p>
                             </div>

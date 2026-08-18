@@ -132,7 +132,7 @@ export default async function VenuesInCityPage({
 
             <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
                 <div className="max-w-7xl mx-auto">
-                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-500">
+                    <nav aria-label="Breadcrumb" className="mb-6 text-sm text-gray-300">
                         <ol className="flex flex-wrap items-center gap-2">
                             <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
                             <li aria-hidden="true">/</li>
@@ -146,7 +146,7 @@ export default async function VenuesInCityPage({
                         <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">
                             Event Venues in <span className="text-violet-400">{city.name}</span>
                         </h1>
-                        <p className="text-gray-400 text-lg max-w-3xl leading-relaxed">
+                        <p className="text-gray-300 text-lg max-w-3xl leading-relaxed">
                             Book verified event venues across {city.name}, {city.state} - banquet halls,
                             rooftops, clubs, resorts, farmhouses and open-air spaces. Compare capacity,
                             amenities and starting price, check availability for your date, and send a
@@ -176,7 +176,7 @@ export default async function VenuesInCityPage({
                             <h2 className="text-xl font-bold text-white mb-2">
                                 No venues listed in {city.name} yet
                             </h2>
-                            <p className="text-gray-400 mb-6 max-w-xl mx-auto">
+                            <p className="text-gray-300 mb-6 max-w-xl mx-auto">
                                 We are onboarding venues in {city.name} right now. If you own one,
                                 listing it is free and takes a few minutes.
                             </p>
@@ -201,7 +201,7 @@ export default async function VenuesInCityPage({
                         <h2 className="text-2xl font-bold text-white mb-3">
                             Looking for something to attend in {city.name}?
                         </h2>
-                        <p className="text-gray-400 mb-6 max-w-2xl">
+                        <p className="text-gray-300 mb-6 max-w-2xl">
                             See the parties, concerts, festivals and DJ nights happening in {city.name}
                             over the coming weeks.
                         </p>
@@ -221,7 +221,7 @@ export default async function VenuesInCityPage({
                             {faqs.map(faq => (
                                 <div key={faq.q} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
                                     <h3 className="text-white font-semibold mb-2">{faq.q}</h3>
-                                    <p className="text-gray-400 leading-relaxed">{faq.a}</p>
+                                    <p className="text-gray-300 leading-relaxed">{faq.a}</p>
                                 </div>
                             ))}
                         </div>

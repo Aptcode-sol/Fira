@@ -66,7 +66,7 @@ export default function VenuePortalLandingNavbar() {
                                 alt="FIRA"
                                 className="w-7 h-7 object-contain"
                             />
-                            <span className="text-[9px] text-gray-400 font-medium tracking-wider uppercase leading-none -mt-0.5">
+                            <span className="text-[9px] text-gray-300 font-medium tracking-wider uppercase leading-none -mt-0.5">
                                 Venues
                             </span>
                         </Link>
@@ -126,7 +126,7 @@ export default function VenuePortalLandingNavbar() {
                             alt="FIRA"
                             className="w-6 h-6 object-contain"
                         />
-                        <span className="text-[9px] text-gray-400 font-medium tracking-wider uppercase leading-none -mt-0.5">
+                        <span className="text-[9px] text-gray-300 font-medium tracking-wider uppercase leading-none -mt-0.5">
                             Venues
                         </span>
                     </Link>

@@ -172,7 +172,7 @@ function SignUpContent() {
                             {/* Header */}
                             <div className="text-center mb-8">
                                 <h1 className="text-3xl font-bold text-white mb-2">Create account</h1>
-                                <p className="text-gray-400">Join FIRA and start organizing amazing events</p>
+                                <p className="text-gray-300">Join FIRA and start organizing amazing events</p>
                             </div>
 
                             {/* Form Card */}
@@ -316,7 +316,7 @@ function SignUpContent() {
                                                 </svg>
                                             }
                                         />
-                                        <p className="mt-1.5 text-xs text-gray-500">We'll show you events and venues near you</p>
+                                        <p className="mt-1.5 text-xs text-gray-300">We'll show you events and venues near you</p>
                                     </div>
 
 
@@ -331,7 +331,7 @@ function SignUpContent() {
                                     </Button>
                                 </form>
 
-                                <p className="mt-6 text-center text-sm text-gray-500">
+                                <p className="mt-6 text-center text-sm text-gray-300">
                                     By creating an account, you agree to our{' '}
                                     <Link href="/terms" className="text-violet-400 hover:text-violet-300">
                                         Terms
@@ -342,7 +342,7 @@ function SignUpContent() {
                                     </Link>
                                 </p>
 
-                                <div className="mt-6 text-center text-sm text-gray-400">
+                                <div className="mt-6 text-center text-sm text-gray-300">
                                     Already have an account?{' '}
                                     <Link href="/signin" className="text-violet-400 hover:text-violet-300 transition-colors font-medium">
                                         Sign In
@@ -355,7 +355,7 @@ function SignUpContent() {
                             {/* OTP Verification Step */}
                             <div className="text-center mb-8">
                                 <h1 className="text-3xl font-bold text-white mb-2">Verify your email</h1>
-                                <p className="text-gray-400">
+                                <p className="text-gray-300">
                                     We've sent a 4-digit code to<br />
                                     <span className="text-white font-medium">{formData.email}</span>
                                 </p>
@@ -385,7 +385,7 @@ function SignUpContent() {
                                     {/* Expiry Timer */}
                                     <div className="text-center">
                                         {otpExpiry > 0 ? (
-                                            <p className="text-sm text-gray-400">
+                                            <p className="text-sm text-gray-300">
                                                 Code expires in{' '}
                                                 <span className="text-violet-400 font-medium">
                                                     {formatTime(otpExpiry)}
@@ -415,7 +415,7 @@ function SignUpContent() {
                                             type="button"
                                             onClick={handleResendOTP}
                                             disabled={resendCooldown > 0 || isLoading}
-                                            className="text-sm text-violet-400 hover:text-violet-300 transition-colors disabled:text-gray-500 disabled:cursor-not-allowed"
+                                            className="text-sm text-violet-400 hover:text-violet-300 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
                                         >
                                             {resendCooldown > 0
                                                 ? `Resend code in ${resendCooldown}s`

@@ -5,6 +5,25 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
 const paymentService = {
+    // Pure billing calculation with GST breakdown
+    calculateBilling(ticketPrice, quantity, platformFeePercentage, discountAmount = 0) {
+        const subtotal = ticketPrice * quantity;
+        const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+        const platformFee = Math.round(discountedSubtotal * platformFeePercentage / 100);
+        const gstAmount = Math.round(platformFee * 0.18);
+        const totalAmount = discountedSubtotal + platformFee + gstAmount;
+
+        return {
+            subtotal,
+            discountAmount,
+            discountedSubtotal,
+            platformFee,
+            platformFeePercentage,
+            gstAmount,
+            totalAmount
+        };
+    },
+
     // Get all payments
     async getAllPayments(query = {}) {
         const { page = 1, limit = 10, status, type } = query;
@@ -45,7 +64,7 @@ const paymentService = {
     },
 
     // Initiate payment
-    async initiatePayment({ userId, type, referenceId, referenceModel, amount }) {
+    async initiatePayment({ userId, type, referenceId, referenceModel, amount, subtotal, platformFee, platformFeePercentage, gstAmount, totalAmount, discountCode, discountAmount }) {
         if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
             throw new Error('Razorpay credentials not configured');
         }
@@ -55,8 +74,11 @@ const paymentService = {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
 
+        // Use totalAmount if provided (from billing calculation), otherwise fall back to amount
+        const chargeAmount = totalAmount || amount;
+
         const options = {
-            amount: Math.round(amount * 100), // amount in the smallest currency unit (paise)
+            amount: Math.round(chargeAmount * 100), // amount in the smallest currency unit (paise)
             currency: "INR",
             receipt: `rcpt_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             notes: {
@@ -73,7 +95,14 @@ const paymentService = {
             type,
             referenceId,
             referenceModel,
-            amount: amount,
+            amount: chargeAmount,
+            subtotal: subtotal || 0,
+            platformFee: platformFee || 0,
+            platformFeePercentage: platformFeePercentage || 5,
+            gstAmount: gstAmount || 0,
+            totalAmount: totalAmount || chargeAmount,
+            discountCode: discountCode || null,
+            discountAmount: discountAmount || 0,
             status: 'pending',
             gatewayOrderId: order.id,
             gatewayResponse: order

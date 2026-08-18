@@ -77,7 +77,7 @@ export default function RefundPolicy() {
                             </ul>
                         </section>
 
-                        <div className="pt-8 border-t border-white/10 text-sm text-gray-500">
+                        <div className="pt-8 border-t border-white/10 text-sm text-gray-300">
                             Last updated: February 2026
                         </div>
                     </div>

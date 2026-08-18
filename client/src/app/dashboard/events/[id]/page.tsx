@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import DiscountCodesSection from '@/components/dashboard/DiscountCodesSection';
 import { Button, Modal } from '@/components/ui';
 import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
 import { Event, User, Venue } from '@/lib/types';
@@ -41,6 +42,12 @@ export default function DashboardEventDetailPage() {
     const [cancelling, setCancelling] = useState(false);
 
     // Edit mode state
+    interface EditTicketTier {
+        name: string;
+        price: number;
+        description: string;
+        maxQuantity: number;
+    }
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editForm, setEditForm] = useState({
@@ -56,7 +63,9 @@ export default function DashboardEventDetailPage() {
         ticketPrice: 0,
         maxAttendees: 100,
         termsAndConditions: '',
+        ticketTiers: [{ name: '', price: 0, description: '', maxQuantity: 1 }] as EditTicketTier[],
     });
+    const [editTierErrors, setEditTierErrors] = useState<Record<number, string>>({});
 
     // Posts state
     const [posts, setPosts] = useState<any[]>([]);
@@ -66,6 +75,12 @@ export default function DashboardEventDetailPage() {
     const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
     const [isCreatingPost, setIsCreatingPost] = useState(false);
     const [editingPost, setEditingPost] = useState<any>(null);
+
+    // Scanning Links state
+    const [scanningCodes, setScanningCodes] = useState<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>([]);
+    const [newLabel, setNewLabel] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [copiedScanLink, setCopiedScanLink] = useState<string | null>(null);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -77,6 +92,7 @@ export default function DashboardEventDetailPage() {
         if (params.id && isAuthenticated) {
             fetchEvent(params.id as string);
             fetchTickets(params.id as string);
+            fetchScanningCodes(params.id as string);
         }
     }, [params.id, isAuthenticated]);
 
@@ -100,6 +116,52 @@ export default function DashboardEventDetailPage() {
         } catch (error) {
             console.error('Failed to fetch tickets:', error);
         }
+    };
+
+    const fetchScanningCodes = async (eventId: string) => {
+        try {
+            const data = await eventsApi.getScanningCodes(eventId);
+            setScanningCodes(data);
+        } catch (error) {
+            // Silently fail — user may not be the organizer
+            console.error('Failed to fetch scanning codes:', error);
+        }
+    };
+
+    const handleGenerateScanningLink = async () => {
+        if (!event) return;
+        setIsGenerating(true);
+        try {
+            const labels = newLabel.trim() ? [newLabel.trim()] : [''];
+            const created = await eventsApi.createScanningCodes(event._id, labels);
+            setScanningCodes(prev => [...created, ...prev]);
+            setNewLabel('');
+            showToast('Scanning link generated!', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to generate link', 'error');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleDeactivateCode = async (codeId: string) => {
+        if (!event) return;
+        try {
+            await eventsApi.deactivateScanningCode(event._id, codeId);
+            setScanningCodes(prev => prev.map(c => c._id === codeId ? { ...c, isActive: false } : c));
+            showToast('Scanning code deactivated', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to deactivate code', 'error');
+        }
+    };
+
+    const copyScanLink = (code: string) => {
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const link = `${baseUrl}/scan/${code}`;
+        navigator.clipboard.writeText(link);
+        setCopiedScanLink(code);
+        setTimeout(() => setCopiedScanLink(null), 2000);
+        showToast('Scanning link copied!', 'success');
     };
 
     const copyToClipboard = (text: string, type: 'code' | 'link') => {
@@ -181,6 +243,9 @@ export default function DashboardEventDetailPage() {
             ticketPrice: e.ticketPrice || 0,
             maxAttendees: e.maxAttendees || 100,
             termsAndConditions: eventWithTerms.termsAndConditions || '',
+            ticketTiers: e.ticketTiers && e.ticketTiers.length > 0
+                ? e.ticketTiers.map(t => ({ name: t.name, price: t.price, description: t.description || '', maxQuantity: t.maxQuantity }))
+                : [{ name: '', price: 0, description: '', maxQuantity: 1 }],
         });
     };
 
@@ -193,13 +258,35 @@ export default function DashboardEventDetailPage() {
 
     const handleSave = async () => {
         if (!event) return;
+
+        // Validate ticket tiers for paid events
+        if (editForm.ticketType === 'paid') {
+            const tiers = editForm.ticketTiers;
+            for (let i = 0; i < tiers.length; i++) {
+                if (!tiers[i].name.trim()) {
+                    showToast(`Tier ${i + 1}: Please enter a name`, 'error');
+                    return;
+                }
+                if (tiers[i].maxQuantity < 1) {
+                    showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error');
+                    return;
+                }
+            }
+            const names = tiers.map(t => t.name.trim().toLowerCase());
+            const hasDuplicates = names.some((n, i) => n && names.indexOf(n) !== i);
+            if (hasDuplicates) {
+                showToast('Tier names must be unique', 'error');
+                return;
+            }
+        }
+
         setIsSaving(true);
         try {
             // Combine date and time into DateTime strings
             const startDateTime = new Date(`${editForm.startDate}T${editForm.startTime}:00`).toISOString();
             const endDateTime = new Date(`${editForm.endDate}T${editForm.endTime}:00`).toISOString();
 
-            await eventsApi.update(event._id, {
+            const updateData: any = {
                 name: editForm.name,
                 description: editForm.description,
                 category: editForm.category,
@@ -207,10 +294,21 @@ export default function DashboardEventDetailPage() {
                 endDateTime,
                 eventType: editForm.eventType,
                 ticketType: editForm.ticketType,
-                ticketPrice: editForm.ticketType === 'paid' ? editForm.ticketPrice : 0,
+                ticketPrice: editForm.ticketType === 'paid' ? (editForm.ticketTiers[0]?.price ?? 0) : 0,
                 maxAttendees: editForm.maxAttendees,
                 termsAndConditions: editForm.termsAndConditions || null,
-            });
+            };
+
+            if (editForm.ticketType === 'paid') {
+                updateData.ticketTiers = editForm.ticketTiers.map(t => ({
+                    name: t.name.trim(),
+                    price: t.price,
+                    description: t.description.trim(),
+                    maxQuantity: t.maxQuantity,
+                }));
+            }
+
+            await eventsApi.update(event._id, updateData);
             showToast('Event updated successfully!', 'success');
             setIsEditMode(false);
             fetchEvent(event._id);
@@ -346,7 +444,7 @@ export default function DashboardEventDetailPage() {
                 <div className="p-6 lg:p-8 flex items-center justify-center min-h-[60vh]">
                     <div className="text-center">
                         <h1 className="text-2xl font-bold text-white mb-2">Event not found</h1>
-                        <p className="text-gray-400 mb-6">The event you&apos;re looking for doesn&apos;t exist.</p>
+                        <p className="text-gray-300 mb-6">The event you&apos;re looking for doesn&apos;t exist.</p>
                         <Button onClick={() => router.push('/dashboard/events')}>Back to Events</Button>
                     </div>
                 </div>
@@ -375,9 +473,9 @@ export default function DashboardEventDetailPage() {
                             </Link>
                             <h1 className="text-2xl md:text-3xl font-bold text-white truncate">Manage Event</h1>
                         </div>
-                        <p className="text-gray-400 text-sm md:text-base">View bookings and manage your event</p>
+                        <p className="text-gray-300 text-sm md:text-base">View bookings and manage your event</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
                         {isEditMode ? (
                             <>
                                 <Button
@@ -394,25 +492,31 @@ export default function DashboardEventDetailPage() {
                         ) : (
                             <>
                                 <Link href={`/events/${event._id}`} target="_blank">
-                                    <Button variant="secondary">View Public Page</Button>
+                                    <Button variant="secondary" size="sm">
+                                        <span className="hidden sm:inline">View Public Page</span>
+                                        <span className="sm:hidden">View</span>
+                                    </Button>
                                 </Link>
                                 {event.status !== 'cancelled' && (
                                     <>
                                         <Button
                                             variant="secondary"
+                                            size="sm"
                                             onClick={handleEditClick}
                                         >
-                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
-                                            Edit
+                                            <span className="hidden sm:inline">Edit</span>
                                         </Button>
                                         <Button
                                             variant="secondary"
+                                            size="sm"
                                             className="!bg-red-500/20 !text-red-400 hover:!bg-red-500/30 !border-red-500/30"
                                             onClick={() => setShowCancelModal(true)}
                                         >
-                                            Cancel Event
+                                            <span className="hidden sm:inline">Cancel Event</span>
+                                            <span className="sm:hidden">Cancel</span>
                                         </Button>
                                     </>
                                 )}
@@ -470,7 +574,7 @@ export default function DashboardEventDetailPage() {
                         <div>
                             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{event.name}</h2>
                             {venue && typeof venue === 'object' && (
-                                <p className="text-gray-400 flex items-center gap-2">
+                                <p className="text-gray-300 flex items-center gap-2">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     </svg>
@@ -483,19 +587,19 @@ export default function DashboardEventDetailPage() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
                                 <div className="text-2xl font-bold text-white">{ticketsSold}</div>
-                                <div className="text-gray-400 text-sm">Tickets Sold</div>
+                                <div className="text-gray-300 text-sm">Tickets Sold</div>
                             </div>
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
                                 <div className="text-2xl font-bold text-white">{spotsLeft}</div>
-                                <div className="text-gray-400 text-sm">Spots Left</div>
+                                <div className="text-gray-300 text-sm">Spots Left</div>
                             </div>
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
                                 <div className="text-2xl font-bold text-green-400">{formatPrice(totalRevenue)}</div>
-                                <div className="text-gray-400 text-sm">Total Revenue</div>
+                                <div className="text-gray-300 text-sm">Total Revenue</div>
                             </div>
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
                                 <div className="text-2xl font-bold text-white">{event.maxAttendees}</div>
-                                <div className="text-gray-400 text-sm">Max Capacity</div>
+                                <div className="text-gray-300 text-sm">Max Capacity</div>
                             </div>
                         </div>
 
@@ -508,12 +612,12 @@ export default function DashboardEventDetailPage() {
                                     </svg>
                                     Private Event Access
                                 </h3>
-                                <p className="text-gray-400 text-sm mb-4">Share these details with your invited guests only.</p>
+                                <p className="text-gray-300 text-sm mb-4">Share these details with your invited guests only.</p>
 
                                 <div className="space-y-4">
                                     {/* Access Code */}
                                     <div className="bg-black/30 rounded-xl p-4">
-                                        <div className="text-gray-400 text-xs mb-1">Access Code</div>
+                                        <div className="text-gray-300 text-xs mb-1">Access Code</div>
                                         <div className="flex items-center justify-between">
                                             <span className="text-2xl font-mono font-bold text-violet-400 tracking-wider">
                                                 {event.privateCode || 'N/A'}
@@ -530,7 +634,7 @@ export default function DashboardEventDetailPage() {
 
                                     {/* Event Link */}
                                     <div className="bg-black/30 rounded-xl p-4">
-                                        <div className="text-gray-400 text-xs mb-1">Event Link</div>
+                                        <div className="text-gray-300 text-xs mb-1">Event Link</div>
                                         <div className="flex items-center justify-between gap-4">
                                             <span className="text-white text-sm truncate flex-1">
                                                 {eventLink}
@@ -548,6 +652,96 @@ export default function DashboardEventDetailPage() {
                             </div>
                         )}
 
+                        {/* Scanning Links */}
+                        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                </svg>
+                                Scanning Links
+                            </h3>
+                            <p className="text-gray-300 text-sm mb-4">
+                                Generate unique scanning links for your event personnel to scan tickets at entry gates.
+                            </p>
+
+                            {/* Generate Codes Form */}
+                            {scanningCodes.length >= 20 ? (
+                                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 mb-4">
+                                    <p className="text-yellow-300 text-sm">Maximum of 20 scanning codes reached for this event.</p>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3 mb-4">
+                                    <input
+                                        type="text"
+                                        value={newLabel}
+                                        onChange={(e) => setNewLabel(e.target.value)}
+                                        placeholder="Label (e.g. Gate A, Gate B)"
+                                        className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-sm"
+                                    />
+                                    <Button
+                                        onClick={handleGenerateScanningLink}
+                                        disabled={isGenerating}
+                                        size="sm"
+                                    >
+                                        {isGenerating ? 'Generating...' : 'Generate'}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Existing Codes List */}
+                            {scanningCodes.length === 0 ? (
+                                <div className="text-center py-6">
+                                    <p className="text-gray-400 text-sm">No scanning codes generated yet.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                                    {scanningCodes.map((sc) => (
+                                        <div key={sc._id} className={`bg-black/30 rounded-xl p-4 border ${sc.isActive ? 'border-white/5' : 'border-red-500/20 opacity-60'}`}>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-white font-medium text-sm">{sc.label || 'Unlabeled'}</span>
+                                                    <span className={`px-2 py-0.5 rounded text-xs ${sc.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                        {sc.isActive ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </div>
+                                                {sc.isActive && (
+                                                    <button
+                                                        onClick={() => handleDeactivateCode(sc._id)}
+                                                        className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                                                    >
+                                                        Deactivate
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-gray-400 text-xs truncate flex-1 font-mono">
+                                                    {typeof window !== 'undefined' ? `${window.location.origin}/scan/${sc.code}` : `/scan/${sc.code}`}
+                                                </span>
+                                                <button
+                                                    onClick={() => copyScanLink(sc.code)}
+                                                    className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-gray-300 hover:text-white transition-colors"
+                                                >
+                                                    {copiedScanLink === sc.code ? (
+                                                        <span className="text-green-400">Copied!</span>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                            </svg>
+                                                            Copy
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Discount Codes */}
+                        <DiscountCodesSection eventId={event._id} />
+
                         {/* Attendees / Tickets */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                             <h3 className="text-lg font-semibold text-white mb-4">Attendees ({tickets.length})</h3>
@@ -557,31 +751,33 @@ export default function DashboardEventDetailPage() {
                                     <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
-                                    <p className="text-gray-400">No bookings yet</p>
+                                    <p className="text-gray-300">No bookings yet</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
                                     {tickets.map((ticket) => (
-                                        <div key={ticket._id} className="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-white/5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white font-medium">
+                                        <div key={ticket._id} className="flex flex-wrap items-center gap-3 p-4 bg-black/30 rounded-xl border border-white/5">
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white font-medium flex-shrink-0">
                                                     {ticket.user?.name?.charAt(0).toUpperCase() || '?'}
                                                 </div>
-                                                <div>
-                                                    <p className="text-white font-medium">{ticket.user?.name || 'Unknown'}</p>
-                                                    <p className="text-gray-500 text-sm">{ticket.user?.email || 'No email'}</p>
+                                                <div className="min-w-0">
+                                                    <p className="text-white font-medium truncate">{ticket.user?.name || 'Unknown'}</p>
+                                                    <p className="text-gray-300 text-sm truncate">{ticket.user?.email || 'No email'}</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-white font-medium">{ticket.quantity} ticket{ticket.quantity > 1 ? 's' : ''}</p>
-                                                <p className="text-gray-400 text-sm">{formatPrice(ticket.price)}</p>
+                                            <div className="flex items-center gap-3 ml-auto">
+                                                <div className="text-right">
+                                                    <p className="text-white font-medium text-sm">{ticket.quantity} ticket{ticket.quantity > 1 ? 's' : ''}</p>
+                                                    <p className="text-gray-300 text-xs">{formatPrice(ticket.price)}</p>
+                                                </div>
+                                                <span className={`px-2 py-1 rounded text-xs whitespace-nowrap flex-shrink-0 ${ticket.isUsed ? 'bg-gray-500/20 text-gray-300' :
+                                                    ticket.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                                                        'bg-red-500/20 text-red-400'
+                                                    }`}>
+                                                    {ticket.isUsed ? 'Used' : ticket.status}
+                                                </span>
                                             </div>
-                                            <span className={`px-2 py-1 rounded text-xs ${ticket.isUsed ? 'bg-gray-500/20 text-gray-400' :
-                                                ticket.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                                                    'bg-red-500/20 text-red-400'
-                                                }`}>
-                                                {ticket.isUsed ? 'Used' : ticket.status}
-                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -598,7 +794,7 @@ export default function DashboardEventDetailPage() {
                                 <div className="space-y-4">
                                     {/* Name */}
                                     <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Event Name *</label>
+                                        <label className="block text-sm text-gray-300 mb-1">Event Name *</label>
                                         <input
                                             type="text"
                                             value={editForm.name}
@@ -609,7 +805,7 @@ export default function DashboardEventDetailPage() {
 
                                     {/* Description */}
                                     <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Description *</label>
+                                        <label className="block text-sm text-gray-300 mb-1">Description *</label>
                                         <textarea
                                             value={editForm.description}
                                             onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
@@ -621,7 +817,7 @@ export default function DashboardEventDetailPage() {
                                     {/* Date & Time */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Start Date *</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Start Date *</label>
                                             <input
                                                 type="date"
                                                 value={editForm.startDate}
@@ -630,7 +826,7 @@ export default function DashboardEventDetailPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">End Date</label>
+                                            <label className="block text-sm text-gray-300 mb-1">End Date</label>
                                             <input
                                                 type="date"
                                                 value={editForm.endDate}
@@ -642,7 +838,7 @@ export default function DashboardEventDetailPage() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Start Time *</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Start Time *</label>
                                             <input
                                                 type="time"
                                                 value={editForm.startTime}
@@ -651,7 +847,7 @@ export default function DashboardEventDetailPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">End Time *</label>
+                                            <label className="block text-sm text-gray-300 mb-1">End Time *</label>
                                             <input
                                                 type="time"
                                                 value={editForm.endTime}
@@ -664,7 +860,7 @@ export default function DashboardEventDetailPage() {
                                     {/* Ticket Info */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Max Attendees</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Max Attendees</label>
                                             <input
                                                 type="number"
                                                 value={editForm.maxAttendees}
@@ -673,20 +869,128 @@ export default function DashboardEventDetailPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Ticket Price (₹)</label>
-                                            <input
-                                                type="number"
-                                                value={editForm.ticketPrice}
-                                                onChange={(e) => setEditForm({ ...editForm, ticketPrice: parseInt(e.target.value) })}
-                                                disabled={editForm.ticketType === 'free'}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:opacity-50"
-                                            />
+                                            <label className="block text-sm text-gray-300 mb-1">Ticket Type</label>
+                                            <select
+                                                value={editForm.ticketType}
+                                                onChange={(e) => setEditForm({ ...editForm, ticketType: e.target.value as 'free' | 'paid' })}
+                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                            >
+                                                <option value="free">Free</option>
+                                                <option value="paid">Paid</option>
+                                            </select>
                                         </div>
                                     </div>
 
+                                    {/* Ticket Tiers for Paid Events */}
+                                    {editForm.ticketType === 'paid' && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-sm text-gray-300">Ticket Tiers</label>
+                                                <span className="text-xs text-gray-500">{editForm.ticketTiers.length}/10</span>
+                                            </div>
+
+                                            {editForm.ticketTiers.map((tier, index) => (
+                                                <div key={index} className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-medium text-gray-400">Tier {index + 1}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (editForm.ticketTiers.length <= 1) return;
+                                                                const tiers = editForm.ticketTiers.filter((_, i) => i !== index);
+                                                                setEditForm({ ...editForm, ticketTiers: tiers });
+                                                                const names = tiers.map(t => t.name.trim().toLowerCase());
+                                                                const errors: Record<number, string> = {};
+                                                                names.forEach((n, i) => { if (n && names.indexOf(n) !== i) errors[i] = 'Duplicate tier name'; });
+                                                                setEditTierErrors(errors);
+                                                            }}
+                                                            disabled={editForm.ticketTiers.length <= 1}
+                                                            className="text-xs text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Tier name"
+                                                                maxLength={50}
+                                                                value={tier.name}
+                                                                onChange={(e) => {
+                                                                    const tiers = [...editForm.ticketTiers];
+                                                                    tiers[index] = { ...tiers[index], name: e.target.value };
+                                                                    setEditForm({ ...editForm, ticketTiers: tiers });
+                                                                    const names = tiers.map(t => t.name.trim().toLowerCase());
+                                                                    const errors: Record<number, string> = {};
+                                                                    names.forEach((n, i) => { if (n && names.indexOf(n) !== i) errors[i] = 'Duplicate tier name'; });
+                                                                    setEditTierErrors(errors);
+                                                                }}
+                                                                className={`w-full px-3 py-2 rounded-lg bg-white/5 border text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${editTierErrors[index] ? 'border-red-500/50' : 'border-white/10'}`}
+                                                            />
+                                                            {editTierErrors[index] && (
+                                                                <p className="mt-1 text-xs text-red-400">{editTierErrors[index]}</p>
+                                                            )}
+                                                        </div>
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Price (₹)"
+                                                            min={0}
+                                                            value={tier.price || ''}
+                                                            onChange={(e) => {
+                                                                const tiers = [...editForm.ticketTiers];
+                                                                tiers[index] = { ...tiers[index], price: Math.max(0, parseInt(e.target.value) || 0) };
+                                                                setEditForm({ ...editForm, ticketTiers: tiers });
+                                                            }}
+                                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                                        />
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Description (optional)"
+                                                        maxLength={200}
+                                                        value={tier.description}
+                                                        onChange={(e) => {
+                                                            const tiers = [...editForm.ticketTiers];
+                                                            tiers[index] = { ...tiers[index], description: e.target.value };
+                                                            setEditForm({ ...editForm, ticketTiers: tiers });
+                                                        }}
+                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                                    />
+                                                    <div>
+                                                        <label className="text-xs text-gray-400">Max Quantity</label>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            value={tier.maxQuantity || ''}
+                                                            onChange={(e) => {
+                                                                const tiers = [...editForm.ticketTiers];
+                                                                tiers[index] = { ...tiers[index], maxQuantity: Math.max(1, parseInt(e.target.value) || 1) };
+                                                                setEditForm({ ...editForm, ticketTiers: tiers });
+                                                            }}
+                                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (editForm.ticketTiers.length >= 10) return;
+                                                    setEditForm({ ...editForm, ticketTiers: [...editForm.ticketTiers, { name: '', price: 0, description: '', maxQuantity: 1 }] });
+                                                }}
+                                                disabled={editForm.ticketTiers.length >= 10}
+                                                className="w-full py-2 rounded-xl border border-dashed border-white/20 text-sm text-gray-400 hover:bg-white/5 hover:border-violet-500/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                + Add Tier
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {/* Terms */}
                                     <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Terms & Conditions</label>
+                                        <label className="block text-sm text-gray-300 mb-1">Terms & Conditions</label>
                                         <textarea
                                             value={editForm.termsAndConditions}
                                             onChange={(e) => setEditForm({ ...editForm, termsAndConditions: e.target.value })}
@@ -697,7 +1001,7 @@ export default function DashboardEventDetailPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-gray-400 leading-relaxed whitespace-pre-line">{event.description}</p>
+                                <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.description}</p>
                             )}
                         </div>
 
@@ -706,7 +1010,7 @@ export default function DashboardEventDetailPage() {
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-semibold text-white">Venue Details</h3>
-                                    <span className="text-xs text-gray-500 bg-gray-500/10 px-2 py-1 rounded">Non-editable</span>
+                                    <span className="text-xs text-gray-300 bg-gray-500/10 px-2 py-1 rounded">Non-editable</span>
                                 </div>
                                 <div className="flex items-start gap-4">
                                     <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
@@ -717,12 +1021,12 @@ export default function DashboardEventDetailPage() {
                                     </div>
                                     <div className="flex-1">
                                         <h4 className="text-lg font-medium text-white">{venue.name}</h4>
-                                        <p className="text-gray-400 text-sm mb-2">
+                                        <p className="text-gray-300 text-sm mb-2">
                                             {venue.address?.street && `${venue.address.street}, `}
                                             {venue.address?.city}, {venue.address?.state}
                                         </p>
                                         {venue.capacity && (
-                                            <p className="text-gray-500 text-sm">
+                                            <p className="text-gray-300 text-sm">
                                                 Capacity: {venue.capacity.min || 0} - {venue.capacity.max || 'N/A'} people
                                             </p>
                                         )}
@@ -749,7 +1053,7 @@ export default function DashboardEventDetailPage() {
                         {(event as Event & { termsAndConditions?: string }).termsAndConditions && (
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                                 <h3 className="text-lg font-semibold text-white mb-4">Terms & Conditions</h3>
-                                <p className="text-gray-400 leading-relaxed whitespace-pre-line text-sm">
+                                <p className="text-gray-300 leading-relaxed whitespace-pre-line text-sm">
                                     {(event as Event & { termsAndConditions?: string }).termsAndConditions}
                                 </p>
                             </div>
@@ -765,24 +1069,24 @@ export default function DashboardEventDetailPage() {
 
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Ticket Price</span>
+                                        <span className="text-gray-300">Ticket Price</span>
                                         <span className={`font-semibold ${event.ticketPrice === 0 ? 'text-green-400' : 'text-white'}`}>
                                             {formatPrice(event.ticketPrice)}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Event Type</span>
+                                        <span className="text-gray-300">Event Type</span>
                                         <span className="text-white capitalize">{event.eventType}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Category</span>
+                                        <span className="text-gray-300">Category</span>
                                         <span className="text-white capitalize">{event.category}</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-400">Status</span>
+                                        <span className="text-gray-300">Status</span>
                                         <span className={`capitalize ${event.status === 'upcoming' ? 'text-green-400' :
                                             event.status === 'ongoing' ? 'text-blue-400' :
-                                                'text-gray-400'
+                                                'text-gray-300'
                                             }`}>{event.status}</span>
                                     </div>
                                 </div>
@@ -809,7 +1113,7 @@ export default function DashboardEventDetailPage() {
                             {event.tags && event.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-2">
                                     {event.tags.map((tag, index) => (
-                                        <span key={index} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-sm">
+                                        <span key={index} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300 text-sm">
                                             #{tag}
                                         </span>
                                     ))}
@@ -836,7 +1140,7 @@ export default function DashboardEventDetailPage() {
                 </div>
 
                 {posts.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400">
+                    <div className="text-center py-12 text-gray-300">
                         <p>No posts yet. Create your first post to engage with attendees!</p>
                     </div>
                 ) : (
@@ -871,7 +1175,7 @@ export default function DashboardEventDetailPage() {
                                         ))}
                                     </div>
                                 )}
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
+                                <div className="flex items-center gap-4 text-sm text-gray-300">
                                     <span>{post.likes?.length || 0} likes</span>
                                     <span>{post.comments?.length || 0} comments</span>
                                     <span>{new Date(post.createdAt).toLocaleDateString()}</span>
@@ -949,7 +1253,7 @@ export default function DashboardEventDetailPage() {
                             </svg>
                             <div>
                                 <p className="text-red-400 font-medium">This action cannot be undone</p>
-                                <p className="text-sm text-gray-400 mt-1">
+                                <p className="text-sm text-gray-300 mt-1">
                                     Cancelling this event will notify all ticket holders and may trigger refunds based on your refund policy.
                                 </p>
                             </div>
@@ -957,14 +1261,14 @@ export default function DashboardEventDetailPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm text-gray-400 mb-2">
+                        <label className="block text-sm text-gray-300 mb-2">
                             Reason for cancellation (optional)
                         </label>
                         <textarea
                             value={cancelReason}
                             onChange={(e) => setCancelReason(e.target.value)}
                             placeholder="Let attendees know why you're cancelling..."
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 resize-none"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-300 focus:outline-none focus:border-red-500 resize-none"
                             rows={3}
                         />
                     </div>

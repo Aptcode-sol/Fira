@@ -108,8 +108,8 @@ export default function VenuePortalBookingsPage() {
             case 'accepted': return 'bg-green-500/20 text-green-400 border-green-500/30';
             case 'completed': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
             case 'rejected': return 'bg-red-500/20 text-red-400 border-red-500/30';
-            case 'cancelled': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-            default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+            case 'cancelled': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+            default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
         }
     };
 
@@ -118,7 +118,7 @@ export default function VenuePortalBookingsPage() {
             case 'paid': return 'text-green-400 bg-green-500/10';
             case 'pending': return 'text-yellow-400 bg-yellow-500/10';
             case 'failed': return 'text-red-400 bg-red-500/10';
-            default: return 'text-gray-400 bg-gray-500/10';
+            default: return 'text-gray-300 bg-gray-500/10';
         }
     };
 
@@ -151,7 +151,7 @@ export default function VenuePortalBookingsPage() {
                 <SlideUp>
                     <div className="mb-6 sm:mb-8">
                         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Bookings</h1>
-                        <p className="text-sm sm:text-base text-gray-400">Manage venue booking requests</p>
+                        <p className="text-sm sm:text-base text-gray-300">Manage venue booking requests</p>
                     </div>
                 </SlideUp>
 
@@ -172,7 +172,7 @@ export default function VenuePortalBookingsPage() {
                                 <option value="rejected" className="bg-[#1a1a1a]">Rejected</option>
                                 <option value="cancelled" className="bg-[#1a1a1a]">Cancelled</option>
                             </select>
-                            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         </div>
@@ -205,7 +205,7 @@ export default function VenuePortalBookingsPage() {
                                             {booking.venue?.images?.[0] ? (
                                                 <img src={booking.venue.images[0]} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-500 bg-white/5">
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300 bg-white/5">
                                                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
                                                     </svg>
@@ -219,11 +219,11 @@ export default function VenuePortalBookingsPage() {
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
                                                     {booking.status}
                                                 </span>
-                                                <span className="text-gray-500 text-sm">
+                                                <span className="text-gray-300 text-sm">
                                                     {new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                 </span>
-                                                <span className="text-gray-500 text-sm">•</span>
-                                                <span className="text-gray-400 text-sm font-medium">
+                                                <span className="text-gray-300 text-sm">•</span>
+                                                <span className="text-gray-300 text-sm font-medium">
                                                     {booking.startTime} - {booking.endTime}
                                                 </span>
                                             </div>
@@ -233,18 +233,18 @@ export default function VenuePortalBookingsPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm mb-4">
                                                 {booking.purpose && (
                                                     <div>
-                                                        <span className="text-gray-500">Purpose:</span>
+                                                        <span className="text-gray-300">Purpose:</span>
                                                         <span className="text-white ml-2">{booking.purpose}</span>
                                                     </div>
                                                 )}
                                                 {booking.expectedGuests && (
                                                     <div>
-                                                        <span className="text-gray-500">Expected Guests:</span>
+                                                        <span className="text-gray-300">Expected Guests:</span>
                                                         <span className="text-white ml-2">{booking.expectedGuests}</span>
                                                     </div>
                                                 )}
                                                 <div>
-                                                    <span className="text-gray-500">Payment:</span>
+                                                    <span className="text-gray-300">Payment:</span>
                                                     <span className={`ml-2 px-2 py-0.5 rounded-md text-xs font-semibold ${getPaymentStatusColor(booking.paymentStatus)}`}>
                                                         {booking.paymentStatus}
                                                     </span>
@@ -254,16 +254,16 @@ export default function VenuePortalBookingsPage() {
                                             {/* Booker Contact Details */}
                                             <div className="pt-3 border-t border-white/5 flex flex-wrap gap-4 text-xs sm:text-sm">
                                                 <div>
-                                                    <span className="text-gray-500">Booker:</span>
+                                                    <span className="text-gray-300">Booker:</span>
                                                     <span className="text-gray-200 ml-1 font-semibold">{booking.user?.name}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-gray-500">Email:</span>
+                                                    <span className="text-gray-300">Email:</span>
                                                     <span className="text-gray-300 ml-1">{booking.user?.email}</span>
                                                 </div>
                                                 {booking.user?.phone && (
                                                     <div>
-                                                        <span className="text-gray-500">Phone:</span>
+                                                        <span className="text-gray-300">Phone:</span>
                                                         <span className="text-gray-300 ml-1">{booking.user?.phone}</span>
                                                     </div>
                                                 )}
@@ -273,7 +273,7 @@ export default function VenuePortalBookingsPage() {
                                         {/* Action buttons (only for pending bookings) */}
                                         <div className="flex flex-row lg:flex-col items-end justify-between lg:justify-center gap-4 flex-shrink-0">
                                             <div className="text-right lg:mb-2">
-                                                <div className="text-xs text-gray-500">Total Price</div>
+                                                <div className="text-xs text-gray-300">Total Price</div>
                                                 <div className="text-xl font-bold text-white">₹{booking.totalAmount.toLocaleString()}</div>
                                             </div>
 
@@ -309,7 +309,7 @@ export default function VenuePortalBookingsPage() {
                                 </svg>
                             </div>
                             <h3 className="text-xl font-semibold text-white mb-2">No bookings found</h3>
-                            <p className="text-gray-400">
+                            <p className="text-gray-300">
                                 No booking requests matching the selected filter were found.
                             </p>
                         </div>

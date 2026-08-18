@@ -32,7 +32,7 @@ export default function Hero() {
 
     return (
         <section className="relative min-h-screen flex items-center justify-center pt-10">
-            <div className="relative z-10 w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 text-center">
+            <div className="relative z-10 w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 pt-20 pb-28 text-center">
 
                 {/* Hero Content - Center aligned with proper text alignment */}
                 <FadeIn duration={0.8} direction="up">
@@ -40,7 +40,7 @@ export default function Hero() {
                         {/* Animated Tagline - Perfectly aligned with FIRA left edge */}
                         <div className="text-left">
                             <div className="text-lg sm:text-xl md:text-2xl font-medium mb-1 flex items-center gap-2">
-                                <span className="text-gray-400">Let's</span>
+                                <span className="text-gray-300">Let's</span>
                                 <span
                                     className={`accent-text font-semibold transition-all duration-300 ${isAnimating ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
                                         }`}
@@ -60,10 +60,10 @@ export default function Hero() {
                 {/* Subtitle. States both sides of the product in one line -
                     a visitor should know what FIRA does before they scroll. */}
                 <FadeIn delay={0.2} duration={0.6} direction="up">
-                    <p className="text-gray-400 text-base sm:text-lg md:text-xl mt-8 mb-12 max-w-lg mx-auto leading-relaxed">
+                    <p className="text-gray-300 text-base sm:text-lg md:text-xl mt-8 mb-12 max-w-lg mx-auto leading-relaxed">
                         Find parties worth going to.
                         <br className="hidden sm:block" />{' '}
-                        <span className="text-gray-500">Book the venue to throw your own.</span>
+                        <span className="text-gray-300">Book the venue to throw your own.</span>
                     </p>
                 </FadeIn>
 
@@ -102,7 +102,7 @@ export default function Hero() {
                         </div>
 
                         {!isLoading && !isAuthenticated && (
-                            <p className="text-gray-500 text-sm">
+                            <p className="text-gray-300 text-sm">
                                 Free to join.{' '}
                                 <button
                                     onClick={() => scrollToSection('create-section')}
@@ -115,21 +115,22 @@ export default function Hero() {
                     </div>
                 </FadeIn>
 
-                {/* Scroll cue. The hero fills the viewport, so without this
-                    there is nothing telling a visitor the page continues. */}
-                <FadeIn delay={0.9} duration={0.8}>
-                    <button
-                        onClick={() => scrollToSection('what-we-do')}
-                        aria-label="Scroll to find out more"
-                        className="hidden sm:flex absolute bottom-10 left-1/2 -translate-x-1/2 flex-col items-center gap-2 text-gray-600 hover:text-gray-400 transition-colors group"
-                    >
-                        <span className="text-[10px] uppercase tracking-[0.2em]">More</span>
-                        <span className="w-5 h-8 rounded-full border border-white/15 flex justify-center pt-1.5 group-hover:border-white/30 transition-colors">
-                            <span className="w-1 h-1.5 rounded-full bg-white/40 animate-bounce" />
-                        </span>
-                    </button>
-                </FadeIn>
             </div>
+
+            {/* Scroll cue — placed outside the z-10 content container so it never
+                overlaps the CTA buttons during staggered entrance animations. */}
+            <FadeIn delay={1.2} duration={0.8}>
+                <button
+                    onClick={() => scrollToSection('what-we-do')}
+                    aria-label="Scroll to find out more"
+                    className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-[1] flex-col items-center gap-1 text-gray-400 hover:text-gray-300 transition-colors group"
+                >
+                    <span className="text-[10px] uppercase tracking-[0.2em]">More</span>
+                    <span className="w-5 h-8 rounded-full border border-white/15 flex justify-center pt-1.5 group-hover:border-white/30 transition-colors">
+                        <span className="w-1 h-1.5 rounded-full bg-white/40 animate-bounce" />
+                    </span>
+                </button>
+            </FadeIn>
         </section>
     );
 }

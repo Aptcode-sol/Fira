@@ -28,6 +28,13 @@ function CreateEventForm() {
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [step]);
+    interface TicketTier {
+        name: string;
+        price: number;
+        description: string;
+        maxQuantity: number;
+    }
+
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -42,6 +49,7 @@ function CreateEventForm() {
         ticketType: 'free' as 'free' | 'paid',
         ticketPrice: 0,
         maxAttendees: 100,
+        ticketTiers: [{ name: '', price: 0, description: '', maxQuantity: 1 }] as TicketTier[],
         termsAndConditions: '',
         images: [] as string[],
         friendsAndFamilyStay: false,
@@ -59,6 +67,7 @@ function CreateEventForm() {
             locationLink: ''
         }
     });
+    const [tierErrors, setTierErrors] = useState<Record<number, string>>({});
     const [venues, setVenues] = useState<{ _id: string; name: string }[]>([]);
     const [loadingVenues, setLoadingVenues] = useState(true);
     const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -66,6 +75,45 @@ function CreateEventForm() {
     const [isVenueDropdownOpen, setIsVenueDropdownOpen] = useState(false);
     const [venueSearchQuery, setVenueSearchQuery] = useState('');
     const filteredVenues = venues.filter(v => v.name.toLowerCase().includes(venueSearchQuery.toLowerCase()));
+
+    // Ticket tier helpers
+    const updateTier = (index: number, field: keyof TicketTier, value: string | number) => {
+        const tiers = [...formData.ticketTiers];
+        tiers[index] = { ...tiers[index], [field]: value };
+        setFormData({ ...formData, ticketTiers: tiers });
+
+        // Validate unique names
+        if (field === 'name') {
+            const names = tiers.map(t => t.name.trim().toLowerCase());
+            const errors: Record<number, string> = {};
+            names.forEach((n, i) => {
+                if (n && names.indexOf(n) !== i) {
+                    errors[i] = 'Duplicate tier name';
+                }
+            });
+            setTierErrors(errors);
+        }
+    };
+
+    const addTier = () => {
+        if (formData.ticketTiers.length >= 10) return;
+        setFormData({ ...formData, ticketTiers: [...formData.ticketTiers, { name: '', price: 0, description: '', maxQuantity: 1 }] });
+    };
+
+    const removeTier = (index: number) => {
+        if (formData.ticketTiers.length <= 1) return;
+        const tiers = formData.ticketTiers.filter((_, i) => i !== index);
+        setFormData({ ...formData, ticketTiers: tiers });
+        // Re-validate names
+        const names = tiers.map(t => t.name.trim().toLowerCase());
+        const errors: Record<number, string> = {};
+        names.forEach((n, i) => {
+            if (n && names.indexOf(n) !== i) {
+                errors[i] = 'Duplicate tier name';
+            }
+        });
+        setTierErrors(errors);
+    };
 
     useEffect(() => {
         // Only redirect if auth check is complete AND user is not authenticated
@@ -152,6 +200,31 @@ function CreateEventForm() {
             return;
         }
 
+        // Validate ticket tiers for paid events
+        if (formData.ticketType === 'paid') {
+            const tiers = formData.ticketTiers;
+            for (let i = 0; i < tiers.length; i++) {
+                if (!tiers[i].name.trim()) {
+                    showToast(`Tier ${i + 1}: Please enter a name`, 'error');
+                    setStep(3);
+                    return;
+                }
+                if (tiers[i].maxQuantity < 1) {
+                    showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error');
+                    setStep(3);
+                    return;
+                }
+            }
+            // Check duplicate names
+            const names = tiers.map(t => t.name.trim().toLowerCase());
+            const hasDuplicates = names.some((n, i) => n && names.indexOf(n) !== i);
+            if (hasDuplicates) {
+                showToast('Tier names must be unique', 'error');
+                setStep(3);
+                return;
+            }
+        }
+
         setIsSubmitting(true);
         try {
             // Upload image if selected
@@ -177,7 +250,7 @@ function CreateEventForm() {
                 endDateTime: endDateTime.toISOString(),
                 eventType: formData.eventType,
                 ticketType: formData.ticketType,
-                ticketPrice: formData.ticketType === 'paid' ? formData.ticketPrice : 0,
+                ticketPrice: formData.ticketType === 'paid' ? (formData.ticketTiers[0]?.price ?? 0) : 0,
                 maxAttendees: formData.maxAttendees,
                 termsAndConditions: formData.termsAndConditions || null,
                 images: imageUrls,
@@ -185,6 +258,16 @@ function CreateEventForm() {
                 allowAlcohol: formData.allowAlcohol,
                 status: 'pending', // Events need venue and admin approval first
             };
+
+            // Include ticket tiers for paid events
+            if (formData.ticketType === 'paid') {
+                eventData.ticketTiers = formData.ticketTiers.map(t => ({
+                    name: t.name.trim(),
+                    price: t.price,
+                    description: t.description.trim(),
+                    maxQuantity: t.maxQuantity,
+                }));
+            }
 
             if (formData.useCustomVenue) {
                 eventData.customVenue = {
@@ -225,7 +308,7 @@ function CreateEventForm() {
                 <Navbar />
                 <main className="min-h-screen flex items-center justify-center">
                     <div className="text-center">
-                        <p className="text-gray-400 mb-4">Redirecting to sign in...</p>
+                        <p className="text-gray-300 mb-4">Redirecting to sign in...</p>
                         <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full mx-auto" />
                     </div>
                 </main>
@@ -243,14 +326,14 @@ function CreateEventForm() {
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Create Event</h1>
-                        <p className="text-gray-400">Fill in the details to create your event</p>
+                        <p className="text-gray-300">Fill in the details to create your event</p>
                     </div>
 
                     {/* Progress Steps */}
                     <div className="flex items-center justify-center gap-2 mb-8">
                         {[1, 2, 3, 4].map((s) => (
                             <div key={s} className="flex items-center">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-500'
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-300'
                                     }`}>
                                     {s}
                                 </div>
@@ -382,11 +465,11 @@ function CreateEventForm() {
                                                 }
                                             }}
                                         >
-                                            <span className={formData.venueId ? "text-white" : "text-gray-400"}>
+                                            <span className={formData.venueId ? "text-white" : "text-gray-300"}>
                                                 {loadingVenues ? 'Loading venues...' : 
                                                  formData.venueId ? venues.find(v => v._id === formData.venueId)?.name || 'Selected Venue' : 'Select a venue'}
                                             </span>
-                                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${isVenueDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className={`w-4 h-4 text-gray-300 transition-transform ${isVenueDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                             </svg>
                                         </div>
@@ -408,7 +491,7 @@ function CreateEventForm() {
                                                     </div>
                                                     <div className="overflow-y-auto">
                                                         <div 
-                                                            className={`px-4 py-3 cursor-pointer hover:bg-white/10 text-sm ${!formData.venueId ? 'text-gray-500' : 'text-gray-300'}`}
+                                                            className={`px-4 py-3 cursor-pointer hover:bg-white/10 text-sm ${!formData.venueId ? 'text-gray-300' : 'text-gray-300'}`}
                                                             onClick={() => {
                                                                 setFormData({ ...formData, venueId: '', useCustomVenue: false });
                                                                 setIsVenueDropdownOpen(false);
@@ -432,7 +515,7 @@ function CreateEventForm() {
                                                                 </div>
                                                             ))
                                                         ) : (
-                                                            <div className="px-4 py-3 text-sm text-gray-500 text-center">No venues found</div>
+                                                            <div className="px-4 py-3 text-sm text-gray-300 text-center">No venues found</div>
                                                         )}
                                                     </div>
                                                 </div>
@@ -441,7 +524,7 @@ function CreateEventForm() {
                                     </div>
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="flex-1 h-px bg-white/10"></div>
-                                        <span className="text-xs text-gray-500">OR</span>
+                                        <span className="text-xs text-gray-300">OR</span>
                                         <div className="flex-1 h-px bg-white/10"></div>
                                     </div>
                                     <button
@@ -453,9 +536,9 @@ function CreateEventForm() {
                                             }`}
                                     >
                                         <div className="font-medium mb-1">+ Create Custom Venue</div>
-                                        <div className="text-xs text-gray-500">Create a venue specific to this event only</div>
+                                        <div className="text-xs text-gray-300">Create a venue specific to this event only</div>
                                     </button>
-                                    <p className="mt-1.5 text-xs text-gray-500">Choose from available venues or create a custom one for this event</p>
+                                    <p className="mt-1.5 text-xs text-gray-300">Choose from available venues or create a custom one for this event</p>
                                 </div>
 
                                 {formData.useCustomVenue && (
@@ -587,7 +670,7 @@ function CreateEventForm() {
                                             onClick={() => setFormData({ ...formData, eventType: 'public' })}
                                             className={`p-4 rounded-xl border-2 text-left transition-all ${formData.eventType === 'public'
                                                 ? 'bg-violet-500/20 border-violet-500 text-white shadow-lg shadow-violet-500/20'
-                                                : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-80'
+                                                : 'bg-white/5 border-white/10 text-gray-300 opacity-60 hover:opacity-80'
                                                 }`}
                                         >
                                             <div className="font-medium mb-1">Public</div>
@@ -598,7 +681,7 @@ function CreateEventForm() {
                                             onClick={() => setFormData({ ...formData, eventType: 'private' })}
                                             className={`p-4 rounded-xl border-2 text-left transition-all ${formData.eventType === 'private'
                                                 ? 'bg-violet-500/20 border-violet-500 text-white shadow-lg shadow-violet-500/20'
-                                                : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-80'
+                                                : 'bg-white/5 border-white/10 text-gray-300 opacity-60 hover:opacity-80'
                                                 }`}
                                         >
                                             <div className="font-medium mb-1">Private</div>
@@ -615,36 +698,98 @@ function CreateEventForm() {
                                             onClick={() => setFormData({ ...formData, ticketType: 'free', ticketPrice: 0 })}
                                             className={`p-4 rounded-xl border text-left transition-all ${formData.ticketType === 'free'
                                                 ? 'bg-green-500/10 border-green-500/50 text-white'
-                                                : 'bg-white/5 border-white/10 text-gray-400'
+                                                : 'bg-white/5 border-white/10 text-gray-300'
                                                 }`}
                                         >
                                             <div className="font-medium mb-1">Free</div>
-                                            <div className="text-xs text-gray-500">No ticket required</div>
+                                            <div className="text-xs text-gray-300">No ticket required</div>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, ticketType: 'paid' })}
                                             className={`p-4 rounded-xl border text-left transition-all ${formData.ticketType === 'paid'
                                                 ? 'bg-green-500/10 border-green-500/50 text-white'
-                                                : 'bg-white/5 border-white/10 text-gray-400'
+                                                : 'bg-white/5 border-white/10 text-gray-300'
                                                 }`}
                                         >
                                             <div className="font-medium mb-1">Paid</div>
-                                            <div className="text-xs text-gray-500">Set your ticket price</div>
+                                            <div className="text-xs text-gray-300">Set your ticket price</div>
                                         </button>
                                     </div>
                                 </div>
 
                                 {formData.ticketType === 'paid' && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Ticket Price (₹)</label>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={formData.ticketPrice}
-                                            onChange={(e) => setFormData({ ...formData, ticketPrice: parseInt(e.target.value) })}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                        />
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-sm font-medium text-gray-300">Ticket Tiers</label>
+                                            <span className="text-xs text-gray-500">{formData.ticketTiers.length}/10</span>
+                                        </div>
+
+                                        {formData.ticketTiers.map((tier, index) => (
+                                            <div key={index} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-medium text-gray-400">Tier {index + 1}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeTier(index)}
+                                                        disabled={formData.ticketTiers.length <= 1}
+                                                        className="text-xs text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Tier name"
+                                                            maxLength={50}
+                                                            value={tier.name}
+                                                            onChange={(e) => updateTier(index, 'name', e.target.value)}
+                                                            className={`w-full px-3 py-2 rounded-lg bg-white/5 border text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${tierErrors[index] ? 'border-red-500/50' : 'border-white/10'}`}
+                                                        />
+                                                        {tierErrors[index] && (
+                                                            <p className="mt-1 text-xs text-red-400">{tierErrors[index]}</p>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Price (₹)"
+                                                        min={0}
+                                                        value={tier.price || ''}
+                                                        onChange={(e) => updateTier(index, 'price', Math.max(0, parseInt(e.target.value) || 0))}
+                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Description (optional)"
+                                                    maxLength={200}
+                                                    value={tier.description}
+                                                    onChange={(e) => updateTier(index, 'description', e.target.value)}
+                                                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                                />
+                                                <div>
+                                                    <label className="text-xs text-gray-400">Max Quantity</label>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        value={tier.maxQuantity || ''}
+                                                        onChange={(e) => updateTier(index, 'maxQuantity', Math.max(1, parseInt(e.target.value) || 1))}
+                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={addTier}
+                                            disabled={formData.ticketTiers.length >= 10}
+                                            className="w-full py-2 rounded-xl border border-dashed border-white/20 text-sm text-gray-400 hover:bg-white/5 hover:border-violet-500/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            + Add Tier
+                                        </button>
                                     </div>
                                 )}
 
@@ -689,7 +834,7 @@ function CreateEventForm() {
                                             <img src={coverImagePreview} alt="Preview" className="mt-2 w-full rounded-xl object-cover" />
                                         )}
                                     </div>
-                                    <p className="mt-1.5 text-xs text-gray-500">Max size per image: 2MB</p>
+                                    <p className="mt-1.5 text-xs text-gray-300">Max size per image: 2MB</p>
                                 </div>
 
                                 {/* Terms and Conditions */}
@@ -702,7 +847,7 @@ function CreateEventForm() {
                                         rows={4}
                                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
                                     />
-                                    <p className="mt-1.5 text-xs text-gray-500">Age restrictions, dress code, rules, etc.</p>
+                                    <p className="mt-1.5 text-xs text-gray-300">Age restrictions, dress code, rules, etc.</p>
                                 </div>
 
                                 <div className="flex justify-between pt-4">
@@ -731,7 +876,7 @@ function CreateEventForm() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <div className="font-medium mb-1">Enable Friends & Family Stay</div>
-                                                <div className="text-xs text-gray-500">Allow attendees to book accommodation with friends/family</div>
+                                                <div className="text-xs text-gray-300">Allow attendees to book accommodation with friends/family</div>
                                             </div>
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${formData.friendsAndFamilyStay ? 'bg-emerald-500' : 'bg-white/20'}`}>
                                                 {formData.friendsAndFamilyStay && <span className="text-white text-sm">✓</span>}
@@ -754,7 +899,7 @@ function CreateEventForm() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <div className="font-medium mb-1">Allow Alcohol at Event</div>
-                                                <div className="text-xs text-gray-500">Indicate if alcoholic beverages are permitted</div>
+                                                <div className="text-xs text-gray-300">Indicate if alcoholic beverages are permitted</div>
                                             </div>
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${formData.allowAlcohol ? 'bg-orange-500' : 'bg-white/20'}`}>
                                                 {formData.allowAlcohol && <span className="text-white text-sm">✓</span>}

@@ -135,7 +135,7 @@ export default function WeekendEventsPage() {
                                 <h1 className="text-4xl sm:text-5xl font-bold text-white mb-2">
                                     Weekend <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">Events</span>
                                 </h1>
-                                <p className="text-gray-400 text-lg">
+                                <p className="text-gray-300 text-lg">
                                     Plan your perfect weekend with these amazing events
                                 </p>
                             </div>
@@ -157,7 +157,7 @@ export default function WeekendEventsPage() {
                                         </svg>
                                     </div>
                                     <h3 className="text-2xl font-bold text-white mb-2">No weekend events yet</h3>
-                                    <p className="text-gray-400 mb-6">Check back soon for weekend happenings</p>
+                                    <p className="text-gray-300 mb-6">Check back soon for weekend happenings</p>
                                     <Link
                                         href="/events"
                                         className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600 text-white rounded-full transition-all"

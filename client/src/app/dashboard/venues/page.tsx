@@ -401,7 +401,7 @@ export default function VenuesPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 mb-8">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-2">My Venues</h1>
-                            <p className="text-gray-400">Manage your venues and booking requests</p>
+                            <p className="text-gray-300">Manage your venues and booking requests</p>
                         </div>
                         <Link href="/venue-portal/venues/create">
                             <Button>
@@ -418,15 +418,15 @@ export default function VenuesPage() {
                 <FadeIn delay={0.1}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                         <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                            <div className="text-sm text-gray-400 mb-1">Total Venues</div>
+                            <div className="text-sm text-gray-300 mb-1">Total Venues</div>
                             <div className="text-2xl font-bold text-white">{venues.length}</div>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                            <div className="text-sm text-gray-400 mb-1">Active Venues</div>
+                            <div className="text-sm text-gray-300 mb-1">Active Venues</div>
                             <div className="text-2xl font-bold text-green-400">{venues.filter((v) => v.isActive !== false).length}</div>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-                            <div className="text-sm text-gray-400 mb-1">Pending Requests</div>
+                            <div className="text-sm text-gray-300 mb-1">Pending Requests</div>
                             <div className="text-2xl font-bold text-yellow-400">{totalPendingRequests}</div>
                         </div>
                         <div className="bg-gradient-to-r from-violet-500/20 to-pink-500/20 backdrop-blur-sm border border-violet-500/20 rounded-2xl p-5">
@@ -502,7 +502,7 @@ export default function VenuesPage() {
                                                         ? 'bg-green-500/20 text-green-400 border-green-500/20'
                                                         : venue.status === 'pending'
                                                             ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
-                                                            : 'bg-gray-500/20 text-gray-400 border-gray-500/20'
+                                                            : 'bg-gray-500/20 text-gray-300 border-gray-500/20'
                                                         }`}>
                                                         {venue.status}
                                                     </span>
@@ -516,7 +516,7 @@ export default function VenuesPage() {
                                                         <h3 className="text-lg font-semibold text-white group-hover:text-violet-300 transition-colors">
                                                             {venue.name}
                                                         </h3>
-                                                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                        <div className="flex items-center gap-2 text-sm text-gray-300">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -537,15 +537,15 @@ export default function VenuesPage() {
                                                 {/* Stats */}
                                                 <div className="grid grid-cols-3 gap-4 mb-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Capacity</p>
+                                                        <p className="text-xs text-gray-300">Capacity</p>
                                                         <p className="text-sm font-medium text-white">{venue.capacity?.max || venue.capacity?.min || 0}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Bookings</p>
+                                                        <p className="text-xs text-gray-300">Bookings</p>
                                                         <p className="text-sm font-medium text-white">{venue.totalBookings || 0}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">This Month</p>
+                                                        <p className="text-xs text-gray-300">This Month</p>
                                                         <p className="text-sm font-medium text-emerald-400">₹{((venue.monthlyEarnings || 0) / 1000).toFixed(0)}K</p>
                                                     </div>
                                                 </div>
@@ -575,7 +575,7 @@ export default function VenuesPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No venues yet</h3>
-                        <p className="text-gray-400 mb-6">Start listing your venues to receive bookings!</p>
+                        <p className="text-gray-300 mb-6">Start listing your venues to receive bookings!</p>
                         <Link href="/venue-portal/venues/create">
                             <Button>Add Your First Venue</Button>
                         </Link>
@@ -618,7 +618,7 @@ export default function VenuesPage() {
                                 {editTab === 'basic' && (
                                     <>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Venue Name</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Venue Name</label>
                                             <Input
                                                 value={editForm.name}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
@@ -626,7 +626,7 @@ export default function VenuesPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Description</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Description</label>
                                             <textarea
                                                 value={editForm.description}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
@@ -636,7 +636,7 @@ export default function VenuesPage() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">Base Price (₹)</label>
+                                                <label className="block text-sm text-gray-300 mb-1">Base Price (₹)</label>
                                                 <Input
                                                     type="number"
                                                     value={editForm.basePrice}
@@ -645,7 +645,7 @@ export default function VenuesPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">Price per Hour (₹)</label>
+                                                <label className="block text-sm text-gray-300 mb-1">Price per Hour (₹)</label>
                                                 <Input
                                                     type="number"
                                                     value={editForm.pricePerHour}
@@ -661,7 +661,7 @@ export default function VenuesPage() {
                                 {editTab === 'address' && (
                                     <>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Street Address</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Street Address</label>
                                             <Input
                                                 value={editForm.street}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))}
@@ -670,7 +670,7 @@ export default function VenuesPage() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">City</label>
+                                                <label className="block text-sm text-gray-300 mb-1">City</label>
                                                 <Input
                                                     value={editForm.city}
                                                     onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
@@ -678,7 +678,7 @@ export default function VenuesPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">State</label>
+                                                <label className="block text-sm text-gray-300 mb-1">State</label>
                                                 <Input
                                                     value={editForm.state}
                                                     onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))}
@@ -687,7 +687,7 @@ export default function VenuesPage() {
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Pincode</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Pincode</label>
                                             <Input
                                                 value={editForm.pincode}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))}
@@ -701,7 +701,7 @@ export default function VenuesPage() {
                                 {editTab === 'capacity' && (
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Minimum Capacity</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Minimum Capacity</label>
                                             <Input
                                                 type="number"
                                                 value={editForm.capacityMin}
@@ -710,7 +710,7 @@ export default function VenuesPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Maximum Capacity</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Maximum Capacity</label>
                                             <Input
                                                 type="number"
                                                 value={editForm.capacityMax}
@@ -724,7 +724,7 @@ export default function VenuesPage() {
                                 {/* Amenities Tab */}
                                 {editTab === 'amenities' && (
                                     <div>
-                                        <p className="text-sm text-gray-400 mb-3">Select the amenities available at your venue:</p>
+                                        <p className="text-sm text-gray-300 mb-3">Select the amenities available at your venue:</p>
                                         <div className="flex flex-wrap gap-2">
                                             {COMMON_AMENITIES.map((amenity) => (
                                                 <button
@@ -741,7 +741,7 @@ export default function VenuesPage() {
                                             ))}
                                         </div>
                                         {editForm.amenities.length > 0 && (
-                                            <p className="text-xs text-gray-500 mt-3">
+                                            <p className="text-xs text-gray-300 mt-3">
                                                 Selected: {editForm.amenities.join(', ')}
                                             </p>
                                         )}
@@ -751,12 +751,12 @@ export default function VenuesPage() {
                                 {/* Photos Tab */}
                                 {editTab === 'photos' && (
                                     <div className="space-y-4">
-                                        <p className="text-sm text-gray-400">Manage your venue photos. Click the X to remove.</p>
+                                        <p className="text-sm text-gray-300">Manage your venue photos. Click the X to remove.</p>
 
                                         {/* Existing Images */}
                                         {editForm.images.length > 0 && (
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-2">Current Photos (drag to reorder)</label>
+                                                <label className="block text-sm text-gray-300 mb-2">Current Photos (drag to reorder)</label>
                                                 <div className="grid grid-cols-3 gap-3">
                                                     {editForm.images.map((img, idx) => (
                                                         <div
@@ -794,7 +794,7 @@ export default function VenuesPage() {
                                         {/* New Images Preview */}
                                         {imagePreviews.length > 0 && (
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-2">New Photos (not yet saved)</label>
+                                                <label className="block text-sm text-gray-300 mb-2">New Photos (not yet saved)</label>
                                                 <div className="grid grid-cols-3 gap-3">
                                                     {imagePreviews.map((preview, idx) => (
                                                         <div key={idx} className="relative aspect-video rounded-lg overflow-hidden bg-gray-800 border-2 border-dashed border-violet-500/50">
@@ -815,10 +815,10 @@ export default function VenuesPage() {
 
                                         {/* Add Photos Button */}
                                         <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-violet-500/50 transition-colors">
-                                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                             </svg>
-                                            <span className="text-gray-400">Add Photos</span>
+                                            <span className="text-gray-300">Add Photos</span>
                                             <input type="file" accept="image/*" multiple onChange={handleImageAdd} className="hidden" />
                                         </label>
                                     </div>
@@ -852,7 +852,7 @@ export default function VenuesPage() {
                                 </button>
                             </div>
 
-                            <p className="text-gray-400 text-sm mb-4">Set your venue&apos;s operating hours for each day of the week.</p>
+                            <p className="text-gray-300 text-sm mb-4">Set your venue&apos;s operating hours for each day of the week.</p>
 
                             <div className="space-y-3">
                                 {DAYS_OF_WEEK.map((day, index) => {
@@ -902,7 +902,7 @@ export default function VenuesPage() {
                                                 disabled={!dayAvail.isAvailable}
                                                 className="px-2 py-1 bg-black/40 border border-white/10 rounded text-white text-sm disabled:opacity-50"
                                             />
-                                            <span className="text-gray-500">to</span>
+                                            <span className="text-gray-300">to</span>
                                             <input
                                                 type="time"
                                                 value={dayAvail.endTime}
@@ -926,7 +926,7 @@ export default function VenuesPage() {
                             {/* Calendar for Blocked Dates */}
                             <div className="mt-6 pt-6 border-t border-white/10">
                                 <h3 className="text-lg font-semibold text-white mb-3">Busy Hours Calendar</h3>
-                                <p className="text-gray-400 text-sm mb-4">Click on a date to set busy/unavailable hours for specific days.</p>
+                                <p className="text-gray-300 text-sm mb-4">Click on a date to set busy/unavailable hours for specific days.</p>
 
                                 {/* Month Navigation */}
                                 <div className="flex items-center justify-between mb-3">
@@ -948,7 +948,7 @@ export default function VenuesPage() {
                                 {/* Week Days Header */}
                                 <div className="grid grid-cols-7 gap-1 mb-1">
                                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                                        <div key={i} className="text-center text-xs text-gray-500 py-1">{d}</div>
+                                        <div key={i} className="text-center text-xs text-gray-300 py-1">{d}</div>
                                     ))}
                                 </div>
 
@@ -1015,7 +1015,7 @@ export default function VenuesPage() {
                                                     onChange={(e) => setBusyHoursForm(prev => ({ ...prev, startTime: e.target.value }))}
                                                     className="flex-1 px-2 py-1.5 bg-black/40 border border-white/10 rounded text-white text-sm"
                                                 />
-                                                <span className="text-gray-500">to</span>
+                                                <span className="text-gray-300">to</span>
                                                 <input
                                                     type="time"
                                                     value={busyHoursForm.endTime}
@@ -1028,7 +1028,7 @@ export default function VenuesPage() {
                                                 placeholder="Reason (optional)"
                                                 value={busyHoursForm.reason}
                                                 onChange={(e) => setBusyHoursForm(prev => ({ ...prev, reason: e.target.value }))}
-                                                className="px-3 py-1.5 bg-black/40 border border-white/10 rounded text-white text-sm placeholder:text-gray-500"
+                                                className="px-3 py-1.5 bg-black/40 border border-white/10 rounded text-white text-sm placeholder:text-gray-300"
                                             />
                                             <Button size="sm" onClick={handleAddBusyHours}>
                                                 Add Busy Hours
@@ -1072,7 +1072,7 @@ export default function VenuesPage() {
                                     </svg>
                                     <div>
                                         <p className="text-red-400 font-medium">Delete {cancellingVenue.name}?</p>
-                                        <p className="text-sm text-gray-400 mt-1">
+                                        <p className="text-sm text-gray-300 mt-1">
                                             This will set the venue status to inactive and it will no longer accept new bookings.
                                         </p>
                                     </div>
@@ -1080,14 +1080,14 @@ export default function VenuesPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm text-gray-400 mb-2">
+                                <label className="block text-sm text-gray-300 mb-2">
                                     Reason for cancellation (optional)
                                 </label>
                                 <textarea
                                     value={cancelReason}
                                     onChange={(e) => setCancelReason(e.target.value)}
                                     placeholder="Let us know why you're cancelling..."
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 resize-none"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-300 focus:outline-none focus:border-red-500 resize-none"
                                     rows={3}
                                 />
                             </div>

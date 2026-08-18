@@ -179,7 +179,7 @@ export default function BookingsPage() {
             case 'rejected':
                 return 'bg-red-500/20 text-red-400 border-red-500/20';
             default:
-                return 'bg-gray-500/20 text-gray-400 border-gray-500/20';
+                return 'bg-gray-500/20 text-gray-300 border-gray-500/20';
         }
     };
 
@@ -192,7 +192,7 @@ export default function BookingsPage() {
             case 'failed':
                 return 'bg-red-500/20 text-red-400 border-red-500/20';
             default:
-                return 'bg-gray-500/20 text-gray-400 border-gray-500/20';
+                return 'bg-gray-500/20 text-gray-300 border-gray-500/20';
         }
     };
 
@@ -215,7 +215,7 @@ export default function BookingsPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-1">My Bookings</h1>
-                            <p className="text-gray-400">Manage your venue bookings and reservations</p>
+                            <p className="text-gray-300">Manage your venue bookings and reservations</p>
                         </div>
 
                         <FilterDropdown
@@ -313,13 +313,13 @@ export default function BookingsPage() {
                                                             )}
                                                         </div>
                                                         <div className="space-y-1 text-sm">
-                                                            <div className="flex items-center gap-2 text-gray-400">
+                                                            <div className="flex items-center gap-2 text-gray-300">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                 </svg>
                                                                 {formatDate(booking.bookingDate)} • {booking.startTime} - {booking.endTime}
                                                             </div>
-                                                            <div className="flex items-center gap-2 text-gray-500">
+                                                            <div className="flex items-center gap-2 text-gray-300">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                                                                 </svg>
@@ -329,10 +329,10 @@ export default function BookingsPage() {
                                                     </div>
 
                                                     <div className="text-right">
-                                                        <p className="text-xs text-gray-500 mb-1">Total Amount</p>
+                                                        <p className="text-xs text-gray-300 mb-1">Total Amount</p>
                                                         <p className="text-xl font-bold text-white">₹{booking.totalAmount?.toLocaleString() || 0}</p>
                                                         {booking.status === 'accepted' && (
-                                                            <p className="text-xs text-gray-500 mt-1">
+                                                            <p className="text-xs text-gray-300 mt-1">
                                                                 Advance (10%): <span className="text-violet-400">₹{advanceAmount.toLocaleString()}</span>
                                                             </p>
                                                         )}
@@ -396,7 +396,7 @@ export default function BookingsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No bookings found</h3>
-                        <p className="text-gray-400 mb-6">
+                        <p className="text-gray-300 mb-6">
                             {statusFilter === 'all'
                                 ? 'Start exploring venues to make your first booking!'
                                 : `No ${statusFilter} bookings at the moment.`}
@@ -443,19 +443,19 @@ export default function BookingsPage() {
                             {/* Booking Info Grid */}
                             <div className="grid grid-cols-2 gap-3 bg-white/5 rounded-lg p-3 text-sm">
                                 <div>
-                                    <p className="text-xs text-gray-500">Date</p>
+                                    <p className="text-xs text-gray-300">Date</p>
                                     <p className="text-white">{formatDate(selectedBooking.bookingDate)}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Time</p>
+                                    <p className="text-xs text-gray-300">Time</p>
                                     <p className="text-white">{selectedBooking.startTime} - {selectedBooking.endTime}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Guests</p>
+                                    <p className="text-xs text-gray-300">Guests</p>
                                     <p className="text-white">{selectedBooking.expectedGuests} people</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Purpose</p>
+                                    <p className="text-xs text-gray-300">Purpose</p>
                                     <p className="text-white">{selectedBooking.purpose || 'Not specified'}</p>
                                 </div>
                             </div>
@@ -465,11 +465,11 @@ export default function BookingsPage() {
                                 <h4 className="text-sm font-semibold text-white mb-2">Payment Summary</h4>
                                 <div className="space-y-1 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-gray-400">Total Amount</span>
+                                        <span className="text-gray-300">Total Amount</span>
                                         <span className="text-white">₹{selectedBooking.totalAmount?.toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-gray-400">Advance Paid (10%)</span>
+                                        <span className="text-gray-300">Advance Paid (10%)</span>
                                         <span className="text-emerald-400">₹{getAdvanceAmount(selectedBooking.totalAmount).toLocaleString()}</span>
                                     </div>
                                     <div className="border-t border-white/10 my-1"></div>

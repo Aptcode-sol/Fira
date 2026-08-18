@@ -110,7 +110,7 @@ export default function VenuePortalEventsPage() {
             case 'pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
             case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
             case 'rejected': return 'bg-red-500/20 text-red-400 border-red-500/30';
-            default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+            default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
         }
     };
 
@@ -141,7 +141,7 @@ export default function VenuePortalEventsPage() {
                 <SlideUp>
                     <div className="mb-6 sm:mb-8">
                         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Event Requests</h1>
-                        <p className="text-sm sm:text-base text-gray-400">Review and approve event requests for your venues</p>
+                        <p className="text-sm sm:text-base text-gray-300">Review and approve event requests for your venues</p>
                     </div>
                 </SlideUp>
 
@@ -160,7 +160,7 @@ export default function VenuePortalEventsPage() {
                                 <option value="approved" className="bg-[#1a1a1a]">Approved</option>
                                 <option value="rejected" className="bg-[#1a1a1a]">Rejected</option>
                             </select>
-                            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         </div>
@@ -193,7 +193,7 @@ export default function VenuePortalEventsPage() {
                                             {event.venue?.images?.[0] ? (
                                                 <img src={event.venue.images[0]} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300">
                                                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                     </svg>
@@ -207,34 +207,34 @@ export default function VenuePortalEventsPage() {
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(event.venueApproval?.status || 'pending')}`}>
                                                     {event.venueApproval?.status || 'pending'}
                                                 </span>
-                                                <span className="text-gray-500 text-sm">{formatDate(event.createdAt)}</span>
+                                                <span className="text-gray-300 text-sm">{formatDate(event.createdAt)}</span>
                                             </div>
 
                                             <h3 className="text-lg font-semibold text-white mb-1">{event.name}</h3>
 
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
                                                 <div>
-                                                    <span className="text-gray-500">Venue:</span>
+                                                    <span className="text-gray-300">Venue:</span>
                                                     <span className="text-white ml-2">{event.venue?.name}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-gray-500">From:</span>
+                                                    <span className="text-gray-300">From:</span>
                                                     <span className="text-white ml-2">{formatDateTime(event.startDateTime)}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-gray-500">To:</span>
+                                                    <span className="text-gray-300">To:</span>
                                                     <span className="text-white ml-2">{formatDateTime(event.endDateTime)}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-gray-500">Capacity:</span>
+                                                    <span className="text-gray-300">Capacity:</span>
                                                     <span className="text-white ml-2">{event.maxAttendees}</span>
                                                 </div>
                                             </div>
 
                                             <div className="pt-3 border-t border-white/10">
-                                                <span className="text-gray-500 text-sm">Organizer: </span>
+                                                <span className="text-gray-300 text-sm">Organizer: </span>
                                                 <span className="text-white text-sm">{event.organizer?.name}</span>
-                                                <span className="text-gray-500 text-sm ml-3">{event.organizer?.email}</span>
+                                                <span className="text-gray-300 text-sm ml-3">{event.organizer?.email}</span>
                                             </div>
                                         </div>
 
@@ -270,7 +270,7 @@ export default function VenuePortalEventsPage() {
                                 </svg>
                             </div>
                             <h3 className="text-xl font-semibold text-white mb-2">No event requests</h3>
-                            <p className="text-gray-400">
+                            <p className="text-gray-300">
                                 Event organizers who want to host events at your venues will appear here.
                             </p>
                         </div>

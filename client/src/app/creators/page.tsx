@@ -324,7 +324,7 @@ export default function CreatorsPage() {
                             <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6">
                                 Discover <span className="text-violet-400">Creators</span>
                             </h1>
-                            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
                                 Find verified event organizers, artists, DJs, bands, and more.
                             </p>
                         </div>
@@ -341,7 +341,7 @@ export default function CreatorsPage() {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="bg-black/40 border-white/10 focus:bg-black/60 h-[42px]"
                                         leftIcon={
-                                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                             </svg>
                                         }
@@ -378,7 +378,7 @@ export default function CreatorsPage() {
                     </FadeIn>
 
                     {isLoading && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                             {Array.from({ length: 8 }).map((_, i) => (
                                 <motion.div
                                     key={i}
@@ -417,7 +417,7 @@ export default function CreatorsPage() {
                                                 <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
                                                     Are you a Creator?
                                                 </h2>
-                                                <p className="text-gray-400 mb-8 max-w-xl mx-auto text-lg">
+                                                <p className="text-gray-300 mb-8 max-w-xl mx-auto text-lg">
                                                     Get verified, build your profile, and connect with thousands of fans. Access exclusive tools to manage your events.
                                                 </p>
                                                 <Link href="/create/creator">
@@ -462,7 +462,7 @@ export default function CreatorsPage() {
                                             </div>
                                         ) : (
                                             <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/5">
-                                                <p className="text-gray-400">No brands found near your location.</p>
+                                                <p className="text-gray-300">No brands found near your location.</p>
                                             </div>
                                         )
                                     ) : (
@@ -475,7 +475,7 @@ export default function CreatorsPage() {
                                                     </svg>
                                                 </div>
                                                 <h3 className="text-xl font-bold text-white mb-2">Locate Brands Nearby</h3>
-                                                <p className="text-gray-400 max-w-md mb-6">
+                                                <p className="text-gray-300 max-w-md mb-6">
                                                     Enable location access to discover bands, brands, and organizers happening around you.
                                                 </p>
                                                 <Button
@@ -496,12 +496,12 @@ export default function CreatorsPage() {
                     {!isLoading && isFiltered && (
                         <>
                             <div className="mb-4">
-                                <p className="text-gray-400 text-sm">
+                                <p className="text-gray-300 text-sm">
                                     Showing {gridData.length} results
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
                                 {gridData.map((brand) => (
                                     <BrandCard key={brand._id} brand={brand} />
                                 ))}
@@ -516,7 +516,7 @@ export default function CreatorsPage() {
                             )}
 
                             {gridData.length === 0 && (
-                                <div className="text-center py-20 text-gray-500">
+                                <div className="text-center py-20 text-gray-300">
                                     <p className="text-xl mb-4">No results found</p>
                                     <Button variant="ghost" className="text-violet-400" onClick={resetFilters}>
                                         Reset Filters
@@ -525,7 +525,7 @@ export default function CreatorsPage() {
                             )}
 
                             {!hasMore && gridData.length > 0 && (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 text-gray-300">
                                     <p>You've seen all results</p>
                                 </div>
                             )}

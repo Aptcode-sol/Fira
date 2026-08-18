@@ -1,5 +1,6 @@
 const VerificationRequest = require('../models/VerificationRequest');
 const User = require('../models/User');
+const BrandProfile = require('../models/BrandProfile');
 
 const verificationService = {
     // Get all requests (admin)
@@ -77,7 +78,7 @@ const verificationService = {
 
     // Review request (admin)
     async reviewRequest(id, { status, rejectionReason, adminNotes, reviewedBy }) {
-        const request = await VerificationRequest.findById(id);
+        const request = await VerificationRequest.findById(id).populate('user', 'email');
         if (!request) {
             throw new Error('Verification request not found');
         }
@@ -95,14 +96,44 @@ const verificationService = {
 
         await request.save();
 
-        // If approved, update user's verification status
+        // If approved, update user's verification status and create/update BrandProfile
         if (status === 'approved') {
-            await User.findByIdAndUpdate(request.user, {
-                $set: {
-                    isVerified: true,
-                    verificationBadge: request.type
+            try {
+                // Query existing user by email (case-insensitive) — NEVER create a new User
+                const applicantEmail = request.user.email.toLowerCase();
+                const existingUser = await User.findOne({ email: applicantEmail });
+
+                if (!existingUser) {
+                    throw new Error('User account not found for this application');
                 }
-            });
+
+                // Update the existing user's verification fields
+                existingUser.isVerified = true;
+                existingUser.verificationBadge = request.type;
+                await existingUser.save();
+
+                // Create or update BrandProfile — don't create a duplicate
+                const brandProfileData = {
+                    user: existingUser._id,
+                    name: request.name,
+                    type: request.type,
+                    bio: request.description || '',
+                    socialLinks: request.socialLinks || {}
+                };
+
+                await BrandProfile.findOneAndUpdate(
+                    { user: existingUser._id },
+                    { $set: brandProfileData },
+                    { upsert: true, new: true }
+                );
+            } catch (error) {
+                // Revert the request status to avoid partial state
+                request.status = 'pending';
+                request.reviewedBy = null;
+                request.reviewedAt = null;
+                await request.save();
+                throw new Error(`Application processing failed: ${error.message}`);
+            }
         }
 
         // TODO: Send notification to user

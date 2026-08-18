@@ -47,7 +47,7 @@ export default function CreatePartySection() {
                             <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 text-white">
                                 Want to create a <span className="accent-text">party</span>?
                             </h2>
-                            <p className="text-gray-500 max-w-xl mx-auto">
+                            <p className="text-gray-300 max-w-xl mx-auto">
                                 It's simple. Follow these three easy steps.
                             </p>
                         </div>
@@ -75,7 +75,7 @@ export default function CreatePartySection() {
 
                                     {/* Content */}
                                     <h3 className="text-lg font-semibold text-white mb-2">{step.title}</h3>
-                                    <p className="text-gray-500 text-sm">{step.description}</p>
+                                    <p className="text-gray-300 text-sm">{step.description}</p>
                                 </div>
                             </StaggerItem>
                         ))}

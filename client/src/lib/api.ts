@@ -205,6 +205,16 @@ export const usersApi = {
             }[];
             count: number;
         }>(`/users/${userId}/following-brands`),
+    updateBankDetails: (data: {
+        accountName: string;
+        accountNumber: string;
+        ifscCode: string;
+        bankName: string;
+    }) =>
+        request<{ bankDetails: { accountName: string; accountNumber: string; ifscCode: string; bankName: string } }>(
+            '/users/me/bank-details',
+            { method: 'PATCH', body: JSON.stringify(data) }
+        ),
 };
 
 const followedBrandsCache: Map<string, Set<string>> = new Map();
@@ -358,6 +368,13 @@ export const venuesApi = {
             method: 'POST',
             body: JSON.stringify({ reason }),
         }),
+    submitReview: (id: string, data: { rating: number; comment?: string }) =>
+        request(`/venues/${id}/reviews`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    checkReviewEligibility: (id: string) =>
+        request<{ eligible: boolean }>(`/bookings?venue=${id}&status=completed`),
 };
 
 // Events API
@@ -467,6 +484,39 @@ export const eventsApi = {
         request(`/events/${eventId}/posts/${postId}/comments/${commentId}`, {
             method: 'DELETE',
             body: JSON.stringify({ userId }),
+        }),
+
+    // Scanning Codes
+    getScanningCodes: (eventId: string) =>
+        request<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>(`/events/${eventId}/scanning-codes`),
+    createScanningCodes: (eventId: string, labels: string[]) =>
+        request<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>(`/events/${eventId}/scanning-codes`, {
+            method: 'POST',
+            body: JSON.stringify({ labels }),
+        }),
+    deactivateScanningCode: (eventId: string, codeId: string) =>
+        request(`/events/${eventId}/scanning-codes/${codeId}/deactivate`, {
+            method: 'PATCH',
+        }),
+};
+
+// Discounts API
+export const discountsApi = {
+    list: (eventId: string) =>
+        request<any[]>(`/discounts/events/${eventId}/discount-codes`),
+    create: (eventId: string, data: { code: string; discountType: string; discountValue: number; maxUses: number | null; validFrom: string; validUntil: string }) =>
+        request(`/discounts/events/${eventId}/discount-codes`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    edit: (codeId: string, data: Record<string, unknown>) =>
+        request(`/discounts/discount-codes/${codeId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        }),
+    deactivate: (codeId: string) =>
+        request(`/discounts/discount-codes/${codeId}`, {
+            method: 'DELETE',
         }),
 };
 
@@ -598,6 +648,11 @@ export const paymentsApi = {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/payments/payouts/all${query}`);
     },
+    applyDiscount: (data: { code: string; eventId: string; subtotal: number }) =>
+        request<{ discountAmount: number; discountType: string; discountValue: number; code: string }>(
+            '/payments/apply-discount',
+            { method: 'POST', body: JSON.stringify(data) }
+        ),
     // Refund-related methods
     getAllRefunds: (params?: Record<string, string>) => {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
@@ -926,6 +981,22 @@ export const messagesApi = {
     archiveConversation: (conversationId: string) =>
         request<{ success: boolean; message: string }>(`/messages/conversations/${conversationId}`, {
             method: 'DELETE',
+        }),
+};
+
+// Inquiries API
+export const inquiriesApi = {
+    submit: (data: {
+        referenceType: 'event' | 'venue';
+        referenceId: string;
+        senderName: string;
+        senderEmail: string;
+        senderPhone?: string;
+        message: string;
+    }) =>
+        request<{ _id: string; referenceType: string; referenceId: string; status: string }>('/inquiries', {
+            method: 'POST',
+            body: JSON.stringify(data),
         }),
 };
 

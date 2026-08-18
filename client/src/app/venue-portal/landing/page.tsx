@@ -109,7 +109,7 @@ export default function VenuePortalLandingPage() {
                         </FadeIn>
 
                         <FadeIn delay={0.2} duration={0.6} direction="up">
-                            <p className="text-gray-500 text-base sm:text-lg md:text-xl mt-4 mb-10 max-w-2xl mx-auto leading-relaxed">
+                            <p className="text-gray-300 text-base sm:text-lg md:text-xl mt-4 mb-10 max-w-2xl mx-auto leading-relaxed">
                                 List your venue on FIRA and connect with thousands of event organizers looking for the perfect space.
                             </p>
                         </FadeIn>
@@ -148,7 +148,7 @@ export default function VenuePortalLandingPage() {
                                                         {feature.icon}
                                                     </div>
                                                     <h3 className="text-white font-medium mb-1">{feature.title}</h3>
-                                                    <p className="text-gray-500 text-sm">{feature.description}</p>
+                                                    <p className="text-gray-300 text-sm">{feature.description}</p>
                                                 </div>
                                             </StaggerItem>
                                         ))}
@@ -161,7 +161,7 @@ export default function VenuePortalLandingPage() {
                                                 Why list on <span className="accent-text">FIRA</span>?
                                             </h2>
 
-                                            <p className="text-gray-400 mb-8 leading-relaxed">
+                                            <p className="text-gray-300 mb-8 leading-relaxed">
                                                 Join hundreds of venue owners who trust FIRA to connect with event organizers.
                                                 Manage bookings, set your prices, and earn from every event.
                                             </p>
@@ -193,19 +193,19 @@ export default function VenuePortalLandingPage() {
                                         <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
                                             <CountUp end={500} suffix="+" />
                                         </div>
-                                        <div className="text-gray-500 text-sm sm:text-base">Active Venues</div>
+                                        <div className="text-gray-300 text-sm sm:text-base">Active Venues</div>
                                     </div>
                                     <div>
                                         <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
                                             <CountUp end={10} suffix="K+" />
                                         </div>
-                                        <div className="text-gray-500 text-sm sm:text-base">Events Hosted</div>
+                                        <div className="text-gray-300 text-sm sm:text-base">Events Hosted</div>
                                     </div>
                                     <div>
                                         <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
                                             ₹<CountUp end={50} suffix="L+" />
                                         </div>
-                                        <div className="text-gray-500 text-sm sm:text-base">Revenue Generated</div>
+                                        <div className="text-gray-300 text-sm sm:text-base">Revenue Generated</div>
                                     </div>
                                 </div>
                             </SlideUp>
@@ -224,7 +224,7 @@ export default function VenuePortalLandingPage() {
                             </SlideUp>
 
                             <SlideUp delay={0.15}>
-                                <p className="text-gray-500 text-lg mb-10 max-w-xl mx-auto">
+                                <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">
                                     Join thousands of venue owners already making money on FIRA. Your next booking starts here.
                                 </p>
                             </SlideUp>

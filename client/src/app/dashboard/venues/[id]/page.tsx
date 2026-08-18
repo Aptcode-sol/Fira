@@ -524,7 +524,7 @@ export default function VenueManagePage() {
                             ? 'bg-green-500/20 text-green-400 border border-green-500/20'
                             : venue.status === 'pending'
                                 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
-                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/20'
+                                : 'bg-gray-500/20 text-gray-300 border border-gray-500/20'
                             }`}>
                             {venue.status}
                         </span>
@@ -580,7 +580,7 @@ export default function VenueManagePage() {
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                         <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-md w-full">
                             <h3 className="text-xl font-bold text-white mb-2">Cancel Venue?</h3>
-                            <p className="text-gray-400 mb-6">
+                            <p className="text-gray-300 mb-6">
                                 Are you sure you want to cancel <strong className="text-white">{venue.name}</strong>? This action cannot be undone.
                             </p>
                             <div className="flex gap-3 justify-end">
@@ -656,7 +656,7 @@ export default function VenueManagePage() {
                         ))}
                         {isEditMode && (
                             <label className="flex-shrink-0 w-20 h-20 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-violet-500/50">
-                                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                 </svg>
                                 <input type="file" accept="image/*" multiple onChange={handleImageAdd} className="hidden" />
@@ -732,14 +732,14 @@ export default function VenueManagePage() {
                                     className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-lg text-white"
                                 />
                             ) : (
-                                <p className="text-gray-400 leading-relaxed whitespace-pre-line">{venue.description}</p>
+                                <p className="text-gray-300 leading-relaxed whitespace-pre-line">{venue.description}</p>
                             )}
                         </div>
 
                         {/* Availability Calendar */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6 overflow-visible">
                             <h2 className="text-xl font-semibold text-white mb-2">Availability Calendar</h2>
-                            <p className="text-gray-400 text-sm mb-4">
+                            <p className="text-gray-300 text-sm mb-4">
                                 {isEditMode ? 'Click dates to select, then set hours for all selected dates.' : 'View your venue availability.'}
                             </p>
 
@@ -763,7 +763,7 @@ export default function VenueManagePage() {
                             {/* Week Headers */}
                             <div className="grid grid-cols-7 gap-1 mb-1">
                                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                                    <div key={i} className="text-center text-xs text-gray-500 py-1">{d}</div>
+                                    <div key={i} className="text-center text-xs text-gray-300 py-1">{d}</div>
                                 ))}
                             </div>
 
@@ -789,7 +789,7 @@ export default function VenueManagePage() {
                                                     isSelected ? 'bg-violet-500 text-white ring-2 ring-violet-400 cursor-pointer' :
                                                         availability.color === 'red' ? 'bg-red-500/30 text-red-400 border border-red-500/50 cursor-pointer' :
                                                             availability.color === 'orange' ? 'bg-orange-500/30 text-orange-400 border border-orange-500/50 cursor-pointer' :
-                                                                availability.color === 'gray' ? 'bg-gray-500/30 text-gray-400 border border-gray-500/50 cursor-pointer' :
+                                                                availability.color === 'gray' ? 'bg-gray-500/30 text-gray-300 border border-gray-500/50 cursor-pointer' :
                                                                     isToday ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-pointer' :
                                                                         isEditMode ? 'text-gray-300 hover:bg-white/10 cursor-pointer' :
                                                                             'text-gray-300 hover:bg-white/5 cursor-default'
@@ -805,7 +805,7 @@ export default function VenueManagePage() {
                                                             {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                         </div>
                                                         {availability.isClosed ? (
-                                                            <div className="flex items-center gap-1.5 text-gray-400">
+                                                            <div className="flex items-center gap-1.5 text-gray-300">
                                                                 <span className="w-2 h-2 rounded-full bg-gray-500"></span>
                                                                 Closed
                                                             </div>
@@ -850,7 +850,7 @@ export default function VenueManagePage() {
                                             onChange={(e) => setHoursForm(prev => ({ ...prev, startTime: e.target.value }))}
                                             className="flex-1 px-2 py-1.5 bg-black/40 border border-white/10 rounded text-white text-sm"
                                         />
-                                        <span className="text-gray-500">to</span>
+                                        <span className="text-gray-300">to</span>
                                         <input
                                             type="time"
                                             value={hoursForm.endTime}
@@ -886,7 +886,7 @@ export default function VenueManagePage() {
                             </h3>
 
                             {eventRequests.length === 0 ? (
-                                <div className="text-center py-6 text-gray-400">
+                                <div className="text-center py-6 text-gray-300">
                                     <svg className="w-10 h-10 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
@@ -905,10 +905,10 @@ export default function VenueManagePage() {
                                                 </span>
                                             </div>
                                             <p className="text-white font-medium">{event.name}</p>
-                                            <p className="text-gray-400 text-sm mt-1">
+                                            <p className="text-gray-300 text-sm mt-1">
                                                 by {event.organizer?.name || 'Unknown'}
                                             </p>
-                                            <div className="mt-2 text-gray-500 text-xs space-y-1">
+                                            <div className="mt-2 text-gray-300 text-xs space-y-1">
                                                 <p className="flex items-center gap-1">
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -961,24 +961,24 @@ export default function VenueManagePage() {
                             {isEditMode ? (
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Venue Name</label>
+                                        <label className="block text-sm text-gray-300 mb-1">Venue Name</label>
                                         <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} className="text-xl font-bold" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Street</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Street</label>
                                             <Input value={editForm.street} onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">City</label>
+                                            <label className="block text-sm text-gray-300 mb-1">City</label>
                                             <Input value={editForm.city} onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">State</label>
+                                            <label className="block text-sm text-gray-300 mb-1">State</label>
                                             <Input value={editForm.state} onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-400 mb-1">Pincode</label>
+                                            <label className="block text-sm text-gray-300 mb-1">Pincode</label>
                                             <Input value={editForm.pincode} onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))} />
                                         </div>
                                     </div>
@@ -986,7 +986,7 @@ export default function VenueManagePage() {
                             ) : (
                                 <>
                                     <h1 className="text-3xl font-bold text-white mb-3">{venue.name}</h1>
-                                    <div className="flex items-center gap-2 text-gray-400">
+                                    <div className="flex items-center gap-2 text-gray-300">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                         </svg>
@@ -1004,11 +1004,11 @@ export default function VenueManagePage() {
                                     {isEditMode ? (
                                         <div className="space-y-3">
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">Base Price (₹)</label>
+                                                <label className="block text-sm text-gray-300 mb-1">Base Price (₹)</label>
                                                 <Input type="number" value={editForm.basePrice} onChange={(e) => setEditForm(prev => ({ ...prev, basePrice: Number(e.target.value) }))} />
                                             </div>
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">Price per Hour (₹)</label>
+                                                <label className="block text-sm text-gray-300 mb-1">Price per Hour (₹)</label>
                                                 <Input type="number" value={editForm.pricePerHour} onChange={(e) => setEditForm(prev => ({ ...prev, pricePerHour: Number(e.target.value) }))} />
                                             </div>
                                         </div>
@@ -1016,10 +1016,10 @@ export default function VenueManagePage() {
                                         <>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
-                                                <span className="text-gray-400">base</span>
+                                                <span className="text-gray-300">base</span>
                                             </div>
                                             {venue.pricing.pricePerHour && (
-                                                <p className="text-sm text-gray-500 mt-1">+ {formatPrice(venue.pricing.pricePerHour)} / hour</p>
+                                                <p className="text-sm text-gray-300 mt-1">+ {formatPrice(venue.pricing.pricePerHour)} / hour</p>
                                             )}
                                         </>
                                     )}
@@ -1030,30 +1030,30 @@ export default function VenueManagePage() {
                                     {isEditMode ? (
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">Min Capacity</label>
+                                                <label className="block text-sm text-gray-300 mb-1">Min Capacity</label>
                                                 <Input type="number" value={editForm.capacityMin} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMin: Number(e.target.value) }))} />
                                             </div>
                                             <div>
-                                                <label className="block text-sm text-gray-400 mb-1">Max Capacity</label>
+                                                <label className="block text-sm text-gray-300 mb-1">Max Capacity</label>
                                                 <Input type="number" value={editForm.capacityMax} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMax: Number(e.target.value) }))} />
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">Capacity</span>
+                                            <span className="text-gray-300">Capacity</span>
                                             <span className="text-white">{venue.capacity.min} - {venue.capacity.max} guests</span>
                                         </div>
                                     )}
 
                                     {venue.rating.count > 0 && (
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">Rating</span>
+                                            <span className="text-gray-300">Rating</span>
                                             <div className="flex items-center gap-1">
                                                 <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                                 </svg>
                                                 <span className="text-white">{venue.rating.average.toFixed(1)}</span>
-                                                <span className="text-gray-500">({venue.rating.count})</span>
+                                                <span className="text-gray-300">({venue.rating.count})</span>
                                             </div>
                                         </div>
                                     )}
@@ -1061,7 +1061,7 @@ export default function VenueManagePage() {
 
                                 {/* Status */}
                                 <div className="flex items-center justify-between">
-                                    <span className="text-gray-400 text-sm">Status</span>
+                                    <span className="text-gray-300 text-sm">Status</span>
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${venue.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                                         }`}>
                                         {venue.isActive ? 'Active' : 'Inactive'}

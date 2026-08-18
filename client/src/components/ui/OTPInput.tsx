@@ -76,6 +76,7 @@ export default function OTPInput({
                     type="text"
                     inputMode="numeric"
                     maxLength={1}
+                    aria-label={`Digit ${index + 1} of ${length}`}
                     value={localValue[index] || ''}
                     onChange={(e) => handleChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}

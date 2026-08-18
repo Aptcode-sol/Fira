@@ -240,7 +240,7 @@ export default function MessagesPage() {
 //                                         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-violet-500"></div>
 //                                     </div>
 //                                 ) : conversations.length === 0 ? (
-//                                     <div className="p-6 text-center text-gray-400">
+//                                     <div className="p-6 text-center text-gray-300">
 //                                         <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 //                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 //                                         </svg>
@@ -278,11 +278,11 @@ export default function MessagesPage() {
 //                                                         <h3 className="font-bold text-lg truncate" style={{ color: '#ffffff', opacity: 1 }}>
 //                                                             {displayInfo.name}
 //                                                         </h3>
-//                                                         <span className="text-xs text-gray-500 flex-shrink-0">
+//                                                         <span className="text-xs text-gray-300 flex-shrink-0">
 //                                                             {formatTime(conversation.lastMessage?.timestamp || conversation.updatedAt)}
 //                                                         </span>
 //                                                     </div>
-//                                                     <p className="text-sm text-gray-400 truncate">
+//                                                     <p className="text-sm text-gray-300 truncate">
 //                                                         {conversation.lastMessage?.content || 'No messages yet'}
 //                                                     </p>
 //                                                 </div>
@@ -338,7 +338,7 @@ export default function MessagesPage() {
 //                                                     : 'bg-white/10 text-white'
 //                                                     } rounded-2xl px-4 py-2`}>
 //                                                     <p className="break-words">{message.content}</p>
-//                                                     <p className={`text-xs mt-1 ${message.sender._id === user._id ? 'text-violet-200' : 'text-gray-400'
+//                                                     <p className={`text-xs mt-1 ${message.sender._id === user._id ? 'text-violet-200' : 'text-gray-300'
 //                                                         }`}>
 //                                                         {formatTime(message.createdAt)}
 //                                                     </p>
@@ -372,7 +372,7 @@ export default function MessagesPage() {
 //                                     </form>
 //                                 </>
 //                             ) : (
-//                                 <div className="flex-1 flex items-center justify-center text-gray-400">
+//                                 <div className="flex-1 flex items-center justify-center text-gray-300">
 //                                     <div className="text-center">
 //                                         <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 //                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
