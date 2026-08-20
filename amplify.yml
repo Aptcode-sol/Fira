@@ -11,15 +11,23 @@ applications:
             # `npm ci` from inside client/ redirects the install under the root
             # workspace context and leaves node_modules incomplete. Install from
             # the root, then return to the app directory to build.
-            - cd .. && npm ci && cd client
+            # The cache dir is written as client/.npm even though npm runs from
+            # the root, because Amplify resolves the cache paths below relative
+            # to appRoot - a root-level .npm would simply never be restored.
+            - cd .. && npm ci --cache client/.npm --prefer-offline && cd client
         build:
           commands:
-            # Amplify exposes console environment variables to the build shell,
-            # but Next.js inlines NEXT_PUBLIC_* only from what it sees when it
-            # compiles. Materialising them into .env.production makes that
-            # explicit, and survives Amplify's .next/cache, which can otherwise
-            # reuse modules compiled with the previous (empty) values — the bug
-            # where the shipped bundle kept pointing at localhost:5000.
+            # Materialise every NEXT_PUBLIC_* console variable into
+            # .env.production so Next.js sees it when it compiles. The pattern is
+            # deliberately generic rather than a list of names: the outage this
+            # was written for came from the environment defining
+            # NEXT_PUBLIC_BACKEND_URL while the code read NEXT_PUBLIC_API_URL,
+            # and an enumerated list would have reproduced exactly that mismatch.
+            #
+            # `cat` echoes the result into the build log. These are NEXT_PUBLIC_*
+            # values, public by construction, so logging them leaks nothing - and
+            # it makes "was the variable actually set?" answerable from the log
+            # instead of by inspecting the shipped bundle.
             - env | grep -e '^NEXT_PUBLIC_' >> .env.production || true
             - cat .env.production
             - npm run build
@@ -31,4 +39,7 @@ applications:
         paths:
           # node_modules is deliberately NOT cached: a stale workspace tree is
           # what produced half-installed packages elsewhere in this project.
+          # The npm download cache is safe to keep and is what makes
+          # --prefer-offline above worth having.
+          - .npm/**/*
           - .next/cache/**/*

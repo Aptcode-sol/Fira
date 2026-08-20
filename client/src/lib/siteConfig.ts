@@ -15,24 +15,40 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://letsfira.c
  * Base URL of the API server, including the `/api` prefix and no trailing
  * slash - callers append paths directly, e.g. `${API_BASE_URL}/events`.
  *
- * Override per environment with:
+ * Set either name in the deployment environment; NEXT_PUBLIC_API_URL wins:
  *   NEXT_PUBLIC_API_URL=https://api.letsfira.com/api
+ *   NEXT_PUBLIC_BACKEND_URL=https://api.letsfira.com
  *
- * ponytail: the fallback is production-correct, matching SITE_URL above. This
- * was previously duplicated across six files as
- * `process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'`.
- * NEXT_PUBLIC_* values are inlined at build time, so any build that did not
- * receive the variable shipped a bundle telling every visitor's browser to call
- * *its own machine* on port 5000 - which presents as the whole site being
- * unable to reach the backend. Naming the host here exposes nothing: the value
- * is public by construction and already ships in the client bundle.
+ * ponytail: both names are accepted, and the `/api` suffix is appended when
+ * absent, because the two halves of this were configured independently - the
+ * Amplify environment defined NEXT_PUBLIC_BACKEND_URL while the code read
+ * NEXT_PUBLIC_API_URL. NEXT_PUBLIC_* values are inlined at build time, so that
+ * mismatch silently shipped the localhost fallback: every visitor's browser was
+ * told to call *its own machine* on port 5000, which presents as the whole site
+ * being unable to reach the backend rather than as a config error.
+ *
+ * The final fallback is production-correct, matching SITE_URL above, so a build
+ * that receives neither variable still points at a real backend. Naming the
+ * host here exposes nothing - the value is public by construction and already
+ * ships in the client bundle.
  */
-export const API_BASE_URL = (
-    process.env.NEXT_PUBLIC_API_URL
-    || (process.env.NODE_ENV === 'development'
-        ? 'http://localhost:5000/api'
-        : 'https://api.letsfira.com/api')
-).replace(/\/$/, '');
+function resolveApiBaseUrl(): string {
+    // Referenced as full literals so Next.js can inline them at build time;
+    // a computed lookup like process.env[name] would not be substituted.
+    const configured =
+        process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    if (!configured) {
+        return process.env.NODE_ENV === 'development'
+            ? 'http://localhost:5000/api'
+            : 'https://api.letsfira.com/api';
+    }
+
+    const trimmed = configured.replace(/\/+$/, '');
+    return /\/api$/.test(trimmed) ? trimmed : `${trimmed}/api`;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const SITE_NAME = 'FIRA';
 
