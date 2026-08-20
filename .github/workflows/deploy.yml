@@ -159,10 +159,9 @@ jobs:
             echo ":::: Installing dependencies ::::"
             cd server && npm ci --production && cd ..
             cd admin && npm ci && npm run build && cd ..
-            cd client && npm ci && npm run build && cd ..
 
             echo ":::: Restarting PM2 apps ::::"
-            pm2 delete fira-backend fira-admin fira-client || true
+            pm2 delete fira-backend fira-admin || true
             pm2 start ecosystem.config.js --env production
             pm2 save
 

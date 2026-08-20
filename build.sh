@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# Build script for all applications
+# Build script for EC2-hosted applications (backend + admin only)
+# Frontend client is deployed via AWS Amplify separately.
 set -e
 
 echo "========================================="
-echo "Building FIRA Applications"
+echo "Building FIRA Applications (EC2)"
 echo "========================================="
 
 # Backend - No build needed, just install deps
@@ -16,13 +17,6 @@ cd ..
 # Admin Dashboard - Build React/Vite app
 echo ":::: Building Admin Dashboard ::::"
 cd admin
-npm ci
-npm run build
-cd ..
-
-# Frontend - Build Next.js app
-echo ":::: Building Frontend Client ::::"
-cd client
 npm ci
 npm run build
 cd ..
