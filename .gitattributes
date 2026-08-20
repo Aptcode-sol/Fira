@@ -1,0 +1,5 @@
+* text=auto
+
+# Shell scripts run on Linux (EC2). Force LF so a Windows checkout can't commit
+# CRLF and break them on the server with `$'\r': command not found`.
+*.sh text eol=lf

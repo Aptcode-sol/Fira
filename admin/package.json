@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "serve -s dist -l 3001"
+    "start": "serve -s dist -l tcp://127.0.0.1:3001"
   },
   "dependencies": {
     "@fira/design-tokens": "*",
