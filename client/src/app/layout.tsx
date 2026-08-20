@@ -11,6 +11,7 @@ import {
   SITE_TAGLINE,
   SITE_DESCRIPTION,
   SITE_LOCALE,
+  API_BASE_URL,
 } from '@/lib/siteConfig';
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/seo/jsonLd';
 
@@ -126,9 +127,7 @@ export default function RootLayout({
     <html lang="en-IN">
       <head>
         {/* Cuts a round-trip on the first events/venues fetch. */}
-        {process.env.NEXT_PUBLIC_API_URL && (
-          <link rel="preconnect" href={new URL(process.env.NEXT_PUBLIC_API_URL).origin} />
-        )}
+        <link rel="preconnect" href={new URL(API_BASE_URL).origin} />
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <JsonLd data={siteGraph} />
       </head>

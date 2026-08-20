@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { API_BASE_URL } from '@/lib/siteConfig';
 
 /**
  * Server-side reads used by generateMetadata and JSON-LD. These run on the
@@ -8,8 +9,6 @@ import { cache } from 'react';
  * Wrapped in React `cache` so a page that needs the same document for both its
  * metadata and its structured data fetches it once per request.
  */
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export interface SeoAddress {
     street?: string;

@@ -8,6 +8,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import Scanner from '@/components/dashboard/Scanner';
 import { Button } from '@/components/ui';
 import { eventsApi, ticketsApi } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/siteConfig';
 
 interface ScanResult {
     success: boolean;
@@ -57,7 +58,7 @@ export default function ScannerPage() {
         try {
             const [eventData, statsData] = await Promise.all([
                 eventsApi.getById(eventId),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/tickets/event/${eventId}/stats`).then(r => r.json())
+                fetch(`${API_BASE_URL}/tickets/event/${eventId}/stats`).then(r => r.json())
             ]);
             setEvent(eventData);
             setStats(statsData);
@@ -75,7 +76,7 @@ export default function ScannerPage() {
         setIsScanning(false);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/tickets/scan`, {
+            const response = await fetch(`${API_BASE_URL}/tickets/scan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

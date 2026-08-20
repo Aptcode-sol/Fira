@@ -11,6 +11,29 @@
  */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://letsfira.com').replace(/\/$/, '');
 
+/**
+ * Base URL of the API server, including the `/api` prefix and no trailing
+ * slash - callers append paths directly, e.g. `${API_BASE_URL}/events`.
+ *
+ * Override per environment with:
+ *   NEXT_PUBLIC_API_URL=https://api.letsfira.com/api
+ *
+ * ponytail: the fallback is production-correct, matching SITE_URL above. This
+ * was previously duplicated across six files as
+ * `process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'`.
+ * NEXT_PUBLIC_* values are inlined at build time, so any build that did not
+ * receive the variable shipped a bundle telling every visitor's browser to call
+ * *its own machine* on port 5000 - which presents as the whole site being
+ * unable to reach the backend. Naming the host here exposes nothing: the value
+ * is public by construction and already ships in the client bundle.
+ */
+export const API_BASE_URL = (
+    process.env.NEXT_PUBLIC_API_URL
+    || (process.env.NODE_ENV === 'development'
+        ? 'http://localhost:5000/api'
+        : 'https://api.letsfira.com/api')
+).replace(/\/$/, '');
+
 export const SITE_NAME = 'FIRA';
 
 export const SITE_LEGAL_NAME = 'FIRA';

@@ -1,12 +1,10 @@
 import type { MetadataRoute } from 'next';
-import { SITE_URL } from '@/lib/siteConfig';
+import { SITE_URL, API_BASE_URL } from '@/lib/siteConfig';
 import { CITIES } from '@/lib/cities';
 
 // Regenerate the sitemap once an hour so newly published events and venues get
 // picked up without a redeploy.
 export const revalidate = 3600;
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface SitemapDoc {
     _id: string;

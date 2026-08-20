@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import { API_BASE_URL } from '@/lib/siteConfig';
 
 /**
  * SSE client hook — connects to the notifications stream when authenticated.
@@ -32,10 +33,9 @@ export function useSSENotifications() {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        // The server mounts notifications at /api/v1/notifications/stream
-        // NEXT_PUBLIC_API_URL is typically http://localhost:5000/api — replace /api with /api/v1
-        const baseUrl = apiUrl.replace(/\/api\/?$/, '/api/v1');
+        // The server mounts notifications at /api/v1/notifications/stream, while
+        // API_BASE_URL ends in /api — swap the suffix rather than assuming a host.
+        const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '/api/v1');
         const url = `${baseUrl}/notifications/stream`;
 
         try {

@@ -1,6 +1,6 @@
 // API Client for FIRA Backend
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from '@/lib/siteConfig';
 
 interface RequestOptions extends RequestInit {
     token?: string;

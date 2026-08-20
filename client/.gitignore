@@ -33,6 +33,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but keep the template tracked, as admin/ and server/ do. It holds no
+# secrets and is how a new environment learns which variables exist.
+!.env.example
 
 # vercel
 .vercel

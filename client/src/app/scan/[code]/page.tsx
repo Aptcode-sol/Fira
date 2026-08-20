@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Scanner from '@/components/dashboard/Scanner';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from '@/lib/siteConfig';
 
 interface CodeInfo {
     valid: boolean;
