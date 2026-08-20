@@ -2,6 +2,13 @@ start.txt
 logs
 nul
 
-# Environment files with secrets
+# Environment files with secrets — cover every workspace, not just client.
+# Keep .env.example templates tracked so new envs are self-documenting.
+.env
+.env.*
+!.env.example
+!*/.env.example
 client/.env
+server/.env
+admin/.env
 node_modules/

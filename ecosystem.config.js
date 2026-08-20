@@ -9,7 +9,16 @@ module.exports = {
             cwd: './server',
             wait_ready: true,
             listen_timeout: 10000,
+            // ponytail: PM2 only applies `env_production` when started with
+            // `--env production` (as deploy.sh does). Without this block PM2 warns
+            // "Environment [production] is not defined in process file" and the
+            // intended NODE_ENV/PORT are easy to lose. Both blocks are defined so
+            // `pm2 start ecosystem.config.js` and `--env production` behave alike.
             env: {
+                NODE_ENV: 'production',
+                PORT: 5000
+            },
+            env_production: {
                 NODE_ENV: 'production',
                 PORT: 5000
             },
@@ -25,15 +34,30 @@ module.exports = {
             kill_timeout: 30000
         },
 
-        // Admin Dashboard - Fork Mode (Static served via serve)
+        // Admin Dashboard - Fork Mode (static SPA built to admin/dist)
+        //
+        // ponytail: was `vite preview`, which Vite documents as a local preview of
+        // a production build and explicitly not a production server. `serve -s` is
+        // purpose-built for static SPAs and does history-API fallback, so deep links
+        // like /events/123 resolve to index.html instead of 404ing on refresh.
+        //
+        // Invoked through `npm run start` rather than a direct path into
+        // node_modules: this is an npm workspaces repo, so `serve` hoists to the
+        // ROOT node_modules on some installs and stays in admin/node_modules on
+        // others. npm resolves the bin either way; a hardcoded path silently breaks
+        // on whichever layout it did not assume.
         {
             name: 'fira-admin',
-            script: 'node',
-            args: ['./node_modules/vite/bin/vite.js', 'preview', '--host', '0.0.0.0', '--port', '3001'],
+            script: 'npm',
+            args: 'run start',
+            interpreter: 'none',
             instances: 1,
             exec_mode: 'fork',
             cwd: './admin',
             env: {
+                NODE_ENV: 'production'
+            },
+            env_production: {
                 NODE_ENV: 'production'
             },
             watch: false,
@@ -44,41 +68,14 @@ module.exports = {
             autorestart: true,
             max_restarts: 10,
             min_uptime: '10s'
-        },
-
-        // Frontend Client - Fork Mode
-        {
-            name: 'fira-client',
-            script: 'node_modules/next/dist/bin/next',
-            args: 'start -p 3000',
-            instances: 1,
-            exec_mode: 'fork',
-            cwd: './client',
-            env: {
-                NODE_ENV: 'production',
-                PORT: 3000
-            },
-            watch: false,
-            max_memory_restart: '1G',
-            error_file: './logs/client-error.log',
-            out_file: './logs/client-out.log',
-            log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-            autorestart: true,
-            max_restarts: 10,
-            min_uptime: '10s'
         }
-    ],
 
-    deploy: {
-        production: {
-            user: 'ec2-user', // Change to your EC2 user (ubuntu, ec2-user, etc.)
-            host: 'your-ec2-ip-or-domain.com', // Replace with your EC2 public IP/domain
-            key: '/path/to/your/key.pem', // Path to your EC2 key pair
-            ref: 'origin/main',
-            repo: 'https://github.com/your-username/fira.git', // Your repo URL
-            path: '/home/ec2-user/fira', // Deployment path on EC2
-            // ponytail: `pm2 reload` gives zero-downtime; `startOrRestart` does a hard restart.
-            'post-deploy': 'npm install && npm run build:all && pm2 reload ecosystem.config.js --env production'
-        }
-    }
+        // ponytail: `fira-client` (Next.js on :3000) removed. The client is deployed
+        // to AWS Amplify (see build.sh) — running it here too booted a second, stale
+        // copy of the frontend that nothing routed to.
+
+        // ponytail: the `deploy:` block was removed. It held unedited placeholders
+        // ('your-ec2-ip-or-domain.com', '/path/to/your/key.pem', 'origin/main') and
+        // was never used — deployment happens by running deploy.sh on the box.
+    ]
 };
