@@ -28,7 +28,4 @@ const nextConfig: NextConfig = {
 export default withSentryConfig(nextConfig, {
   // Suppress source map upload warnings when DSN is not configured
   silent: true,
-  // Don't upload source maps in dev
-  disableServerWebpackPlugin: !process.env.NEXT_PUBLIC_SENTRY_DSN,
-  disableClientWebpackPlugin: !process.env.NEXT_PUBLIC_SENTRY_DSN,
 });
