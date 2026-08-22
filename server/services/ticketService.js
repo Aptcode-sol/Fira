@@ -107,7 +107,17 @@ const ticketService = {
         // already decides what to display from `ticketPrice`, so this also
         // makes both sides agree.
         if (event.ticketPrice > 0 && !paymentId) {
-            const totalPrice = event.ticketPrice * quantity;
+            // Charge the SAME total the buyer sees in the billing summary -
+            // ticket price plus platform fee plus GST. Previously this sent
+            // only ticketPrice * quantity, so Razorpay collected e.g. ₹999
+            // while the summary said ₹1058, silently swallowing the fee + tax.
+            // calculateBilling is the shared source of truth for both sides.
+            const platformFeePercentage = event.platformFeePercentage ?? 5;
+            const billing = paymentService.calculateBilling(
+                event.ticketPrice,
+                quantity,
+                platformFeePercentage
+            );
 
             // Initiate payment
             const paymentResult = await paymentService.initiatePayment({
@@ -115,13 +125,35 @@ const ticketService = {
                 type: 'ticket',
                 referenceId: eventId,
                 referenceModel: 'Event',
-                amount: totalPrice
+                amount: billing.totalAmount,
+                subtotal: billing.subtotal,
+                platformFee: billing.platformFee,
+                platformFeePercentage,
+                gstAmount: billing.gstAmount,
+                totalAmount: billing.totalAmount
             });
 
             return {
                 paymentRequired: true,
                 paymentData: paymentResult
             };
+        }
+
+        // Atomically reserve the seats BEFORE creating the ticket. The check at
+        // the top of this function is racy - two buyers can both read the same
+        // currentAttendees, both pass, and both increment, overselling past
+        // maxAttendees. This conditional update only succeeds while capacity
+        // remains, so the last seat can be sold exactly once.
+        const reserved = await Event.findOneAndUpdate(
+            {
+                _id: eventId,
+                $expr: { $lte: [{ $add: ['$currentAttendees', quantity] }, '$maxAttendees'] }
+            },
+            { $inc: { currentAttendees: quantity } },
+            { new: true }
+        );
+        if (!reserved) {
+            throw new Error('Not enough tickets available');
         }
 
         // Generate ticket ID
@@ -137,25 +169,29 @@ const ticketService = {
             timestamp: Date.now()
         });
 
-        // Generate QR Code Image (Data URL)
-        const qrCodeUrl = await QRCode.toDataURL(qrData);
+        // Seats are already reserved. If issuing the ticket fails, release them
+        // so the reservation doesn't leak and shrink capacity permanently.
+        let ticket;
+        try {
+            const qrCodeUrl = await QRCode.toDataURL(qrData);
 
-        // Create ticket
-        const ticket = await Ticket.create({
-            user: userId,
-            event: eventId,
-            ticketId,
-            qrCode: qrCodeUrl, // Storing the Data URL directly
-            ticketType,
-            quantity,
-            price: event.ticketPrice * quantity,
-            payment: paymentId // Link to payment if exists
-        });
+            ticket = await Ticket.create({
+                user: userId,
+                event: eventId,
+                ticketId,
+                qrCode: qrCodeUrl, // Storing the Data URL directly
+                ticketType,
+                quantity,
+                price: event.ticketPrice * quantity,
+                payment: paymentId // Link to payment if exists
+            });
+        } catch (err) {
+            await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: -quantity } });
+            throw err;
+        }
 
-        // Update event attendee count
-        await Event.findByIdAndUpdate(eventId, {
-            $inc: { currentAttendees: quantity }
-        });
+        // Attendee count was already incremented atomically above during
+        // seat reservation - don't double-count here.
 
         // Confirm the purchase in-app and on the buyer's devices. Best-effort -
         // a notification failure must never lose someone their ticket.

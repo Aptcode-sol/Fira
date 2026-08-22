@@ -146,8 +146,10 @@ export function Modal({
                     </div>
                 )}
 
-                {/* Body - the only scrollable region */}
-                <div className="p-6 overflow-y-auto flex-1 min-h-0">
+                {/* Body - the only scrollable region.
+                    overscroll-contain stops the scroll chaining to the page
+                    behind once this region hits its top or bottom edge. */}
+                <div className="p-6 overflow-y-auto overscroll-contain flex-1 min-h-0">
                     {children}
                 </div>
             </div>

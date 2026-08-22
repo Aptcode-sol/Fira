@@ -46,7 +46,8 @@ export default function DashboardEventDetailPage() {
         name: string;
         price: number;
         description: string;
-        maxQuantity: number;
+        // '' while the field is being cleared; coerced to a number on save.
+        maxQuantity: number | '';
     }
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -61,7 +62,7 @@ export default function DashboardEventDetailPage() {
         eventType: 'public' as 'public' | 'private',
         ticketType: 'free' as 'free' | 'paid',
         ticketPrice: 0,
-        maxAttendees: 100,
+        maxAttendees: 100 as number | '',
         termsAndConditions: '',
         ticketTiers: [{ name: '', price: 0, description: '', maxQuantity: 1 }] as EditTicketTier[],
     });
@@ -259,6 +260,11 @@ export default function DashboardEventDetailPage() {
     const handleSave = async () => {
         if (!event) return;
 
+        if (!editForm.maxAttendees || Number(editForm.maxAttendees) < 1) {
+            showToast('Please enter a valid number of maximum attendees', 'error');
+            return;
+        }
+
         // Validate ticket tiers for paid events
         if (editForm.ticketType === 'paid') {
             const tiers = editForm.ticketTiers;
@@ -295,7 +301,7 @@ export default function DashboardEventDetailPage() {
                 eventType: editForm.eventType,
                 ticketType: editForm.ticketType,
                 ticketPrice: editForm.ticketType === 'paid' ? (editForm.ticketTiers[0]?.price ?? 0) : 0,
-                maxAttendees: editForm.maxAttendees,
+                maxAttendees: Number(editForm.maxAttendees),
                 termsAndConditions: editForm.termsAndConditions || null,
             };
 
@@ -304,7 +310,7 @@ export default function DashboardEventDetailPage() {
                     name: t.name.trim(),
                     price: t.price,
                     description: t.description.trim(),
-                    maxQuantity: t.maxQuantity,
+                    maxQuantity: Number(t.maxQuantity) || 1,
                 }));
             }
 
@@ -476,50 +482,33 @@ export default function DashboardEventDetailPage() {
                         <p className="text-gray-300 text-sm md:text-base">View bookings and manage your event</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
-                        {isEditMode ? (
+                        <Link href={`/events/${event._id}`} target="_blank">
+                            <Button variant="secondary" size="sm">
+                                <span className="hidden sm:inline">View Public Page</span>
+                                <span className="sm:hidden">View</span>
+                            </Button>
+                        </Link>
+                        {event.status !== 'cancelled' && (
                             <>
                                 <Button
                                     variant="secondary"
-                                    onClick={() => setIsEditMode(false)}
-                                    disabled={isSaving}
+                                    size="sm"
+                                    onClick={handleEditClick}
                                 >
-                                    Cancel
+                                    <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <span className="hidden sm:inline">Edit</span>
                                 </Button>
-                                <Button onClick={handleSave} isLoading={isSaving}>
-                                    Save Changes
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="!bg-red-500/20 !text-red-400 hover:!bg-red-500/30 !border-red-500/30"
+                                    onClick={() => setShowCancelModal(true)}
+                                >
+                                    <span className="hidden sm:inline">Cancel Event</span>
+                                    <span className="sm:hidden">Cancel</span>
                                 </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Link href={`/events/${event._id}`} target="_blank">
-                                    <Button variant="secondary" size="sm">
-                                        <span className="hidden sm:inline">View Public Page</span>
-                                        <span className="sm:hidden">View</span>
-                                    </Button>
-                                </Link>
-                                {event.status !== 'cancelled' && (
-                                    <>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={handleEditClick}
-                                        >
-                                            <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            <span className="hidden sm:inline">Edit</span>
-                                        </Button>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            className="!bg-red-500/20 !text-red-400 hover:!bg-red-500/30 !border-red-500/30"
-                                            onClick={() => setShowCancelModal(true)}
-                                        >
-                                            <span className="hidden sm:inline">Cancel Event</span>
-                                            <span className="sm:hidden">Cancel</span>
-                                        </Button>
-                                    </>
-                                )}
                             </>
                         )}
                     </div>
@@ -784,13 +773,21 @@ export default function DashboardEventDetailPage() {
                             )}
                         </div>
 
-                        {/* Description / Edit Form */}
+                        {/* Description */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">
-                                {isEditMode ? 'Edit Event Details' : 'About this event'}
-                            </h3>
+                            <h3 className="text-lg font-semibold text-white mb-4">About this event</h3>
+                            <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.description}</p>
+                        </div>
 
-                            {isEditMode ? (
+                        {/* Edit Form - opens as a centred modal (like Create Event)
+                            rather than swapping this card inline, which rendered
+                            the form far down the page where it went unnoticed. */}
+                        <Modal
+                            isOpen={isEditMode}
+                            onClose={() => setIsEditMode(false)}
+                            title="Edit Event Details"
+                            size="lg"
+                        >
                                 <div className="space-y-4">
                                     {/* Name */}
                                     <div>
@@ -863,8 +860,9 @@ export default function DashboardEventDetailPage() {
                                             <label className="block text-sm text-gray-300 mb-1">Max Attendees</label>
                                             <input
                                                 type="number"
+                                                min={1}
                                                 value={editForm.maxAttendees}
-                                                onChange={(e) => setEditForm({ ...editForm, maxAttendees: parseInt(e.target.value) })}
+                                                onChange={(e) => setEditForm({ ...editForm, maxAttendees: e.target.value === '' ? '' : parseInt(e.target.value) })}
                                                 className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                             />
                                         </div>
@@ -965,7 +963,7 @@ export default function DashboardEventDetailPage() {
                                                             value={tier.maxQuantity || ''}
                                                             onChange={(e) => {
                                                                 const tiers = [...editForm.ticketTiers];
-                                                                tiers[index] = { ...tiers[index], maxQuantity: Math.max(1, parseInt(e.target.value) || 1) };
+                                                                tiers[index] = { ...tiers[index], maxQuantity: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0) };
                                                                 setEditForm({ ...editForm, ticketTiers: tiers });
                                                             }}
                                                             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
@@ -999,11 +997,21 @@ export default function DashboardEventDetailPage() {
                                             className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
                                         />
                                     </div>
+
+                                    <div className="flex justify-end gap-3 pt-2">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => setIsEditMode(false)}
+                                            disabled={isSaving}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button onClick={handleSave} isLoading={isSaving}>
+                                            Save Changes
+                                        </Button>
+                                    </div>
                                 </div>
-                            ) : (
-                                <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.description}</p>
-                            )}
-                        </div>
+                        </Modal>
 
                         {/* Venue Details - Non-editable */}
                         {venue && typeof venue === 'object' && (

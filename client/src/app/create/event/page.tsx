@@ -32,7 +32,8 @@ function CreateEventForm() {
         name: string;
         price: number;
         description: string;
-        maxQuantity: number;
+        // '' while the field is being cleared; coerced to a number on submit.
+        maxQuantity: number | '';
     }
 
     const [formData, setFormData] = useState({
@@ -48,7 +49,10 @@ function CreateEventForm() {
         eventType: 'public' as 'public' | 'private',
         ticketType: 'free' as 'free' | 'paid',
         ticketPrice: 0,
-        maxAttendees: 100,
+        // number | '' so the field can be emptied while typing. parseInt('')
+        // is NaN, which a controlled number input rejects - that was why
+        // backspacing over the last digit was impossible. Validated on submit.
+        maxAttendees: 100 as number | '',
         ticketTiers: [{ name: '', price: 0, description: '', maxQuantity: 1 }] as TicketTier[],
         termsAndConditions: '',
         images: [] as string[],
@@ -62,7 +66,7 @@ function CreateEventForm() {
             city: '',
             state: '',
             pincode: '',
-            capacity: 0,
+            capacity: '' as number | '',
             images: [] as string[],
             locationLink: ''
         }
@@ -78,6 +82,7 @@ function CreateEventForm() {
 
     // Ticket tier helpers
     const updateTier = (index: number, field: keyof TicketTier, value: string | number) => {
+        // TS: value is stored as-is; '' is only ever passed for numeric fields.
         const tiers = [...formData.ticketTiers];
         tiers[index] = { ...tiers[index], [field]: value };
         setFormData({ ...formData, ticketTiers: tiers });
@@ -194,9 +199,17 @@ function CreateEventForm() {
             return;
         }
 
+        // Max attendees must be a positive number - the field can be left
+        // empty while typing, so catch that here rather than clamping keystrokes.
+        if (!formData.maxAttendees || Number(formData.maxAttendees) < 1) {
+            showToast('Please enter a valid number of maximum attendees', 'error');
+            setStep(2);
+            return;
+        }
+
         // Validate custom venue if being used
-        if (formData.useCustomVenue && (!formData.customVenue.name || !formData.customVenue.address || !formData.customVenue.city || !formData.customVenue.capacity || !formData.customVenue.locationLink)) {
-            showToast('Please fill in all custom venue details', 'error');
+        if (formData.useCustomVenue && (!formData.customVenue.name || !formData.customVenue.address || !formData.customVenue.city || !formData.customVenue.capacity || Number(formData.customVenue.capacity) < 1 || !formData.customVenue.locationLink)) {
+            showToast('Please fill in all custom venue details with a valid capacity', 'error');
             return;
         }
 
@@ -265,7 +278,7 @@ function CreateEventForm() {
                     name: t.name.trim(),
                     price: t.price,
                     description: t.description.trim(),
-                    maxQuantity: t.maxQuantity,
+                    maxQuantity: Number(t.maxQuantity) || 1,
                 }));
             }
 
@@ -277,7 +290,15 @@ function CreateEventForm() {
             }
 
             await eventsApi.create(eventData);
-            showToast('Event submitted for approval! The venue owner and admin will review it.', 'success');
+            // Custom venues are auto-approved, so only admin review remains -
+            // don't tell the organizer a venue owner will review a venue that
+            // has no owner.
+            showToast(
+                formData.useCustomVenue
+                    ? 'Event submitted for approval! Our admin team will review it.'
+                    : 'Event submitted for approval! The venue owner and admin will review it.',
+                'success'
+            );
             router.push('/dashboard/events');
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to create event';
@@ -515,7 +536,21 @@ function CreateEventForm() {
                                                                 </div>
                                                             ))
                                                         ) : (
-                                                            <div className="px-4 py-3 text-sm text-gray-300 text-center">No venues found</div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    // Venue isn't listed - drop straight into the
+                                                                    // manual details form. Custom venues are
+                                                                    // auto-approved server-side, so this never sits
+                                                                    // in "venue approval pending".
+                                                                    setFormData({ ...formData, useCustomVenue: true, venueId: '' });
+                                                                    setIsVenueDropdownOpen(false);
+                                                                    setVenueSearchQuery('');
+                                                                }}
+                                                                className="w-full px-4 py-3 text-sm text-left text-gray-300 hover:bg-violet-500/20 transition-colors"
+                                                            >
+                                                                Venue not listed? <span className="text-violet-400 font-medium">Add its details manually →</span>
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </div>
@@ -620,7 +655,7 @@ function CreateEventForm() {
                                                 value={formData.customVenue.capacity}
                                                 onChange={(e) => setFormData({
                                                     ...formData,
-                                                    customVenue: { ...formData.customVenue, capacity: parseInt(e.target.value) }
+                                                    customVenue: { ...formData.customVenue, capacity: e.target.value === '' ? '' : parseInt(e.target.value) }
                                                 })}
                                                 required
                                             />
@@ -645,7 +680,7 @@ function CreateEventForm() {
                                         type="number"
                                         min={1}
                                         value={formData.maxAttendees}
-                                        onChange={(e) => setFormData({ ...formData, maxAttendees: parseInt(e.target.value) })}
+                                        onChange={(e) => setFormData({ ...formData, maxAttendees: e.target.value === '' ? '' : parseInt(e.target.value) })}
                                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                     />
                                 </div>
@@ -775,7 +810,7 @@ function CreateEventForm() {
                                                         type="number"
                                                         min={1}
                                                         value={tier.maxQuantity || ''}
-                                                        onChange={(e) => updateTier(index, 'maxQuantity', Math.max(1, parseInt(e.target.value) || 1))}
+                                                        onChange={(e) => updateTier(index, 'maxQuantity', e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
                                                         className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                                     />
                                                 </div>

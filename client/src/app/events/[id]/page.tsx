@@ -806,9 +806,13 @@ export default function EventDetailPage() {
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setTicketQuantity(Math.min(10, ticketQuantity + 1));
+                                        // Cap at the spots actually left, not a flat 10 -
+                                        // an event with 3 seats free must not let someone
+                                        // pick 10 and hit a server rejection at checkout.
+                                        setTicketQuantity(Math.min(Math.min(10, spotsLeft), ticketQuantity + 1));
                                     }}
-                                    className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+                                    disabled={ticketQuantity >= Math.min(10, spotsLeft)}
+                                    className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     +
                                 </button>
