@@ -9,7 +9,8 @@ import CitySelector from '@/components/CitySelector';
 import { VenueCardSkeleton, Input, Button, FilterPanel } from '@/components/ui';
 import type { FilterGroup } from '@/components/ui';
 import { venuesApi } from '@/lib/api';
-import { Venue } from '@/lib/types';
+import { Venue, isVenueOwner } from '@/lib/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
 import { useCities } from '@/hooks/useCities';
@@ -65,6 +66,10 @@ interface VenuesResponse {
 }
 
 export default function VenuesPage() {
+    // Owner-only Create-venue FAB visibility is driven solely by isVenueOwner
+    // (Req 5.5): owner shown, non-owner and signed-out (user null) hidden.
+    const { user } = useAuth();
+
     // Section data (for non-filtered view)
     // `nearby` is scoped to the visitor's city; the rest are nationwide - the
     // city leads the page rather than filtering all of it.
@@ -97,10 +102,25 @@ export default function VenuesPage() {
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [showAllMode, setShowAllMode] = useState(false);
+
+    // APPLIED filter state - the only thing that drives the list fetch. These
+    // change exactly once per "Show results" submit (8.1), never per option
+    // click, so the API is called once per apply rather than on every keystroke
+    // inside the filter panel.
     const [selectedVenueType, setSelectedVenueType] = useState('all');
     const [selectedCapacity, setSelectedCapacity] = useState('all');
     const [selectedPrice, setSelectedPrice] = useState('all');
     const [availabilityDate, setAvailabilityDate] = useState('');
+
+    // DRAFT filter state - what the panel controls edit while it is open. The
+    // badge count and the pill/list highlights read from these, so selecting an
+    // option feels instant, but nothing fetches until they are committed to the
+    // applied state above on "Show results".
+    const [draftSort, setDraftSort] = useState('topRated');
+    const [draftVenueType, setDraftVenueType] = useState('all');
+    const [draftCapacity, setDraftCapacity] = useState('all');
+    const [draftPrice, setDraftPrice] = useState('all');
+    const [draftDate, setDraftDate] = useState('');
 
     const cities = useCities();
 
@@ -142,7 +162,8 @@ export default function VenuesPage() {
     const defaultSort = 'topRated';
 
     // Reset filters. The city scope survives a reset - it is the visitor's
-    // standing preference, not something they just toggled.
+    // standing preference, not something they just toggled. Clears both the
+    // draft (what the panel shows) and the applied state (what drives fetches).
     const resetFilters = () => {
         setSearchQuery('');
         setSelectedSort(defaultSort);
@@ -150,13 +171,30 @@ export default function VenuesPage() {
         setSelectedCapacity('all');
         setSelectedPrice('all');
         setAvailabilityDate('');
+        setDraftSort(defaultSort);
+        setDraftVenueType('all');
+        setDraftCapacity('all');
+        setDraftPrice('all');
+        setDraftDate('');
         setShowAllMode(false);
         setPage(1);
         setGridData([]);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Every filter lives behind a single "Filters" control instead of a row of dropdowns.
+    // Commit the draft to applied state - the single point where a filter
+    // change reaches the fetch effect, so "Show results" is the one thing that
+    // triggers a list API call (8.1).
+    const applyFilters = () => {
+        setSelectedSort(draftSort);
+        setSelectedVenueType(draftVenueType);
+        setSelectedCapacity(draftCapacity);
+        setSelectedPrice(draftPrice);
+        setAvailabilityDate(draftDate);
+    };
+
+    // Every filter lives behind a single "Filters" control instead of a row of
+    // dropdowns. The controls edit DRAFT state only; applyFilters() commits.
     const filterGroups: FilterGroup[] = [
         // City is intentionally NOT in here - it has its own always-visible
         // selector next to the search box (see CitySelector).
@@ -165,9 +203,9 @@ export default function VenuesPage() {
             label: 'Sort by',
             type: 'pills',
             options: sortOptions,
-            value: selectedSort,
+            value: draftSort,
             defaultValue: defaultSort,
-            onChange: setSelectedSort,
+            onChange: setDraftSort,
         },
         {
             key: 'venueType',
@@ -175,36 +213,36 @@ export default function VenuesPage() {
             type: 'list',
             searchable: true,
             options: venueTypeOptions,
-            value: selectedVenueType,
+            value: draftVenueType,
             defaultValue: 'all',
-            onChange: setSelectedVenueType,
+            onChange: setDraftVenueType,
         },
         {
             key: 'capacity',
             label: 'Capacity',
             type: 'pills',
             options: capacityOptions,
-            value: selectedCapacity,
+            value: draftCapacity,
             defaultValue: 'all',
-            onChange: setSelectedCapacity,
+            onChange: setDraftCapacity,
         },
         {
             key: 'price',
             label: 'Budget',
             type: 'pills',
             options: priceOptions,
-            value: selectedPrice,
+            value: draftPrice,
             defaultValue: 'all',
-            onChange: setSelectedPrice,
+            onChange: setDraftPrice,
         },
         {
             key: 'availableOn',
             label: 'Available on',
             type: 'date',
-            value: availabilityDate,
+            value: draftDate,
             defaultValue: '',
             minDate: new Date().toISOString().split('T')[0],
-            onChange: setAvailabilityDate,
+            onChange: setDraftDate,
             formatChip: (val) => new Date(val).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         },
     ];
@@ -343,6 +381,7 @@ export default function VenuesPage() {
 
     const handleSeeAll = (sort: string) => {
         setSelectedSort(sort);
+        setDraftSort(sort); // keep the panel in sync with the applied sort
         setSearchQuery('');
         setShowAllMode(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -453,6 +492,7 @@ export default function VenuesPage() {
                                     <FilterPanel
                                         groups={filterGroups}
                                         onReset={resetFilters}
+                                        onApply={applyFilters}
                                         className="w-full md:w-auto"
                                     />
                                 </div>
@@ -516,7 +556,7 @@ export default function VenuesPage() {
                                             <p className="text-gray-300 mb-8 max-w-xl mx-auto text-lg">
                                                 Partner with us and reach thousands of event organizers.
                                             </p>
-                                            <Link href="/venue-portal/signin">
+                                            <Link href="/signin">
                                                 <Button size="lg" className="bg-white text-black hover:bg-gray-200 font-bold px-8">
                                                     List Your Venue
                                                 </Button>
@@ -655,6 +695,32 @@ export default function VenuesPage() {
                     </nav>
                 </div>
             </main>
+
+            {/* Owner-only Create-venue FAB. Visibility is driven solely by
+                isVenueOwner(user) (Req 5.5) — owner shown; non-owner and
+                signed-out hidden. Rendering as a <Link> anchor makes it
+                keyboard-focusable/activatable with aria-label as its
+                accessible name (Req 5.6). The server Owner_Gate remains the
+                real authority; this only decides what to show. */}
+            {isVenueOwner(user) && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="fixed bottom-24 md:bottom-8 right-6 z-50"
+                >
+                    <Link
+                        href="/venue-portal/venues/create"
+                        aria-label="Create a new venue"
+                        className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/25 flex items-center justify-center transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/30"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                    </Link>
+                </motion.div>
+            )}
         </>
     );
 }

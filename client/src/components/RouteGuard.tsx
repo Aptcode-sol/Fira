@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 
 // Public routes accessible to everyone (no auth required)
 const publicRoutes = [
@@ -16,8 +17,6 @@ const publicRoutes = [
     '/brands',
     '/venue-portal',
     '/venue-portal/landing',
-    '/venue-portal/signin',
-    '/venue-portal/signup',
     // Marketing, support and legal pages. These were missing, which meant a
     // signed-out visitor (or a crawler) hitting /about or /terms was bounced
     // to /signin.
@@ -47,13 +46,6 @@ const venueOwnerPrefixes = [
     '/venue-portal/settings',
 ];
 
-// Regular user only routes
-const userOnlyPrefixes = [
-    '/dashboard',
-    '/create',
-    // '/messages', // CHAT DISABLED
-];
-
 function isPublicRoute(pathname: string): boolean {
     if (publicRoutes.includes(pathname)) return true;
     return publicPrefixes.some(prefix => pathname.startsWith(prefix));
@@ -61,10 +53,6 @@ function isPublicRoute(pathname: string): boolean {
 
 function isVenueOwnerRoute(pathname: string): boolean {
     return venueOwnerPrefixes.some(prefix => pathname.startsWith(prefix));
-}
-
-function isUserOnlyRoute(pathname: string): boolean {
-    return userOnlyPrefixes.some(prefix => pathname.startsWith(prefix));
 }
 
 export default function RouteGuard({ children }: { children: React.ReactNode }) {
@@ -84,28 +72,22 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
             return;
         }
 
-        // Not authenticated - redirect to appropriate signin
+        // Not authenticated - the venue-owner auth space is retired, so every
+        // protected route (owner-workspace included) sends the visitor to the
+        // Unified_Sign_In.
         if (!isAuthenticated) {
-            if (isVenueOwnerRoute(pathname)) {
-                router.replace('/venue-portal/signin');
-            } else {
-                router.replace('/signin');
-            }
+            router.replace('/signin');
             setAuthorized(false);
             return;
         }
 
-        const role = user?.role;
+        // `isVenueOwner` (roles[] with legacy scalar honored) is the single
+        // client authority for owner access. An owner may reach both the owner
+        // workspace and the user dashboard; a non-owner on an owner-workspace
+        // route is bounced to /dashboard.
+        const owner = isVenueOwner(user);
 
-        // Venue owner trying to access user-only routes
-        if (role === 'venue_owner' && isUserOnlyRoute(pathname)) {
-            router.replace('/venue-portal/dashboard');
-            setAuthorized(false);
-            return;
-        }
-
-        // Regular user trying to access venue-owner routes
-        if (role === 'user' && isVenueOwnerRoute(pathname)) {
+        if (!owner && isVenueOwnerRoute(pathname)) {
             router.replace('/dashboard');
             setAuthorized(false);
             return;

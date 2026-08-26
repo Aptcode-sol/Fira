@@ -1,8 +1,37 @@
 const Ticket = require('../models/Ticket');
 const Event = require('../models/Event');
 const paymentService = require('./paymentService'); // Import payment service
+const discountService = require('./discountService'); // Server-side discount re-validation
 const QRCode = require('qrcode');
 const crypto = require('crypto');
+
+// One money branch for both flat and tier paid purchases (ponytail: stays
+// in-file, no cross-service abstraction until a third caller appears).
+// Runs the shared billing math then the gateway, passing the FULL breakdown
+// through so charged == recorded by construction. discountAmount has already
+// been re-validated server-side by the caller; it is never taken from a client.
+async function requirePaymentFor(priceUnit, quantity, feePct, discountAmount, { userId, referenceId, referenceModel, discountCode, discountBearer = null }) {
+    const billing = paymentService.calculateBilling(priceUnit, quantity, feePct, discountAmount);
+
+    return paymentService.initiatePayment({
+        userId,
+        type: 'ticket',
+        referenceId,
+        referenceModel,
+        amount: billing.totalAmount,
+        subtotal: billing.subtotal,
+        platformFee: billing.platformFee,
+        platformFeePercentage: feePct,
+        gstAmount: billing.gstAmount,
+        totalAmount: billing.totalAmount,
+        discountCode: discountCode || null,
+        discountAmount,
+        // Flow 4 attribution: who absorbs the discount, and the full listed
+        // price (before discount) so settlement can pay the owner correctly.
+        discountBearer,
+        listedPrice: billing.subtotal
+    });
+}
 
 const ticketService = {
     // Get all tickets
@@ -66,7 +95,7 @@ const ticketService = {
     },
 
     // Purchase ticket
-    async purchaseTicket({ userId, eventId, quantity = 1, ticketType = 'general', paymentId = null }) {
+    async purchaseTicket({ userId, eventId, quantity = 1, ticketType = 'general', paymentId = null, discountCode = null }) {
         const event = await Event.findById(eventId);
         if (!event) {
             throw new Error('Event not found');
@@ -108,30 +137,40 @@ const ticketService = {
         // makes both sides agree.
         if (event.ticketPrice > 0 && !paymentId) {
             // Charge the SAME total the buyer sees in the billing summary -
-            // ticket price plus platform fee plus GST. Previously this sent
-            // only ticketPrice * quantity, so Razorpay collected e.g. ₹999
-            // while the summary said ₹1058, silently swallowing the fee + tax.
+            // ticket price plus platform fee plus GST, minus any discount.
             // calculateBilling is the shared source of truth for both sides.
             const platformFeePercentage = event.platformFeePercentage ?? 5;
-            const billing = paymentService.calculateBilling(
+
+            // Re-validate the discount server-side (trust boundary): a
+            // client-supplied amount is never trusted. validateAndApplyDiscount
+            // throws for invalid/expired/exhausted codes, which propagates and
+            // rejects the purchase before any charge (fail closed). No code =>
+            // no discount.
+            let discountAmount = 0;
+            let appliedCode = null;
+            let discountBearer = null;
+            if (discountCode) {
+                ({ discountAmount, discountBearer } = await discountService.validateAndApplyDiscount(
+                    discountCode,
+                    eventId,
+                    event.ticketPrice * quantity
+                ));
+                appliedCode = discountCode.toUpperCase();
+            }
+
+            const paymentResult = await requirePaymentFor(
                 event.ticketPrice,
                 quantity,
-                platformFeePercentage
-            );
-
-            // Initiate payment
-            const paymentResult = await paymentService.initiatePayment({
-                userId,
-                type: 'ticket',
-                referenceId: eventId,
-                referenceModel: 'Event',
-                amount: billing.totalAmount,
-                subtotal: billing.subtotal,
-                platformFee: billing.platformFee,
                 platformFeePercentage,
-                gstAmount: billing.gstAmount,
-                totalAmount: billing.totalAmount
-            });
+                discountAmount,
+                {
+                    userId,
+                    referenceId: eventId,
+                    referenceModel: 'Event',
+                    discountCode: appliedCode,
+                    discountBearer
+                }
+            );
 
             return {
                 paymentRequired: true,
@@ -351,12 +390,62 @@ const ticketService = {
         return await refundService.checkTicketRefundEligibility(ticketId);
     },
 
-    // Tier-based ticket purchase with atomic soldCount increment
-    async purchaseTicketByTier(eventId, tierName, quantity, userId) {
+    // Tier-based ticket purchase with atomic soldCount increment.
+    //
+    // Paid tiers (tier.price > 0) route through the SAME requirePaymentFor
+    // helper the flat path uses, returning { paymentRequired, paymentData }
+    // BEFORE the atomic reservation - so no paid tier is obtainable for free and
+    // both paths agree by construction. Free tiers (price 0) keep the original
+    // reserve-and-return behaviour untouched. Optional { paymentId, discountCode }
+    // keep the four existing positional callers working unchanged.
+    async purchaseTicketByTier(eventId, tierName, quantity, userId, { paymentId = null, discountCode = null } = {}) {
         const event = await Event.findById(eventId);
         if (!event) {
             throw new Error('Event not found');
         }
+
+        // Check if event is in the past or completed/cancelled (parity with the flat path)
+        const now = new Date();
+        const eventStart = new Date(event.startDateTime || event.date);
+        if (eventStart < now) {
+            throw new Error('Tickets cannot be purchased for past events');
+        }
+        if (event.status === 'completed' || event.status === 'cancelled') {
+            throw new Error(`This event is ${event.status}. Tickets are no longer available.`);
+        }
+
+        // Gate payment for a priced tier before reserving inventory. Mirrors the
+        // flat path: re-validate any discount server-side (never trust a client
+        // amount - invalid/expired/exhausted propagates and rejects before any
+        // charge), bill through the shared helper, and return the payment data
+        // without committing the reservation. Returns null for free tiers /
+        // already-paid calls so the caller falls through to reserve.
+        const gatePayment = async (unitPrice) => {
+            if (!(unitPrice > 0) || paymentId) return null;
+
+            const feePct = event.platformFeePercentage ?? 5;
+            let discountAmount = 0;
+            let appliedCode = null;
+            let discountBearer = null;
+            if (discountCode) {
+                ({ discountAmount, discountBearer } = await discountService.validateAndApplyDiscount(
+                    discountCode,
+                    eventId,
+                    unitPrice * quantity
+                ));
+                appliedCode = discountCode.toUpperCase();
+            }
+
+            const paymentData = await requirePaymentFor(
+                unitPrice,
+                quantity,
+                feePct,
+                discountAmount,
+                { userId, referenceId: eventId, referenceModel: 'Event', discountCode: appliedCode, discountBearer }
+            );
+
+            return { paymentRequired: true, paymentData };
+        };
 
         // Backward compatibility: if no ticketTiers but has ticketPrice, treat as one "General" tier
         if (!event.ticketTiers || event.ticketTiers.length === 0) {
@@ -372,6 +461,10 @@ const ticketService = {
                 if (tierName !== 'General') {
                     throw new Error('Tier not found');
                 }
+
+                // Paid legacy tier: require payment before reserving.
+                const gated = await gatePayment(syntheticTier.price);
+                if (gated) return gated;
 
                 // Use atomic update on currentAttendees for legacy events
                 const updated = await Event.findOneAndUpdate(
@@ -397,6 +490,10 @@ const ticketService = {
         if (!tier) {
             throw new Error('Tier not found');
         }
+
+        // Paid tier: require payment before committing the reservation.
+        const gated = await gatePayment(tier.price);
+        if (gated) return gated;
 
         // Atomic update: only succeeds if soldCount + quantity <= maxQuantity
         const updated = await Event.findOneAndUpdate(

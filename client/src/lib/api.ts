@@ -57,22 +57,18 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
             //
             // A 401 from an /auth/ endpoint means "those credentials are wrong",
             // NOT "your session expired" - so it must not clear storage or
-            // redirect. It used to do both: entering a wrong password on
-            // /venue-portal/signin returned 401, the path did not start with
-            // "/signin", and this fired window.location.href = '/signin' - a
-            // full page navigation that looked like the form refreshing and
-            // threw away the error message before it could be displayed.
+            // redirect. A wrong password must show an inline error, not bounce
+            // the page.
             const isAuthAttempt = endpoint.startsWith('/auth/');
 
             if (response.status === 401 && !isAuthAttempt && typeof window !== 'undefined') {
                 localStorage.removeItem('fira_token');
                 localStorage.removeItem('fira_user');
 
-                // Send venue owners back to their own sign-in page rather than
-                // the general one; `startsWith('/signin')` never matched
-                // '/venue-portal/signin', so they were bounced across portals.
-                const onVenuePortal = window.location.pathname.startsWith('/venue-portal');
-                const target = onVenuePortal ? '/venue-portal/signin' : '/signin';
+                // The venue-owner auth space is retired: every non-auth 401
+                // sends the browser to the Unified_Sign_In, regardless of the
+                // current route.
+                const target = '/signin';
 
                 if (window.location.pathname !== target) {
                     window.location.href = target;
@@ -215,6 +211,9 @@ export const usersApi = {
             '/users/me/bank-details',
             { method: 'PATCH', body: JSON.stringify(data) }
         ),
+    // Delete the authenticated user's own account + associated data.
+    // Server endpoint (DELETE /api/users/me) already exists; this just wires it.
+    deleteAccount: () => request('/users/me', { method: 'DELETE' }),
 };
 
 const followedBrandsCache: Map<string, Set<string>> = new Map();
@@ -971,6 +970,19 @@ export const messagesApi = {
 
     startBrandEnquiry: (data: { brandId: string; message?: string }) =>
         request<{ success: boolean; conversation: Conversation }>('/messages/start-brand-enquiry', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // Find-or-create a conversation between the inquiry sender and the reference
+    // (event/venue) owner, bound to the inquiry reference. Server handler added
+    // in task 13.2.
+    startInquiryConversation: (data: {
+        referenceType: 'event' | 'venue';
+        referenceId: string;
+        message?: string;
+    }) =>
+        request<{ success: boolean; conversation: Conversation }>('/messages/start-inquiry-conversation', {
             method: 'POST',
             body: JSON.stringify(data),
         }),

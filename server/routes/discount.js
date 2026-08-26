@@ -73,9 +73,10 @@ router.get('/events/:id/discount-codes', auth, async (req, res) => {
 // GET /admin/discount-codes — list all discount codes (requires adminAuth)
 router.get('/admin/discount-codes', adminAuth, async (req, res) => {
     try {
+        // adminRole distinguishes platform (admin) codes from event-owner codes (Flow 8.7).
         const codes = await DiscountCode.find()
             .populate('event', 'name')
-            .populate('createdBy', 'name email')
+            .populate('createdBy', 'name email adminRole')
             .sort({ createdAt: -1 });
         res.json(codes);
     } catch (error) {

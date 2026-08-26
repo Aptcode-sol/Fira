@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import { useToast } from '@/components/ui/Toast';
 import { venuesApi, uploadApi } from '@/lib/api';
+import { isValidLocationLink } from '@/lib/validation';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { SlideUp, FadeIn } from '@/components/animations';
 
@@ -23,6 +25,7 @@ export default function VenuePortalEditVenuePage() {
     const [existingImages, setExistingImages] = useState<string[]>([]); // already-uploaded URLs
     const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
     const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+    const [locationLinkError, setLocationLinkError] = useState('');
 
     const [formData, setFormData] = useState({
         name: '',
@@ -46,16 +49,16 @@ export default function VenuePortalEditVenuePage() {
     // Auth guard
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/venue-portal/signin');
+            router.push('/signin');
         }
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) {
             router.push('/dashboard');
         }
     }, [isLoading, isAuthenticated, user, router]);
 
     // Load existing venue data
     useEffect(() => {
-        if (!isAuthenticated || user?.role !== 'venue_owner' || !venueId) return;
+        if (!isAuthenticated || !isVenueOwner(user) || !venueId) return;
 
         const fetchVenue = async () => {
             setIsFetching(true);
@@ -140,6 +143,11 @@ export default function VenuePortalEditVenuePage() {
             showToast('Please fill in all required fields', 'error');
             return;
         }
+        if (!isValidLocationLink(formData.locationLink)) {
+            setLocationLinkError('Enter a valid URL (e.g. https://maps.google.com/...)');
+            showToast('Location link must be a valid URL', 'error');
+            return;
+        }
         if (!formData.basePrice) {
             showToast('Please set a base price', 'error');
             return;
@@ -211,7 +219,7 @@ export default function VenuePortalEditVenuePage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') {
+    if (!isAuthenticated || !isVenueOwner(user)) {
         return null;
     }
 
@@ -414,7 +422,11 @@ export default function VenuePortalEditVenuePage() {
                                     <Input
                                         placeholder="https://maps.google.com/..."
                                         value={formData.locationLink}
-                                        onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, locationLink: e.target.value });
+                                            if (locationLinkError) setLocationLinkError('');
+                                        }}
+                                        error={locationLinkError}
                                     />
                                 </div>
 

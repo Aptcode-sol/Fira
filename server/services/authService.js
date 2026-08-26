@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const emailService = require('./emailService');
 const passwordValidator = require('../utils/passwordValidator');
+const bankDetailsValidator = require('../utils/bankDetailsValidator');
 
 const authService = {
     /**
@@ -76,7 +77,13 @@ const authService = {
             userData.govIdType = govIdType;
             userData.govIdNumber = govIdNumber;
             userData.govIdDocument = govIdDocument;
-            if (bankDetails) {
+            // Trust boundary: reject malformed bank details before persisting to
+            // User.bankDetails, so payouts can't be broken later by bad data.
+            if (bankDetails && Object.values(bankDetails).some(v => v)) {
+                const check = bankDetailsValidator.validate(bankDetails);
+                if (!check.isValid) {
+                    throw new Error(check.error);
+                }
                 userData.bankDetails = bankDetails;
             }
         }

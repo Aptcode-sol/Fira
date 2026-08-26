@@ -26,8 +26,6 @@ export default function robots(): MetadataRoute.Robots {
                     '/venue-portal/events',
                     '/venue-portal/analytics',
                     '/venue-portal/settings',
-                    '/venue-portal/signin',
-                    '/venue-portal/signup',
                     '/inbox',
                     '/messages',
                     '/create/',

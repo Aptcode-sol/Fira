@@ -6,6 +6,7 @@ import ErrorBoundary from './ErrorBoundary';
 const navItems = [
     { href: '/', icon: 'home', label: 'Dashboard' },
     { href: '/venues', icon: 'building', label: 'Venues' },
+    { href: '/venue-owners', icon: 'users', label: 'Venue Owners' },
     { href: '/events', icon: 'ticket', label: 'Events' },
     { href: '/brands', icon: 'star', label: 'Brands' },
     { href: '/users', icon: 'users', label: 'Users' },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FadeIn } from './animations';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,6 +12,7 @@ export default function Hero() {
     const [wordIndex, setWordIndex] = useState(0);
     const [isAnimating, setIsAnimating] = useState(false);
     const { isAuthenticated, isLoading } = useAuth();
+    const router = useRouter();
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -73,9 +75,11 @@ export default function Hero() {
                         {/* Stacked on phones: side by side the buttons were too
                             narrow and "Get Started Free" wrapped onto two lines. */}
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center w-full max-w-xs sm:max-w-none">
-                            {/* View Parties - Glass morphic rounded */}
+                            {/* View Parties - Glass morphic rounded.
+                                5.4: parties == events, so this navigates to the
+                                events listing instead of doing nothing. */}
                             <button
-                                onClick={() => scrollToSection('parties-section')}
+                                onClick={() => router.push('/events')}
                                 className="w-full sm:w-auto sm:min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 whitespace-nowrap"
                             >
                                 View Parties

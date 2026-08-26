@@ -11,6 +11,11 @@ const formatDate = (d) => {
 
 const formatCurrency = (amount) => `₹${(amount || 0).toLocaleString('en-IN')}`;
 
+// Flow 8.7: a code created by a user with an adminRole is a platform code
+// (intended to apply to every event); otherwise it was created by the event owner.
+const isAdminCode = (code) => Boolean(code.createdBy?.adminRole);
+const ownerKind = (code) => (isAdminCode(code) ? 'Admin (platform)' : 'Event owner');
+
 export default function DiscountCodes() {
     const [codes, setCodes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -125,6 +130,20 @@ export default function DiscountCodes() {
                                                 >
                                                     {code.isActive ? 'Active' : 'Inactive'}
                                                 </span>
+                                                <span
+                                                    className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                                        isAdminCode(code)
+                                                            ? 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+                                                            : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                                                    }`}
+                                                    title={
+                                                        isAdminCode(code)
+                                                            ? 'Platform code — applies across events'
+                                                            : 'Created by the event owner'
+                                                    }
+                                                >
+                                                    {ownerKind(code)}
+                                                </span>
                                             </div>
                                             <div className="text-gray-400 text-xs mt-1">
                                                 {code.discountType === 'percentage'
@@ -137,7 +156,7 @@ export default function DiscountCodes() {
                                             </div>
                                             <div className="text-gray-500 text-xs mt-0.5">
                                                 Valid: {formatDate(code.validFrom)} – {formatDate(code.validUntil)}
-                                                {code.createdBy && ` · By: ${code.createdBy.name || code.createdBy.email || 'Unknown'}`}
+                                                {code.createdBy && ` · By: ${code.createdBy.name || code.createdBy.email || 'Unknown'} (${ownerKind(code)})`}
                                             </div>
                                         </div>
 

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { brandsApi, uploadApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CreatePostModalProps {
     isOpen: boolean;
@@ -20,6 +21,10 @@ export default function CreatePostModal({ isOpen, onClose, brandId }: CreatePost
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Lock body scroll while the hand-rolled overlay is open (mirrors <Modal>).
+    // Called before the `!isOpen` early return so the hook order stays stable.
+    useBodyScrollLock(isOpen);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import { venuesApi } from '@/lib/api';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { Button } from '@/components/ui';
@@ -42,11 +43,11 @@ export default function VenuePortalVenuesPage() {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/venue-portal/signin');
+            router.push('/signin');
             return;
         }
 
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) {
             router.push('/dashboard');
             return;
         }
@@ -54,7 +55,7 @@ export default function VenuePortalVenuesPage() {
 
     useEffect(() => {
         const fetchVenues = async () => {
-            if (!isAuthenticated || user?.role !== 'venue_owner') return;
+            if (!isAuthenticated || !isVenueOwner(user)) return;
 
             try {
                 setLoading(true);
@@ -67,7 +68,7 @@ export default function VenuePortalVenuesPage() {
             }
         };
 
-        if (isAuthenticated && user?.role === 'venue_owner') {
+        if (isAuthenticated && isVenueOwner(user)) {
             fetchVenues();
         }
     }, [isAuthenticated, user]);
@@ -87,7 +88,7 @@ export default function VenuePortalVenuesPage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') {
+    if (!isAuthenticated || !isVenueOwner(user)) {
         return null;
     }
 

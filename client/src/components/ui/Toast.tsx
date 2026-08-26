@@ -60,8 +60,12 @@ interface ToastContainerProps {
 
 function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
     return (
+        // ponytail: global layer order is the single source of truth AND the ceiling —
+        // navbar z-50 / drawer z-[60] / modal z-[70] / toast z-[100]. Toast sits on top
+        // so it stays visible above an open modal (CC-4). If a portal ever needs to sit
+        // above the toast, bump this ceiling here — do not introduce a competing token.
         <div
-            className="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+            className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
             aria-live="polite"
             aria-atomic="false"
             role="status"

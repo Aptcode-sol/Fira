@@ -4,10 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import { useToast } from '@/components/ui/Toast';
-import { venuesApi, uploadApi } from '@/lib/api';
+import { venuesApi, uploadApi, usersApi } from '@/lib/api';
+import { isValidLocationLink } from '@/lib/validation';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { SlideUp, FadeIn } from '@/components/animations';
+import BankDetailsForm from '@/components/dashboard/BankDetailsForm';
+
+type BankDetails = { accountName: string; accountNumber: string; ifscCode: string; bankName: string };
 
 const amenitiesList = ['Parking', 'WiFi', 'AC', 'Sound System', 'Lighting', 'Stage', 'Kitchen', 'Bar', 'Security', 'Projector', 'Restrooms', 'Wheelchair Access'];
 
@@ -42,18 +47,36 @@ export default function VenuePortalCreateVenuePage() {
     });
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    const [locationLinkError, setLocationLinkError] = useState('');
+    // Bank details are captured/prefilled here: first venue create saves them to
+    // User.bankDetails, later creates prefill so the owner can edit and re-save.
+    const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/venue-portal/signin');
+            router.push('/signin');
             return;
         }
 
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) {
             router.push('/dashboard');
             return;
         }
     }, [isLoading, isAuthenticated, user, router]);
+
+    // Prefill saved bank details from the owner's profile for subsequent creates.
+    useEffect(() => {
+        if (!user?._id) return;
+        let cancelled = false;
+        usersApi.getProfile(user._id)
+            .then((profile: any) => {
+                if (!cancelled && profile?.bankDetails?.accountName) {
+                    setBankDetails(profile.bankDetails);
+                }
+            })
+            .catch(() => { /* no saved details yet — form starts empty */ });
+        return () => { cancelled = true; };
+    }, [user?._id]);
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -102,6 +125,11 @@ export default function VenuePortalCreateVenuePage() {
         }
         if (!formData.locationLink) {
             showToast('Please add a location link', 'error');
+            return;
+        }
+        if (!isValidLocationLink(formData.locationLink)) {
+            setLocationLinkError('Enter a valid URL (e.g. https://maps.google.com/...)');
+            showToast('Location link must be a valid URL', 'error');
             return;
         }
         if (!formData.basePrice) {
@@ -180,7 +208,7 @@ export default function VenuePortalCreateVenuePage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') {
+    if (!isAuthenticated || !isVenueOwner(user)) {
         return null;
     }
 
@@ -198,12 +226,12 @@ export default function VenuePortalCreateVenuePage() {
                 {/* Progress Steps */}
                 <FadeIn delay={0.1}>
                     <div className="flex items-center justify-center gap-2 mb-8">
-                        {[1, 2, 3, 4].map((s) => (
+                        {[1, 2, 3, 4, 5].map((s) => (
                             <div key={s} className="flex items-center">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-300'}`}>
                                     {s}
                                 </div>
-                                {s < 4 && <div className={`w-12 h-0.5 ${step > s ? 'bg-violet-500' : 'bg-white/10'}`} />}
+                                {s < 5 && <div className={`w-12 h-0.5 ${step > s ? 'bg-violet-500' : 'bg-white/10'}`} />}
                             </div>
                         ))}
                     </div>
@@ -368,7 +396,11 @@ export default function VenuePortalCreateVenuePage() {
                                     <Input
                                         placeholder="https://maps.google.com/..."
                                         value={formData.locationLink}
-                                        onChange={(e) => setFormData({ ...formData, locationLink: e.target.value })}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, locationLink: e.target.value });
+                                            if (locationLinkError) setLocationLinkError('');
+                                        }}
+                                        error={locationLinkError}
                                         required
                                     />
                                 </div>
@@ -478,6 +510,26 @@ export default function VenuePortalCreateVenuePage() {
 
                                 <div className="flex justify-between pt-4">
                                     <Button variant="secondary" onClick={() => setStep(3)}>Back</Button>
+                                    <Button variant="violet" onClick={() => setStep(5)}>Next</Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 5: Bank Details (capture on first create, prefill on later ones).
+                            BankDetailsForm persists straight to User.bankDetails via
+                            usersApi.updateBankDetails, so settlement reads it later. */}
+                        {step === 5 && (
+                            <div className="space-y-6">
+                                <h2 className="text-xl font-semibold text-white mb-1">Payout Bank Details</h2>
+                                <p className="text-sm text-gray-400">Where your venue booking earnings are settled. You can update these later in Settings.</p>
+
+                                <BankDetailsForm
+                                    existingDetails={bankDetails}
+                                    onSaved={(details) => setBankDetails(details)}
+                                />
+
+                                <div className="flex justify-between pt-4">
+                                    <Button variant="secondary" onClick={() => setStep(4)}>Back</Button>
                                     <Button variant="violet" onClick={handleSubmit} isLoading={isSubmitting}>Submit Venue</Button>
                                 </div>
                             </div>

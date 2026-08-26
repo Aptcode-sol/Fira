@@ -47,7 +47,7 @@ export default function Users() {
     const handleBlock = async (id, e) => {
         e.stopPropagation();
         try {
-            await adminApi.updateUserStatus(id, 'blocked');
+            await adminApi.blockUser(id);
             fetchUsers();
         } catch (err) {
             console.error('Failed to block user:', err);
@@ -57,12 +57,15 @@ export default function Users() {
     const handleUnblock = async (id, e) => {
         e.stopPropagation();
         try {
-            await adminApi.updateUserStatus(id, 'active');
+            await adminApi.unblockUser(id);
             fetchUsers();
         } catch (err) {
             console.error('Failed to unblock user:', err);
         }
     };
+
+    // The User model has no `status` field - block state lives on `isBlocked`.
+    const userStatus = (user) => (user.isBlocked ? 'blocked' : 'active');
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -71,6 +74,32 @@ export default function Users() {
             default: return 'bg-gray-500/20 text-gray-400';
         }
     };
+
+    // Prefer the `roles` array (source of truth); fall back to legacy `role`.
+    // Surface adminRole (super_admin/admin/moderator) as its own badge when set.
+    const userRoleLabels = (user) => {
+        const labels = Array.isArray(user.roles) && user.roles.length
+            ? [...user.roles]
+            : (user.role ? [user.role] : []);
+        if (user.adminRole && !labels.includes(user.adminRole)) labels.push(user.adminRole);
+        return labels.length ? labels : ['user'];
+    };
+
+    const getRoleColor = (label) => {
+        switch (label) {
+            case 'admin':
+            case 'super_admin':
+                return 'bg-red-500/20 text-red-400 border-red-500/20';
+            case 'moderator':
+                return 'bg-amber-500/20 text-amber-400 border-amber-500/20';
+            case 'venue_owner':
+                return 'bg-blue-500/20 text-blue-400 border-blue-500/20';
+            default:
+                return 'bg-violet-500/20 text-violet-400 border-violet-500/20';
+        }
+    };
+
+    const formatRoleLabel = (label) => label.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -168,25 +197,28 @@ export default function Users() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-300 text-sm">
-                                                {user.badge ? (
-                                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-violet-500/20 text-violet-400 border border-violet-500/20">
-                                                        {user.badge}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-300 text-xs">-</span>
-                                                )}
+                                                <div className="flex flex-wrap gap-1">
+                                                    {userRoleLabels(user).map(label => (
+                                                        <span
+                                                            key={label}
+                                                            className={`px-2 py-0.5 rounded text-xs font-medium border ${getRoleColor(label)}`}
+                                                        >
+                                                            {formatRoleLabel(label)}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-300 text-sm">{user.phoneNumber || 'N/A'}</td>
                                             <td className="px-6 py-4 text-gray-300 text-sm">{(user.followers?.length || 0).toLocaleString()}</td>
                                             <td className="px-6 py-4 text-gray-300 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(user.status)}`}>
-                                                    {(user.status || 'Unknown').charAt(0).toUpperCase() + (user.status || 'unknown').slice(1)}
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(userStatus(user))}`}>
+                                                    {userStatus(user).charAt(0).toUpperCase() + userStatus(user).slice(1)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center gap-2">
-                                                    {user.status !== 'blocked' && (
+                                                    {userStatus(user) !== 'blocked' && (
                                                         <button
                                                             onClick={(e) => handleBlock(user._id, e)}
                                                             className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
@@ -197,7 +229,7 @@ export default function Users() {
                                                             </svg>
                                                         </button>
                                                     )}
-                                                    {user.status === 'blocked' && (
+                                                    {userStatus(user) === 'blocked' && (
                                                         <button
                                                             onClick={(e) => handleUnblock(user._id, e)}
                                                             className="p-2 rounded-lg text-green-400 hover:bg-green-500/20 hover:text-green-300 transition-all"

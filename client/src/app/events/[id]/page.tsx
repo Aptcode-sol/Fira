@@ -34,6 +34,8 @@ export default function EventDetailPage() {
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
     const [isPrivateCodeModalOpen, setIsPrivateCodeModalOpen] = useState(false);
     const [ticketQuantity, setTicketQuantity] = useState(1);
+    // Index into event.ticketTiers of the tier the buyer selected (null = no tiers / general admission).
+    const [selectedTierIndex, setSelectedTierIndex] = useState<number | null>(null);
     const [privateCode, setPrivateCode] = useState('');
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [purchasedTicket, setPurchasedTicket] = useState<any>(null);
@@ -775,16 +777,80 @@ export default function EventDetailPage() {
                 title="Get Tickets"
                 size="md"
             >
+                {(() => {
+                    // Tiers available on this event (may be empty -> general admission).
+                    const tiers = event.ticketTiers ?? [];
+                    const hasTiers = tiers.length > 0;
+                    const selectedTier = hasTiers && selectedTierIndex !== null ? tiers[selectedTierIndex] : null;
+                    // Remaining seats for the chosen tier; falls back to the event's spotsLeft
+                    // when there are no tiers (general admission).
+                    const tierRemaining = selectedTier
+                        ? Math.max(0, selectedTier.maxQuantity - selectedTier.soldCount)
+                        : spotsLeft;
+                    // Per-purchase ceiling: never exceed the hard cap of 10, the seats left,
+                    // or the selected tier's remaining. This is the 11.2 quantity cap.
+                    const perPurchaseMax = Math.max(1, Math.min(10, spotsLeft, tierRemaining));
+                    const atLimit = ticketQuantity >= perPurchaseMax;
+                    // Price shown for the active selection.
+                    const activePrice = selectedTier ? selectedTier.price : event.ticketPrice;
+                    return (
                 <div className="space-y-6">
                     <div>
                         <h3 className="text-lg font-semibold text-white mb-2">{event.name}</h3>
                         <p className="text-gray-300 text-sm">{formatSingleDateTime(event.startDateTime)}</p>
                     </div>
 
+                    {/* Ticket tiers (11.8): list the available tiers so the buyer can pick one. */}
+                    {hasTiers && (
+                        <div className="space-y-2">
+                            <span className="text-gray-300 text-sm">Select a ticket tier</span>
+                            {tiers.map((tier, index) => {
+                                const remaining = Math.max(0, tier.maxQuantity - tier.soldCount);
+                                const soldOut = remaining <= 0;
+                                // 11.3: match the tick by the tier's own index, not a
+                                // mismatched key, so the correct tier shows selected.
+                                const isSelected = selectedTierIndex === index;
+                                return (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        disabled={soldOut}
+                                        onClick={() => {
+                                            setSelectedTierIndex(index);
+                                            setTicketQuantity(1);
+                                        }}
+                                        className={`w-full p-4 rounded-xl border text-left transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isSelected
+                                            ? 'bg-violet-500/20 border-violet-500 text-white'
+                                            : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="font-medium">{tier.name}</div>
+                                                {tier.description && (
+                                                    <div className="text-xs text-gray-400 mt-0.5">{tier.description}</div>
+                                                )}
+                                                <div className="text-xs text-gray-400 mt-0.5">
+                                                    {soldOut ? 'Sold out' : `${remaining} left`}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-white font-semibold whitespace-nowrap">{formatPrice(tier.price)}</span>
+                                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${isSelected ? 'bg-violet-500 text-white' : 'bg-white/10 text-transparent'}`}>
+                                                    {isSelected ? '✓' : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     <div className="bg-white/5 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-300">General Admission</span>
-                            <span className="text-white font-semibold">{formatPrice(event.ticketPrice)}</span>
+                            <span className="text-gray-300">{selectedTier ? selectedTier.name : 'General Admission'}</span>
+                            <span className="text-white font-semibold">{formatPrice(activePrice)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-gray-300 text-sm">Quantity</span>
@@ -806,18 +872,23 @@ export default function EventDetailPage() {
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        // Cap at the spots actually left, not a flat 10 -
-                                        // an event with 3 seats free must not let someone
-                                        // pick 10 and hit a server rejection at checkout.
-                                        setTicketQuantity(Math.min(Math.min(10, spotsLeft), ticketQuantity + 1));
+                                        // Cap at the spots actually left / selected tier's
+                                        // remaining, not a flat 10 - an event with 3 seats
+                                        // free must not let someone pick 10 and hit a server
+                                        // rejection at checkout (11.2).
+                                        setTicketQuantity(Math.min(perPurchaseMax, ticketQuantity + 1));
                                     }}
-                                    disabled={ticketQuantity >= Math.min(10, spotsLeft)}
+                                    disabled={atLimit}
                                     className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     +
                                 </button>
                             </div>
                         </div>
+                        {/* 11.2: inline notice when the buyer hits the per-purchase limit. */}
+                        {atLimit && (
+                            <p className="mt-2 text-xs text-amber-400 text-right">Limit reached</p>
+                        )}
                     </div>
 
                     <div className="border-t border-white/10 pt-4 space-y-4">
@@ -850,6 +921,8 @@ export default function EventDetailPage() {
                         </Button>
                     </div>
                 </div>
+                    );
+                })()}
             </Modal>
             {/* Success Ticket Modal */}
             <Modal

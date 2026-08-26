@@ -4,12 +4,17 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
-import { Button, Input } from '@/components/ui';
+import { Button, Input, StepperModal } from '@/components/ui';
+import type { StepperStep } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import { eventsApi, venuesApi, uploadApi } from '@/lib/api';
+import { eventsApi, venuesApi, uploadApi, usersApi } from '@/lib/api';
+import { isVenueOwner } from '@/lib/types';
+import BankDetailsForm from '@/components/dashboard/BankDetailsForm';
 
 const categories = ['party', 'concert', 'wedding', 'corporate', 'birthday', 'festival', 'other'];
+
+type BankDetails = { accountName: string; accountNumber: string; ifscCode: string; bankName: string };
 
 // Inner component that uses useSearchParams
 function CreateEventForm() {
@@ -80,6 +85,23 @@ function CreateEventForm() {
     const [venueSearchQuery, setVenueSearchQuery] = useState('');
     const filteredVenues = venues.filter(v => v.name.toLowerCase().includes(venueSearchQuery.toLowerCase()));
 
+    // Payout bank details — only relevant for owners (they receive settlement).
+    // Captured here on first create, prefilled from User.bankDetails on later ones.
+    const owner = isVenueOwner(user);
+    const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
+    useEffect(() => {
+        if (!owner || !user?._id) return;
+        let cancelled = false;
+        usersApi.getProfile(user._id)
+            .then((profile: any) => {
+                if (!cancelled && profile?.bankDetails?.accountName) {
+                    setBankDetails(profile.bankDetails);
+                }
+            })
+            .catch(() => { /* no saved details yet — form starts empty */ });
+        return () => { cancelled = true; };
+    }, [owner, user?._id]);
+
     // Ticket tier helpers
     const updateTier = (index: number, field: keyof TicketTier, value: string | number) => {
         // TS: value is stored as-is; '' is only ever passed for numeric fields.
@@ -147,6 +169,37 @@ function CreateEventForm() {
         };
         fetchVenues();
     }, [preselectedVenueId]);
+
+    // Per-step validation gate for the stepper's Next button. Steps are
+    // 1-based here (step state starts at 1) so the StepperModal's 0-based
+    // index is offset by 1 when wired below.
+    const validateStep = (currentStep: number): boolean => {
+        if (currentStep === 1) {
+            if (!formData.name) { showToast('Please enter an event name', 'error'); return false; }
+            if (!formData.description) { showToast('Please enter an event description', 'error'); return false; }
+        }
+        if (currentStep === 2) {
+            if (!formData.date) { showToast('Please select a start date', 'error'); return false; }
+            if (!formData.endDate) { showToast('Please select an end date', 'error'); return false; }
+            if (!formData.startTime) { showToast('Please select a start time', 'error'); return false; }
+            if (!formData.endTime) { showToast('Please select an end time', 'error'); return false; }
+            if (!formData.maxAttendees || Number(formData.maxAttendees) < 1) {
+                showToast('Please enter a valid number of maximum attendees', 'error'); return false;
+            }
+        }
+        if (currentStep === 3 && formData.ticketType === 'paid') {
+            const tiers = formData.ticketTiers;
+            for (let i = 0; i < tiers.length; i++) {
+                if (!tiers[i].name.trim()) { showToast(`Tier ${i + 1}: Please enter a name`, 'error'); return false; }
+                if (Number(tiers[i].maxQuantity) < 1) { showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error'); return false; }
+            }
+            const names = tiers.map(t => t.name.trim().toLowerCase());
+            if (names.some((n, i) => n && names.indexOf(n) !== i)) {
+                showToast('Tier names must be unique', 'error'); return false;
+            }
+        }
+        return true;
+    };
 
     const handleSubmit = async () => {
         if (!user?._id) {
@@ -337,41 +390,16 @@ function CreateEventForm() {
         );
     }
 
-    return (
-        <>
-            <PartyBackground />
-            <Navbar />
-
-            <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
-                <div className="max-w-2xl mx-auto">
-                    {/* Header */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Create Event</h1>
-                        <p className="text-gray-300">Fill in the details to create your event</p>
-                    </div>
-
-                    {/* Progress Steps */}
-                    <div className="flex items-center justify-center gap-2 mb-8">
-                        {[1, 2, 3, 4].map((s) => (
-                            <div key={s} className="flex items-center">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${step >= s ? 'bg-violet-500 text-white' : 'bg-white/10 text-gray-300'
-                                    }`}>
-                                    {s}
-                                </div>
-                                {s < 4 && (
-                                    <div className={`w-12 h-0.5 mx-2 ${step > s ? 'bg-violet-500' : 'bg-white/10'}`} />
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Form Card */}
-                    <div className="bg-black/70 backdrop-blur-sm border border-white/10 rounded-2xl p-6 md:p-8">
-                        {/* Step 1: Basic Info */}
-                        {step === 1 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-semibold text-white mb-4">Basic Information</h2>
-
+    // Steps rendered inside the reusable StepperModal (built on the shared
+    // <Modal>). Reusing <Modal> makes the create UI responsive by construction,
+    // so there is no mobile horizontal overflow (35.1) and no per-field width
+    // patching needed.
+    const steps: StepperStep[] = [
+        // Step 1: Basic Info
+        {
+            label: 'Basic Information',
+            content: (
+                <>
                                 <Input
                                     label="Event Name"
                                     placeholder="e.g., Neon Nights Festival"
@@ -410,17 +438,14 @@ function CreateEventForm() {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end">
-                                    <Button onClick={() => setStep(2)}>Next</Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Step 2: Date, Time & Venue */}
-                        {step === 2 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-semibold text-white mb-4">Date, Time & Venue</h2>
-
+                </>
+            ),
+        },
+        // Step 2: Date, Time & Venue
+        {
+            label: 'Date, Time & Venue',
+            content: (
+                <>
                                 {/* Date Warning */}
                                 {formData.date && new Date(formData.date) < new Date(new Date().toDateString()) && (
                                     <div className="flex items-center gap-2 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm">
@@ -657,6 +682,7 @@ function CreateEventForm() {
                                                     ...formData,
                                                     customVenue: { ...formData.customVenue, capacity: e.target.value === '' ? '' : parseInt(e.target.value) }
                                                 })}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 required
                                             />
                                         </div>
@@ -681,22 +707,19 @@ function CreateEventForm() {
                                         min={1}
                                         value={formData.maxAttendees}
                                         onChange={(e) => setFormData({ ...formData, maxAttendees: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                                        onWheel={(e) => e.currentTarget.blur()}
                                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                     />
                                 </div>
 
-                                <div className="flex justify-between">
-                                    <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
-                                    <Button onClick={() => setStep(3)}>Next</Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Step 3: Tickets & Privacy */}
-                        {step === 3 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-semibold text-white mb-4">Tickets & Privacy</h2>
-
+                </>
+            ),
+        },
+        // Step 3: Tickets & Privacy
+        {
+            label: 'Tickets & Privacy',
+            content: (
+                <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-3">Event Type</label>
                                     <div className="grid grid-cols-2 gap-4">
@@ -793,6 +816,7 @@ function CreateEventForm() {
                                                         min={0}
                                                         value={tier.price || ''}
                                                         onChange={(e) => updateTier(index, 'price', Math.max(0, parseInt(e.target.value) || 0))}
+                                                        onWheel={(e) => e.currentTarget.blur()}
                                                         className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                                     />
                                                 </div>
@@ -811,6 +835,7 @@ function CreateEventForm() {
                                                         min={1}
                                                         value={tier.maxQuantity || ''}
                                                         onChange={(e) => updateTier(index, 'maxQuantity', e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                                                        onWheel={(e) => e.currentTarget.blur()}
                                                         className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                                     />
                                                 </div>
@@ -885,18 +910,14 @@ function CreateEventForm() {
                                     <p className="mt-1.5 text-xs text-gray-300">Age restrictions, dress code, rules, etc.</p>
                                 </div>
 
-                                <div className="flex justify-between pt-4">
-                                    <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
-                                    <Button onClick={() => setStep(4)}>Next</Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Step 4: Additional Options */}
-                        {step === 4 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-semibold text-white mb-4">Additional Event Options</h2>
-
+                </>
+            ),
+        },
+        // Step 4: Additional Options
+        {
+            label: 'Additional Event Options',
+            content: (
+                <>
                                 {/* Friends and Family Stay */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-3">Friends & Family Stay</label>
@@ -943,15 +964,70 @@ function CreateEventForm() {
                                     </button>
                                 </div>
 
-                                <div className="flex justify-between pt-4">
-                                    <Button variant="secondary" onClick={() => setStep(3)}>Back</Button>
-                                    <Button onClick={handleSubmit} isLoading={isSubmitting}>Create Event</Button>
+                                {/* 11.15 / 11.16 — entry points for features whose CRUD is
+                                    owned by platform-feature-overhaul and only becomes available
+                                    once the event exists. Rather than duplicating that CRUD in the
+                                    create flow, surface a scoped notice pointing to where they're
+                                    configured (the event's manage page after creation).
+                                    ponytail: link-only entry point; the real UI lives on the
+                                    manage page (DiscountCodesSection + scanning allocation). */}
+                                <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
+                                    <div className="text-sm font-medium text-gray-300">After you create this event</div>
+                                    <ul className="text-xs text-gray-400 list-disc list-inside space-y-1">
+                                        <li>Set up <span className="text-gray-200">discount codes / coupons</span> — with validity bounded to your event dates.</li>
+                                        <li>Assign <span className="text-gray-200">per-tier gate / scanner allocations</span> for entry management.</li>
+                                    </ul>
+                                    <p className="text-xs text-gray-500">
+                                        These open on the event&apos;s manage page once it&apos;s created — find it under{' '}
+                                        <span className="text-violet-400">Dashboard → Events</span>.
+                                    </p>
                                 </div>
-                            </div>
-                        )}
-                    </div>
+
+                                {/* Owner payout bank details — capture on first create,
+                                    prefill on later ones. Persists straight to
+                                    User.bankDetails so settlement can read it later. */}
+                                {owner && (
+                                    <div className="border-t border-white/10 pt-6">
+                                        <BankDetailsForm
+                                            existingDetails={bankDetails}
+                                            onSaved={(details) => setBankDetails(details)}
+                                        />
+                                    </div>
+                                )}
+
+                </>
+            ),
+        },
+    ];
+
+    return (
+        <>
+            <PartyBackground />
+            <Navbar />
+
+            <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
+                <div className="max-w-2xl mx-auto text-center">
+                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Create Event</h1>
+                    <p className="text-gray-300">Fill in the details to create your event</p>
                 </div>
             </main>
+
+            {/* Reusable stepper modal (built on the shared <Modal>). Always open
+                on this dedicated create route; closing returns to the dashboard.
+                step state is 1-based, the modal is 0-based -> offset by 1. */}
+            <StepperModal
+                isOpen
+                onClose={() => router.push('/dashboard/events')}
+                title="Create Event"
+                size="lg"
+                steps={steps}
+                step={step - 1}
+                onStepChange={(next) => setStep(next + 1)}
+                canAdvance={(fromStep) => validateStep(fromStep + 1)}
+                onFinish={handleSubmit}
+                finishLabel="Create Event"
+                isFinishing={isSubmitting}
+            />
         </>
     );
 }

@@ -117,13 +117,13 @@ export default function VenuePortalLandingPage() {
                         <FadeIn delay={0.4} duration={0.6} direction="up">
                             <div className="flex flex-row gap-4 justify-center">
                                 <Link
-                                    href="/venue-portal/signin"
+                                    href="/signin"
                                     className="min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
                                 >
                                     Access Dashboard
                                 </Link>
                                 <Link
-                                    href="/venue-portal/signup"
+                                    href="/signup"
                                     className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium"
                                 >
                                     List Your Venue
@@ -167,7 +167,7 @@ export default function VenuePortalLandingPage() {
                                             </p>
 
                                             <Link
-                                                href="/venue-portal/signup"
+                                                href="/signup"
                                                 className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
                                             >
                                                 Get started
@@ -231,7 +231,7 @@ export default function VenuePortalLandingPage() {
 
                             <SlideUp delay={0.3}>
                                 <Link
-                                    href="/venue-portal/signup"
+                                    href="/signup"
                                     className="btn-primary px-10 py-4 rounded-full font-medium text-lg inline-flex items-center gap-2"
                                 >
                                     Create Account

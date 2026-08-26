@@ -35,6 +35,15 @@ const venueSchema = new mongoose.Schema({
         pricePerHour: { type: Number, default: null },
         currency: { type: String, default: 'INR' }
     },
+    // Platform fee % applied to the booking-advance billing (Flow 1/3). Persisted
+    // so config can flow into initiateBookingPayment/processPayout; default 5
+    // preserves current behavior for existing docs.
+    platformFeePercentage: {
+        type: Number,
+        default: 5,
+        min: 0,
+        max: 100
+    },
     amenities: [{
         type: String
     }],

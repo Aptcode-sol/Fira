@@ -36,10 +36,13 @@ const eventService = {
                 filter.endDateTime = { $gte: new Date() }; // Only upcoming/ongoing events
             }
         } else {
-            // Public listing - show only fully approved events that are in the future
+            // Public listing - show only fully approved events that have not ended.
+            // Gate on endDateTime (not startDateTime) so an event that has started
+            // but already finished isn't listed, and exclude completed events
+            // explicitly (approved is required, completed is never listed).
             filter.status = 'approved';
             filter.isActive = { $ne: false };
-            filter.startDateTime = { $gte: new Date() }; // Only future events
+            filter.endDateTime = { $gte: new Date() }; // Not yet ended (upcoming or ongoing)
         }
 
         // Today Only filter (events within next 24 hours)
@@ -152,8 +155,13 @@ const eventService = {
         return events;
     },
 
-    // Get event by ID
-    async getEventById(id) {
+    // Get event by ID.
+    // viewerId (optional): the id of the authenticated viewer, if any. A private
+    // event is only resolvable by link for a NON-owner viewer once it is admin-
+    // approved; the organizer viewing their own private event always sees it.
+    // Fail closed: an anonymous / non-owner viewer of an unapproved private event
+    // gets "Event not found" rather than a leaked draft.
+    async getEventById(id, viewerId = null) {
         const event = await Event.findById(id)
             .populate('organizer', 'name email avatar verificationBadge')
             .populate('venue', 'name description address images capacity')
@@ -161,6 +169,15 @@ const eventService = {
         if (!event) {
             throw new Error('Event not found');
         }
+
+        if (event.eventType === 'private' && event.adminApproval?.status !== 'approved') {
+            const organizerId = (event.organizer?._id || event.organizer)?.toString();
+            const isOwner = viewerId && organizerId && organizerId === viewerId.toString();
+            if (!isOwner) {
+                throw new Error('Event not found');
+            }
+        }
+
         return event;
     },
 
@@ -645,7 +662,9 @@ const eventService = {
 
         // Show all events that need admin review
         // Events are pending if they're not already approved/cancelled/rejected
+        // Exclude venue-less events so they aren't counted/listed as pending (8.1).
         const filter = {
+            venue: { $exists: true, $ne: null },
             status: { $nin: ['approved', 'cancelled', 'rejected', 'blocked'] },
             $or: [
                 { 'adminApproval.status': { $ne: 'approved' } },

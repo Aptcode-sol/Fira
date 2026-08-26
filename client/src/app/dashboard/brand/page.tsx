@@ -8,6 +8,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { brandsApi, uploadApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface BrandProfile {
     _id: string;
@@ -63,6 +64,9 @@ export default function BrandDashboardPage() {
     const [posts, setPosts] = useState<any[]>([]);
     const [showPostModal, setShowPostModal] = useState(false);
     const [postContent, setPostContent] = useState('');
+
+    // Lock body scroll while the hand-rolled post overlay is open (mirrors <Modal>).
+    useBodyScrollLock(showPostModal);
     const [postImages, setPostImages] = useState<File[]>([]);
     const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
     const [isCreatingPost, setIsCreatingPost] = useState(false);

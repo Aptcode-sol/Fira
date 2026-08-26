@@ -52,6 +52,15 @@ const eventSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    // Platform fee % applied to paid ticket/tier billing (Flow 1/2/3). Persisted
+    // so config can flow end-to-end into calculateBilling/processPayout; default 5
+    // preserves current behavior for existing docs.
+    platformFeePercentage: {
+        type: Number,
+        default: 5,
+        min: 0,
+        max: 100
+    },
     maxAttendees: {
         type: Number,
         required: true

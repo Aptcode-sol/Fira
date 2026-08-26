@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 
 import PartyBackground from '@/components/PartyBackground';
 import Link from 'next/link';
+import { legalContainerClass, legalHeadingClass } from '../legalStyles';
 
 export default function HelpSupport() {
     return (
@@ -11,9 +12,9 @@ export default function HelpSupport() {
             <PartyBackground />
             <Navbar />
 
-            <main className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+            <main className={legalContainerClass}>
                 <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-2xl p-8 md:p-12">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    <h1 className={legalHeadingClass}>
                         Help & Support
                     </h1>
 

@@ -35,6 +35,16 @@ export default function Events() {
     const [rejectingEvent, setRejectingEvent] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
 
+    // Lock body scroll while the hand-rolled rejection overlay is open.
+    // Inline effect mirrors client's useBodyScrollLock / <Modal> (admin is JS, not TS).
+    useEffect(() => {
+        if (!rejectingEvent) return;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [rejectingEvent]);
+
     // Mock admin ID - in real app this would come from auth context
     const adminId = 'admin-user-id';
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Conversation, Message, User, BrandProfile } = require('../models');
+const { Conversation, Message, User, BrandProfile, Inquiry, Event, Venue } = require('../models');
 const authMiddleware = require('../middleware/auth');
 
 // All routes require authentication
@@ -239,6 +239,87 @@ router.post('/start-brand-enquiry', async (req, res) => {
         });
     } catch (error) {
         console.error('Start brand enquiry error:', error);
+        res.status(500).json({ error: 'Failed to start conversation' });
+    }
+});
+
+// POST /api/messages/start-inquiry-conversation - Start (or reuse) a conversation
+// between the inquiry sender and the reference (event/venue) owner, bound to the inquiry.
+// Mirrors the find-or-create pattern in /start-brand-enquiry.
+router.post('/start-inquiry-conversation', async (req, res) => {
+    try {
+        const { inquiryId, message } = req.body;
+        const userId = req.user._id;
+
+        if (!inquiryId) {
+            return res.status(400).json({ error: 'Inquiry ID is required' });
+        }
+
+        const inquiry = await Inquiry.findById(inquiryId);
+        if (!inquiry) {
+            return res.status(404).json({ error: 'Inquiry not found' });
+        }
+
+        // Resolve the reference owner: event -> organizer, venue -> owner.
+        let ownerId;
+        if (inquiry.referenceType === 'event') {
+            const event = await Event.findById(inquiry.referenceId).select('organizer');
+            ownerId = event?.organizer;
+        } else if (inquiry.referenceType === 'venue') {
+            const venue = await Venue.findById(inquiry.referenceId).select('owner');
+            ownerId = venue?.owner;
+        }
+
+        if (!ownerId) {
+            return res.status(404).json({ error: 'Inquiry reference owner not found' });
+        }
+
+        if (ownerId.toString() === userId.toString()) {
+            return res.status(400).json({ error: 'Cannot start a conversation with yourself' });
+        }
+
+        // Find or create the conversation bound to this inquiry.
+        let conversation = await Conversation.findOne({
+            participants: { $all: [userId, ownerId] },
+            inquiry: inquiryId
+        });
+
+        if (!conversation) {
+            conversation = await Conversation.create({
+                participants: [userId, ownerId],
+                inquiry: inquiryId,
+                unreadCount: new Map()
+            });
+        }
+
+        // Send initial message if provided
+        if (message && message.trim()) {
+            await Message.create({
+                conversation: conversation._id,
+                sender: userId,
+                content: message.trim(),
+                messageType: 'text'
+            });
+
+            conversation.lastMessage = {
+                content: message.trim().substring(0, 100),
+                sender: userId,
+                timestamp: new Date()
+            };
+
+            const currentCount = conversation.unreadCount.get(ownerId.toString()) || 0;
+            conversation.unreadCount.set(ownerId.toString(), currentCount + 1);
+            await conversation.save();
+        }
+
+        await conversation.populate('participants', 'name avatar email');
+
+        res.status(201).json({
+            success: true,
+            conversation
+        });
+    } catch (error) {
+        console.error('Start inquiry conversation error:', error);
         res.status(500).json({ error: 'Failed to start conversation' });
     }
 });

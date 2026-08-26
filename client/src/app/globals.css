@@ -53,6 +53,12 @@ html {
   text-size-adjust: 100%;
 }
 
+/* ponytail: SINGLE CC-2 SOURCE. This coarse-pointer rule is the only lever that
+   keeps mobile inputs >= 16px so iOS doesn't auto-zoom on focus. It already
+   covers every editable control (input/select/textarea) and every future route.
+   Do NOT reintroduce sub-16px fonts on editable controls per-page (no inline
+   fontSize, no text-xs/text-sm overriding this on coarse pointers) - that would
+   bypass the guard and bring the auto-zoom bug back. */
 @media (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]),
   select,

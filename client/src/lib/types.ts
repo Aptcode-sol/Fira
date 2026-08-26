@@ -10,6 +10,11 @@ export interface User {
     /** Home city, collected at signup - powers the city-first listing default. */
     city?: string | null;
     role: 'user' | 'venue_owner' | 'admin';
+    /**
+     * Source-of-truth role list (Flow 7). A single account can carry both
+     * 'user' and 'venue_owner'. `role` is kept for backward compatibility.
+     */
+    roles?: ('user' | 'venue_owner' | 'admin')[];
     isVerified: boolean;
     emailVerified: boolean;
     emailVerifiedAt?: string;
@@ -33,6 +38,16 @@ export interface User {
     createdAt: string;
     updatedAt: string;
 }
+
+/**
+ * Owner check (Flow 7). `roles` is the source of truth; legacy `role` is
+ * honored for backward compatibility until the account merge migration runs.
+ * `admin` is intentionally NOT treated as a venue owner here — the switcher and
+ * create-venue option are owner affordances, not admin ones.
+ */
+export const isVenueOwner = (
+    u?: Pick<User, 'role' | 'roles'> | null,
+): boolean => !!u && (u.roles?.includes('venue_owner') || u.role === 'venue_owner');
 
 // Venue Types
 export interface Venue {

@@ -182,7 +182,7 @@ export default async function VenuesInCityPage({
                             </p>
                             <div className="flex flex-wrap gap-3 justify-center">
                                 <Link
-                                    href="/venue-portal/signup"
+                                    href="/signup"
                                     className="px-6 py-3 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-colors"
                                 >
                                     List your venue

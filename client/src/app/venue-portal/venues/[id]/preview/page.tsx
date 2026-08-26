@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui';
 import { venuesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 
 interface Venue {
@@ -41,12 +42,12 @@ export default function VenueOwnerPreviewPage() {
     const [calendarMonth, setCalendarMonth] = useState(new Date());
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated) router.push('/venue-portal/signin');
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') router.push('/dashboard');
+        if (!isLoading && !isAuthenticated) router.push('/signin');
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) router.push('/dashboard');
     }, [isLoading, isAuthenticated, user, router]);
 
     useEffect(() => {
-        if (!isAuthenticated || user?.role !== 'venue_owner' || !venueId) return;
+        if (!isAuthenticated || !isVenueOwner(user) || !venueId) return;
         const fetchVenue = async () => {
             setLoading(true);
             try {
@@ -104,7 +105,7 @@ export default function VenueOwnerPreviewPage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') return null;
+    if (!isAuthenticated || !isVenueOwner(user)) return null;
 
     if (!venue) {
         return (

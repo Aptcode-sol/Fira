@@ -163,6 +163,38 @@ export default function VenueDetail() {
                                     <div className="text-white">{venue.owner?.phone || 'N/A'}</div>
                                 </div>
                             </div>
+
+                            {/* Owner payout bank details — admin-only read (Flow 8.6).
+                                Server populates owner.bankDetails on this endpoint. */}
+                            {(() => {
+                                const bank = venue.owner?.bankDetails;
+                                const hasAny = bank && (bank.accountNumber || bank.ifscCode || bank.accountName || bank.bankName);
+                                return (
+                                    <div className="mt-6 pt-6 border-t border-white/10">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-xs font-semibold text-amber-400 uppercase tracking-wide">Bank Details</span>
+                                            <span className="text-[10px] text-gray-500">(admin-only)</span>
+                                        </div>
+                                        {!hasAny ? (
+                                            <p className="text-gray-500 text-sm">No bank details on file.</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {[
+                                                    ['Account Name', bank.accountName],
+                                                    ['Account Number', bank.accountNumber],
+                                                    ['IFSC Code', bank.ifscCode],
+                                                    ['Bank Name', bank.bankName],
+                                                ].map(([label, value]) => (
+                                                    <div key={label}>
+                                                        <div className="text-xs text-gray-300 mb-1">{label}</div>
+                                                        <div className="text-white break-all">{value || 'N/A'}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Amenities */}

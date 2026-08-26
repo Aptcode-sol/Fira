@@ -1,4 +1,14 @@
 const User = require('../models/User');
+const Event = require('../models/Event');
+const Venue = require('../models/Venue');
+const BrandProfile = require('../models/BrandProfile');
+const Post = require('../models/Post');
+const Booking = require('../models/Booking');
+const Ticket = require('../models/Ticket');
+const Notification = require('../models/Notification');
+const PushSubscription = require('../models/PushSubscription');
+const Inquiry = require('../models/Inquiry');
+const bankDetailsValidator = require('../utils/bankDetailsValidator');
 
 const userService = {
     // Get all users
@@ -184,6 +194,36 @@ const userService = {
         return { message: 'User deleted successfully' };
     },
 
+    // Delete the authenticated user's own account + associated data.
+    // Cascade follows the existing convention used in seeds/seedTestUser.js
+    // (Event by organizer, Venue by owner, BrandProfile by user) extended to
+    // the other clearly user-owned collections. Only data belonging to THIS
+    // user is removed. ponytail: single-pass deleteMany fan-out — no
+    // transaction/session (Mongo standalone in dev); ceiling = a crash mid-fan-out
+    // could orphan a subset, acceptable for account self-deletion.
+    async deleteAccount(userId) {
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        await Promise.all([
+            Event.deleteMany({ organizer: userId }),
+            Venue.deleteMany({ owner: userId }),
+            BrandProfile.deleteMany({ user: userId }),
+            Post.deleteMany({ author: userId }),
+            Booking.deleteMany({ user: userId }),
+            Ticket.deleteMany({ user: userId }),
+            Notification.deleteMany({ user: userId }),
+            PushSubscription.deleteMany({ user: userId }),
+            Inquiry.deleteMany({ user: userId }),
+        ]);
+
+        await User.findByIdAndDelete(userId);
+
+        return { message: 'Account deleted successfully' };
+    },
+
     // Follow user
     async followUser(userId, targetUserId) {
         if (userId.toString() === targetUserId.toString()) {
@@ -222,19 +262,11 @@ const userService = {
         return { message: 'Successfully unfollowed user' };
     },
 
-    // Update bank details with validation
+    // Update bank details with validation (trust boundary — validate before persist)
     async updateBankDetails(userId, { accountName, accountNumber, ifscCode, bankName }) {
-        if (!accountName || !accountName.trim()) {
-            return { error: "Account holder name is required", field: "accountName" };
-        }
-        if (!bankName || !bankName.trim()) {
-            return { error: "Bank name is required", field: "bankName" };
-        }
-        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
-            return { error: "Invalid IFSC code format", field: "ifscCode" };
-        }
-        if (!/^\d{9,18}$/.test(accountNumber)) {
-            return { error: "Account number must be 9-18 digits", field: "accountNumber" };
+        const check = bankDetailsValidator.validate({ accountName, accountNumber, ifscCode, bankName });
+        if (!check.isValid) {
+            return { error: check.error, field: check.field };
         }
 
         const user = await User.findByIdAndUpdate(

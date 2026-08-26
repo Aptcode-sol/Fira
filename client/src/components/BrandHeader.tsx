@@ -35,8 +35,8 @@ export default function BrandHeader({ brand, onFollow, isFollowing, isOwnProfile
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
             </div>
 
-            <div className="px-4 md:px-8 max-w-7xl mx-auto relative -mt-20 z-10">
-                <div className="flex flex-col md:flex-row items-end gap-6">
+            <div className="px-4 md:px-8 max-w-7xl mx-auto relative -mt-16 md:-mt-20 z-10">
+                <div className="flex flex-col md:flex-row items-start md:items-end gap-6">
                     {/* Profile Photo */}
                     <div className="relative">
                         <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black overflow-hidden bg-zinc-900 shadow-2xl">

@@ -1,8 +1,16 @@
 const Payment = require('../models/Payment');
 const Payout = require('../models/Payout');
 const Refund = require('../models/Refund');
+const User = require('../models/User');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+
+// Owner bank details must be real before a payout is recorded (fail closed).
+// ponytail: inline check here; the shared API-boundary validator is task 8.
+const isValidBankDetails = (b) =>
+    !!b &&
+    /^[0-9]{9,18}$/.test(b.accountNumber || '') &&
+    /^[A-Z]{4}0[A-Z0-9]{6}$/.test(b.ifscCode || '');
 
 const paymentService = {
     // Pure billing calculation with GST breakdown
@@ -64,7 +72,7 @@ const paymentService = {
     },
 
     // Initiate payment
-    async initiatePayment({ userId, type, referenceId, referenceModel, amount, subtotal, platformFee, platformFeePercentage, gstAmount, totalAmount, discountCode, discountAmount }) {
+    async initiatePayment({ userId, type, referenceId, referenceModel, amount, subtotal, platformFee, platformFeePercentage, gstAmount, totalAmount, discountCode, discountAmount, discountBearer, listedPrice }) {
         if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
             throw new Error('Razorpay credentials not configured');
         }
@@ -103,6 +111,11 @@ const paymentService = {
             totalAmount: totalAmount || chargeAmount,
             discountCode: discountCode || null,
             discountAmount: discountAmount || 0,
+            // Flow 4: who absorbs the discount ('platform'|'owner'|null) and the
+            // full listed price the owner set. listedPrice defaults to subtotal
+            // so platform-side records preserve intent even when no discount.
+            discountBearer: discountBearer || null,
+            listedPrice: listedPrice != null ? listedPrice : (subtotal || 0),
             status: 'pending',
             gatewayOrderId: order.id,
             gatewayResponse: order
@@ -240,11 +253,33 @@ const paymentService = {
         };
     },
 
-    // Process payout
-    async processPayout({ recipientId, type, referenceId, referenceModel, grossAmount, bankDetails }) {
-        const commissionPercentage = 5; // 5% platform fee
+    // Process payout (manual, not yet disbursed)
+    //
+    // Owner-gross contract (Flow 4): the CALLER derives `grossAmount` from the
+    // settled Payment(s) and passes it in — processPayout does not read Payments.
+    // The owner's gross is based on the FULL LISTED PRICE the owner set
+    // (Payment.listedPrice), NOT the discounted amount the buyer was charged:
+    //   discountBearer === 'platform' → gross = listedPrice
+    //       (the platform absorbs the discount; owner keeps the full listed price)
+    //   discountBearer === 'owner'    → gross = listedPrice - discountAmount
+    //       (the owner absorbs the discount; their settlement is reduced)
+    //   no discount (discountBearer null) → gross = listedPrice
+    // Platform-side records always reflect the full listed price. When the
+    // settlement caller is wired (task 11), it computes grossAmount per this
+    // contract and passes it here; commission below then applies to that gross.
+    async processPayout({ recipientId, type, referenceId, referenceModel, grossAmount, platformFeePercentage }) {
+        // Commission from config; fall back to 5 only if genuinely absent.
+        const commissionPercentage = platformFeePercentage ?? 5;
         const platformCommission = Math.round(grossAmount * (commissionPercentage / 100));
         const netAmount = grossAmount - platformCommission;
+
+        // Bank details are authoritative from the owner, not the caller. Fail
+        // closed if the owner has no valid stored details — a payout must be
+        // tied to real, valid bank details.
+        const owner = await User.findById(recipientId).select('bankDetails');
+        if (!isValidBankDetails(owner && owner.bankDetails)) {
+            throw new Error('Recipient has no valid bank details on file; cannot process payout');
+        }
 
         const payout = await Payout.create({
             recipient: recipientId,
@@ -255,11 +290,11 @@ const paymentService = {
             platformCommission,
             platformCommissionPercentage: commissionPercentage,
             netAmount,
-            bankDetails,
+            bankDetails: owner.bankDetails,
+            method: 'manual',
+            gatewayPayoutId: null,
             status: 'pending'
         });
-
-        // TODO: Integrate with payment gateway payout API
 
         return payout;
     }

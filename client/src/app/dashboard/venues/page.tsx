@@ -9,6 +9,7 @@ import { Button, Input } from '@/components/ui';
 import { venuesApi, bookingsApi, uploadApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Venue {
     _id: string;
@@ -85,6 +86,10 @@ export default function VenuesPage() {
     const [cancellingVenue, setCancellingVenue] = useState<Venue | null>(null);
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
+
+    // Lock body scroll while any hand-rolled overlay is open (mirrors <Modal>).
+    // Only one opens at a time, so a single OR covers all three (edit/availability/cancel).
+    useBodyScrollLock(!!editingVenue || !!availabilityVenue || !!cancellingVenue);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {

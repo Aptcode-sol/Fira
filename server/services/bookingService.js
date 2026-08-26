@@ -279,7 +279,7 @@ const bookingService = {
         const paymentService = require('./paymentService');
 
         const booking = await Booking.findById(bookingId)
-            .populate('venue', 'name');
+            .populate('venue', 'name platformFeePercentage');
 
         if (!booking) {
             throw new Error('Booking not found');
@@ -297,21 +297,30 @@ const bookingService = {
             throw new Error('Advance already paid');
         }
 
-        // Calculate 10% advance payment
-        const advanceAmount = Math.round(booking.totalAmount * 0.10);
-        const platformFee = Math.round(advanceAmount * 0.05);
+        // Calculate 10% advance payment, then route it through the single money
+        // source (calculateBilling) so the advance is charged and recorded with a
+        // full breakdown: advance is the subtotal, qty 1. Fail closed — if billing
+        // throws, we abort before any Razorpay order is created.
+        const advanceAmount = Math.round(booking.totalAmount * 0.10); // 10% advance preserved
+        const feePct = booking.venue?.platformFeePercentage ?? 5; // config, not hardcoded
+        const billing = paymentService.calculateBilling(advanceAmount, 1, feePct);
 
-        // Initiate payment via Razorpay for ADVANCE amount only
+        // Initiate payment via Razorpay for the ADVANCE billing breakdown.
         const paymentData = await paymentService.initiatePayment({
             userId,
             type: 'venue_booking',
             referenceId: bookingId,
             referenceModel: 'Booking',
-            amount: advanceAmount // 10% advance
+            amount: billing.totalAmount,
+            subtotal: billing.subtotal,
+            platformFee: billing.platformFee,
+            platformFeePercentage: feePct,
+            gstAmount: billing.gstAmount,
+            totalAmount: billing.totalAmount
         });
 
-        // Update booking with platform fee
-        booking.platformFee = platformFee;
+        // Update booking with the platform fee that was actually charged.
+        booking.platformFee = billing.platformFee;
         await booking.save();
 
         return {

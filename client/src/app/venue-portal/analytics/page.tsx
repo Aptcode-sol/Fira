@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import { venuesApi, bookingsApi } from '@/lib/api';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -40,11 +41,11 @@ export default function VenuePortalAnalyticsPage() {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/venue-portal/signin');
+            router.push('/signin');
             return;
         }
 
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) {
             router.push('/dashboard');
             return;
         }
@@ -169,7 +170,7 @@ export default function VenuePortalAnalyticsPage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') {
+    if (!isAuthenticated || !isVenueOwner(user)) {
         return null;
     }
 

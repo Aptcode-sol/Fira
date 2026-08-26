@@ -3,6 +3,7 @@
 import Navbar from '@/components/Navbar';
 
 import PartyBackground from '@/components/PartyBackground';
+import { legalContainerClass, legalHeadingClass } from '../legalStyles';
 
 export default function TermsOfService() {
     return (
@@ -10,9 +11,9 @@ export default function TermsOfService() {
             <PartyBackground />
             <Navbar />
 
-            <main className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+            <main className={legalContainerClass}>
                 <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-2xl p-8 md:p-12">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    <h1 className={legalHeadingClass}>
                         Terms of Service
                     </h1>
 

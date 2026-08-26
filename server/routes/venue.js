@@ -1,9 +1,25 @@
 // @ts-check
 const express = require('express');
+const { z } = require('zod');
 const router = express.Router();
 const venueService = require('../services/venueService');
+const validate = require('../middleware/validate');
 const { venueOwnerAuth, requireAuth } = require('../middleware/venueOwnerAuth');
 const { publicCache, noStoreCache, invalidateCache } = require('../middleware/httpCache');
+
+// Maps/location link validation (Req 20.2). Only guards `locationLink`; every other
+// venue field passes through untouched via .passthrough(). The field is optional and
+// an empty string is allowed (clearing the link); a non-empty value must be a valid URL.
+// ponytail: reuses the zod-based validate middleware — no new validation dependency.
+const locationLinkBody = z.object({
+    locationLink: z
+        .string()
+        .trim()
+        .refine(v => v === '' || z.string().url().safeParse(v).success, {
+            message: 'locationLink must be a valid URL'
+        })
+        .optional()
+}).passthrough();
 
 /**
  * @typedef {import('../middleware/types').AuthenticatedRequest} AuthenticatedRequest
@@ -71,7 +87,7 @@ router.get('/:id', /** @param {AuthenticatedRequest} req @param {Response} res *
 });
 
 // POST /api/venues - Create new venue (venue owner only)
-router.post('/', venueOwnerAuth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+router.post('/', venueOwnerAuth, validate(locationLinkBody), /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     console.log('🏢 [VENUE POST] Creating new venue...');
     console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
 
@@ -99,7 +115,7 @@ router.post('/', venueOwnerAuth, /** @param {AuthenticatedRequest} req @param {R
 });
 
 // PUT /api/venues/:id - Update venue (venue owner only, must own the venue)
-router.put('/:id', venueOwnerAuth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+router.put('/:id', venueOwnerAuth, validate(locationLinkBody), /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         // Verify ownership
         const existingVenue = await venueService.getVenueById(req.params.id);

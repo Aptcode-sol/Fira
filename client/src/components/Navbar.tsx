@@ -14,9 +14,37 @@ export default function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [shouldAnimate, setShouldAnimate] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    // 8.13: how far the on-screen keyboard has shrunk the visual viewport.
+    // 0 = no keyboard (nav stays pinned at the layout-viewport bottom, as today).
+    const [keyboardOffset, setKeyboardOffset] = useState(0);
     const { isAuthenticated, isLoading, user, logout } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
+
+    // 8.13: The fixed bottom nav is positioned against the LAYOUT viewport, which
+    // does not shrink when the mobile keyboard opens — so the nav rides up on top
+    // of the keyboard. Track the VISUAL viewport and lift the nav by the gap
+    // (layout height - visual height - visual offsetTop) so its bottom edge sits
+    // at the true visual-viewport bottom.
+    // ponytail: VisualViewport-offset option (smallest working diff — no new
+    // component, no layout change). Ceiling: a browser lacking the VisualViewport
+    // API keeps today's pinned-to-layout-viewport behavior (keyboardOffset stays 0).
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return; // fallback: today's pinned behavior
+        const update = () => {
+            const gap = window.innerHeight - vv.height - vv.offsetTop;
+            // Ignore sub-pixel/address-bar noise; only react to a real keyboard.
+            setKeyboardOffset(gap > 100 ? gap : 0);
+        };
+        update();
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        return () => {
+            vv.removeEventListener('resize', update);
+            vv.removeEventListener('scroll', update);
+        };
+    }, []);
 
     // Enable animation only after component mounts (client-side)
     useEffect(() => {
@@ -44,8 +72,10 @@ export default function Navbar() {
         }
     }, [isAuthenticated, user?._id]);
 
+    // 5.1: Home removed from desktop navLinks — the logo already links home,
+    // so a text "Home" item was a redundant affordance. The mobile bottom-nav
+    // keeps its own Home tab (that is the mobile home affordance, not redundant).
     const navLinks = [
-        { href: '/', label: 'Home' },
         { href: '/venues', label: 'Venues' },
         { href: '/events', label: 'Events' },
         { href: '/creators', label: 'Creators', badge: true },
@@ -131,7 +161,10 @@ export default function Navbar() {
                                         {isActive(link.href) && !isActive('/dashboard') && pathname !== '/' && (
                                             <motion.div
                                                 layoutId="navbar-indicator"
-                                                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 h-0.5 bg-white rounded-full"
+                                                // 5.2: one consistent small underscore size (matches the
+                                                // logo dot's w-1.5 h-0.5) so the shared indicator no longer
+                                                // resizes as it animates between the logo and a nav link.
+                                                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-0.5 bg-white rounded-full"
                                                 transition={{ type: "spring", stiffness: 500, damping: 35 }}
                                             />
                                         )}
@@ -151,20 +184,19 @@ export default function Navbar() {
                                 <div className="w-20 h-8 bg-white/10 rounded-full animate-pulse" />
                             ) : isAuthenticated ? (
                                 <>
-                                    {/* CHAT DISABLED - Messages */}
-                                    {/*
+                                    {/* Messages */}
                                     <Link
                                         href="/messages"
                                         className="relative text-gray-400 hover:text-white transition-colors p-1"
+                                        aria-label="Messages"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                         </svg>
                                     </Link>
-                                    */}
                                     {/* Notification Bell */}
                                     <Link
-                                        href="/dashboard/notifications"
+                                        href="/notifications"
                                         className="relative text-gray-400 hover:text-white transition-colors p-1"
                                         aria-label="Notifications"
                                     >
@@ -203,7 +235,13 @@ export default function Navbar() {
             {/* Mobile Bottom Navigation */}
             {/* pb-[env(safe-area-inset-bottom)] keeps the tab labels above the
                 iPhone home indicator instead of tucked under it. */}
-            <div className="mobile-fixed-bar fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+            <div
+                className="mobile-fixed-bar fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+                // 8.13: lift the nav by the keyboard gap so it sits at the visual-viewport
+                // bottom. translateZ(0) is kept from .mobile-fixed-bar so the bar stays on
+                // its own compositor layer (inline transform would otherwise override it).
+                style={keyboardOffset > 0 ? { transform: `translateZ(0) translateY(-${keyboardOffset}px)` } : undefined}
+            >
                 <div className="flex items-center justify-around px-2 py-3">
                     {/* Home */}
                     <Link
@@ -504,8 +542,6 @@ export default function Navbar() {
                                         >
                                             Dashboard
                                         </Link>
-                                        {/* CHAT DISABLED - Messages drawer link */}
-                                        {/*
                                         <Link
                                             href="/messages"
                                             onClick={() => setIsSideDrawerOpen(false)}
@@ -516,11 +552,10 @@ export default function Navbar() {
                                         >
                                             Messages
                                         </Link>
-                                        */}
                                         <Link
-                                            href="/dashboard/notifications"
+                                            href="/notifications"
                                             onClick={() => setIsSideDrawerOpen(false)}
-                                            className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive('/dashboard/notifications')
+                                            className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive('/notifications')
                                                 ? 'bg-violet-600/20 text-white border border-violet-500/20 font-semibold'
                                                 : 'text-gray-400 hover:bg-white/5 hover:text-white'
                                                 }`}

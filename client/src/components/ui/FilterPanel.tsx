@@ -35,14 +35,14 @@ interface FilterPanelProps {
     groups: FilterGroup[];
     /** Reset every group back to its default. */
     onReset: () => void;
+    /**
+     * Fired when the user clicks "Show results". Lets the host commit its draft
+     * selection and run a single list query on submit rather than on every
+     * option click (8.1). Optional so existing callers are unaffected.
+     */
+    onApply?: () => void;
     /** Extra classes for the wrapper. */
     className?: string;
-}
-
-function labelFor(group: FilterGroup): string {
-    if (group.formatChip) return group.formatChip(group.value);
-    const match = group.options?.find(o => o.value === group.value);
-    return match?.label ?? group.value;
 }
 
 /**
@@ -50,10 +50,18 @@ function labelFor(group: FilterGroup): string {
  * instead of scattering four or five separate dropdowns across the toolbar.
  * Active filters are surfaced as removable chips next to the trigger.
  */
-export default function FilterPanel({ groups, onReset, className = '' }: FilterPanelProps) {
+export default function FilterPanel({ groups, onReset, onApply, className = '' }: FilterPanelProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [queries, setQueries] = useState<Record<string, string>>({});
     const wrapperRef = useRef<HTMLDivElement>(null);
+
+    // "Show results" both commits the host's draft (single API call, 8.1) and
+    // closes the panel. onApply is optional so callers without draft state keep
+    // today's behaviour.
+    const applyAndClose = () => {
+        onApply?.();
+        setIsOpen(false);
+    };
 
     const activeGroups = useMemo(
         () => groups.filter(g => g.value !== g.defaultValue),
@@ -207,7 +215,7 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
             <div className="px-5 py-4 border-t border-white/10">
                 <button
                     type="button"
-                    onClick={() => setIsOpen(false)}
+                    onClick={applyAndClose}
                     className="w-full py-2.5 rounded-xl bg-white text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
                 >
                     Show results
@@ -238,23 +246,9 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                 )}
             </button>
 
-            {/* Active filter chips. Desktop only - at half-width on a phone
-                they get crushed, and the count badge on the trigger already
-                says how many filters are on. */}
-            {activeGroups.map(group => (
-                <button
-                    key={group.key}
-                    type="button"
-                    onClick={() => group.onChange(group.defaultValue)}
-                    className="hidden md:flex items-center gap-1.5 px-3 h-[30px] rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs hover:text-white hover:border-white/20 transition-all"
-                >
-                    <span className="text-gray-300">{group.label}:</span>
-                    {labelFor(group)}
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            ))}
+            {/* No external selected-item chips (8.2): the applied-filter count
+                is surfaced solely by the badge on the trigger above. Removing
+                the chips-with-close-icons keeps a single count affordance. */}
 
             {isOpen && (
                 <>
@@ -263,13 +257,20 @@ export default function FilterPanel({ groups, onReset, className = '' }: FilterP
                         bottom nav bar and ran off the screen. Centring it in the
                         viewport keeps the whole panel reachable regardless of
                         how tall the filter list is, and the dvh cap means the
-                        body scrolls rather than the panel overflowing. */}
+                        body scrolls rather than the panel overflowing.
+                        z-[80] paints the overlay above the fixed bottom nav
+                        (z-50); the extra bottom padding + shrunk max-height
+                        reserve the nav's band (~4rem tab bar) plus the iPhone
+                        home-indicator inset so the "Show results" footer never
+                        lands under the nav (32.1). ponytail: nav-height is the
+                        assumed 4rem tab bar; if the mobile nav height changes,
+                        bump the 4rem here and in the max-h calc together. */}
                     <div
-                        className="md:hidden fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                        className="md:hidden fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pb-[calc(4rem+env(safe-area-inset-bottom))]"
                         onClick={() => setIsOpen(false)}
                     >
                         <div
-                            className="w-full max-w-sm max-h-[calc(100dvh-3rem)] flex flex-col bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
+                            className="w-full max-w-sm max-h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom))] flex flex-col bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {panelBody}

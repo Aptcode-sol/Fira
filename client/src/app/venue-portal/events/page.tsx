@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import { eventsApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui';
+import { Select } from '@/components/ui/Select';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { FadeIn, SlideUp } from '@/components/animations';
 
@@ -33,11 +35,11 @@ export default function VenuePortalEventsPage() {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/venue-portal/signin');
+            router.push('/signin');
             return;
         }
 
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) {
             router.push('/dashboard');
             return;
         }
@@ -130,7 +132,7 @@ export default function VenuePortalEventsPage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') {
+    if (!isAuthenticated || !isVenueOwner(user)) {
         return null;
     }
 
@@ -148,21 +150,17 @@ export default function VenuePortalEventsPage() {
                 {/* Filter Dropdown */}
                 <FadeIn delay={0.1}>
                     <div className="mb-6">
-                        <div className="relative w-full sm:w-56">
-                            <select
+                        <div className="w-full sm:w-56">
+                            <Select
                                 value={filter}
-                                onChange={(e) => setFilter(e.target.value as any)}
-                                className="w-full appearance-none bg-white/[0.04] border border-white/[0.1] text-white text-sm font-medium rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all cursor-pointer hover:bg-white/[0.06]"
-                                style={{ colorScheme: 'dark' }}
-                            >
-                                <option value="all" className="bg-[#1a1a1a]">All Requests</option>
-                                <option value="pending" className="bg-[#1a1a1a]">Pending</option>
-                                <option value="approved" className="bg-[#1a1a1a]">Approved</option>
-                                <option value="rejected" className="bg-[#1a1a1a]">Rejected</option>
-                            </select>
-                            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+                                onChange={(value) => setFilter(value as typeof filter)}
+                                options={[
+                                    { value: 'all', label: 'All Requests' },
+                                    { value: 'pending', label: 'Pending' },
+                                    { value: 'approved', label: 'Approved' },
+                                    { value: 'rejected', label: 'Rejected' },
+                                ]}
+                            />
                         </div>
                     </div>
                 </FadeIn>

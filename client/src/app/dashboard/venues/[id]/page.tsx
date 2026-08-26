@@ -7,6 +7,7 @@ import { Button, Input } from '@/components/ui';
 import { venuesApi, uploadApi, bookingsApi, eventsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Venue {
     _id: string;
@@ -112,6 +113,9 @@ export default function VenueManagePage() {
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [isTogglingStatus, setIsTogglingStatus] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+
+    // Lock body scroll while the hand-rolled cancel-confirm overlay is open (mirrors <Modal>).
+    useBodyScrollLock(showCancelModal);
     const [isTogglingAutoApprove, setIsTogglingAutoApprove] = useState(false);
 
     useEffect(() => {

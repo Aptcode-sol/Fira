@@ -124,8 +124,13 @@ export default function PaymentsPage() {
         payments.filter((t) => t.amount < 0).reduce((sum, t) => sum + t.amount, 0)
     );
 
+    // 17.2: Transactions and Earnings are distinct, disjoint views of the same
+    // ledger — not the same list twice. Transactions = money the user PAID
+    // (outflows, amount < 0); Earnings = money owed/settled to them as an owner
+    // (inflows, amount > 0). The underlying numbers/computation are owned by
+    // platform-flow-fixes; this only wires which slice each tab displays.
     const filteredPayments = activeTab === 'transactions'
-        ? payments
+        ? payments.filter(p => p.amount < 0)
         : payments.filter(p => p.amount > 0);
 
     return (

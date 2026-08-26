@@ -13,6 +13,13 @@ const conversationSchema = new mongoose.Schema({
         ref: 'BrandProfile',
         default: null
     },
+    // Optional: If this conversation is bound to an inquiry (event/venue enquiry).
+    // Mirrors `brand` above — lets a conversation be found-or-created per inquiry.
+    inquiry: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Inquiry',
+        default: null
+    },
     // Last message preview
     lastMessage: {
         content: { type: String, default: '' },
@@ -37,6 +44,7 @@ const conversationSchema = new mongoose.Schema({
 // Index for faster queries
 conversationSchema.index({ participants: 1 });
 conversationSchema.index({ brand: 1 });
+conversationSchema.index({ inquiry: 1 });
 conversationSchema.index({ updatedAt: -1 });
 
 module.exports = mongoose.model('Conversation', conversationSchema);

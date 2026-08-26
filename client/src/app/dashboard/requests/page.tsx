@@ -7,6 +7,7 @@ import { Button } from '@/components/ui';
 import { bookingsApi, venuesApi, eventsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Booking {
     _id: string;
@@ -57,6 +58,9 @@ export default function RequestsPage() {
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [rejectingEvent, setRejectingEvent] = useState<EventRequest | null>(null);
     const [rejectionReason, setRejectionReason] = useState('');
+
+    // Lock body scroll while the hand-rolled rejection overlay is open (mirrors <Modal>).
+    useBodyScrollLock(!!rejectingEvent);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {

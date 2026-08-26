@@ -127,10 +127,13 @@ const discountService = {
      * Only one discount per transaction (caller enforces this).
      */
     async validateAndApplyDiscount(code, eventId, subtotal) {
+        // Populate createdBy so the caller can attribute the discount bearer
+        // (Flow 4) without a second query: an admin-created code is absorbed by
+        // the platform, an owner-created code by the owner's settlement.
         const discount = await DiscountCode.findOne({
             code: code.toUpperCase(),
             event: eventId
-        });
+        }).populate('createdBy', 'adminRole');
 
         if (!discount) {
             throw new Error('Discount code not found');
@@ -174,10 +177,16 @@ const discountService = {
             throw new Error('Discount code usage limit reached');
         }
 
+        // Bearer attribution (Flow 4): admin-created code => platform absorbs
+        // the discount (owner keeps full listed price); owner-created => owner
+        // settlement is reduced. createdBy was populated above.
+        const discountBearer = (discount.createdBy && discount.createdBy.adminRole) ? 'platform' : 'owner';
+
         return {
             discountAmount,
             discountType: discount.discountType,
-            discountValue: discount.discountValue
+            discountValue: discount.discountValue,
+            discountBearer
         };
     },
 

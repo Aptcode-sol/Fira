@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import Navbar from '@/components/Navbar';
+import DashboardSwitcher from '@/components/dashboard/DashboardSwitcher';
 
 const navItems = [
     { href: '/dashboard', icon: 'home', label: 'Overview' },
@@ -13,7 +15,9 @@ const navItems = [
     { href: '/dashboard/bookings', icon: 'building', label: 'My Bookings' },
     { href: '/dashboard/tickets', icon: 'ticket', label: 'My Tickets' },
     { href: '/dashboard/payments', icon: 'credit-card', label: 'Payments' },
-    { href: '/dashboard/notifications', icon: 'bell', label: 'Notifications' },
+    // 5.8: notifications is now a top-level route (/notifications); the exact-match
+    // highlight below (pathname === item.href) lights up this item when on it.
+    { href: '/notifications', icon: 'bell', label: 'Notifications' },
     { href: '/dashboard/policies', icon: 'document', label: 'Policies' },
     { href: '/dashboard/settings', icon: 'cog', label: 'Settings' },
 ];
@@ -74,7 +78,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     // Derive sidebar visibility from user context — no API calls needed
     const hasBrand = !!(user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge));
-    const hasVenues = user?.role === 'venue_owner' || user?.role === 'admin';
     // Events Management is now the ONLY place "My Events" appears, so it has to
     // be visible to everyone. This was gated on hasBrand before, but any user
     // can create an event via /create/event - keeping the gate would have left
@@ -94,7 +97,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         return () => window.removeEventListener('toggle-dashboard-sidebar', handleToggle);
     }, []);
 
-    const isVenueOwner = user?.role === 'venue_owner' || user?.role === 'admin';
+    // roles[] is the source of truth (Flow 7); legacy role honored via the
+    // shared helper. Admin also keeps venue management for backward compat.
+    const showVenueManagement = isVenueOwner(user) || user?.role === 'admin';
 
     const getIcon = (name: string) => {
         const icons: Record<string, React.ReactNode> = {
@@ -253,6 +258,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     Brand Profile, Events Management and Logout stay pinned to
                     the bottom so they sit in the same place on every screen. */}
                 <nav className="flex-1 flex flex-col p-3 min-h-0">
+                    {/* Dashboard switcher (owners only) — move to the "Fira Venue"
+                        owner dashboard. Self-gates on roles/role. */}
+                    <DashboardSwitcher current="user" isOpen={isOpen} />
+
                     {/* Scrolling zone */}
                     <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
                     {navItems.map((item) => {
@@ -280,7 +289,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     })}
 
                     {/* Venue Owner Section */}
-                    {isVenueOwner && (
+                    {showVenueManagement && (
                         <>
                             <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
                                 <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
@@ -415,8 +424,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-20 pb-20 lg:pb-0 lg:pt-24 transition-all duration-300 ml-0 lg:ml-20 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
+            {/* Main Content.
+                17.5: lg:pl-6 adds a gap between the sidebar's right edge and the
+                content. The ml-* offset equals the sidebar width exactly, so
+                without this the content sat flush against the sidebar on desktop.
+                Mobile (ml-0, no lg padding) is unchanged. */}
+            <main className={`flex-1 min-h-screen relative z-10 pt-20 pb-20 lg:pb-0 lg:pt-24 lg:pl-6 transition-all duration-300 ml-0 lg:ml-20 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
                 }`}>
                 {children}
             </main>

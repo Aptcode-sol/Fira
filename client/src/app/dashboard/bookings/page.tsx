@@ -272,9 +272,10 @@ export default function BookingsPage() {
                     </div>
                 )}
 
-                {/* Bookings List */}
+                {/* Bookings List — animate on mount (17.1) so the list is visible
+                    immediately without requiring a scroll to trigger whileInView. */}
                 {!loading && !error && (
-                    <FadeIn>
+                    <FadeIn animateOnMount>
                         <div className="space-y-4">
                             {filteredBookings.map((booking) => {
                                 const advanceAmount = getAdvanceAmount(booking.totalAmount);

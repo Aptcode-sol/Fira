@@ -39,6 +39,17 @@ router.patch('/me/bank-details', auth, async (req, res) => {
     }
 });
 
+// DELETE /api/users/me - Delete the authenticated user's own account + associated data
+// Declared before '/:id' so "me" is not captured as an id param.
+router.delete('/me', auth, async (req, res) => {
+    try {
+        const result = await userService.deleteAccount(req.user._id);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/users/:id - Get user by ID
 router.get('/:id', async (req, res) => {
     try {

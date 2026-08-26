@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
 import VenuePortalLandingNavbar from '@/components/venue-portal/VenuePortalLandingNavbar';
+import DashboardSwitcher from '@/components/dashboard/DashboardSwitcher';
 
 const navItems = [
     { href: '/venue-portal/dashboard', icon: 'home', label: 'Dashboard' },
@@ -203,6 +204,12 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                     </Link>
                 </div>
 
+                {/* Dashboard switcher (owners only) — move back to the normal
+                    user dashboard. Self-gates on roles/role. */}
+                <div className="pt-2">
+                    <DashboardSwitcher current="venue" isOpen={isOpen} />
+                </div>
+
                 {/* Navigation */}
                 <nav className="flex-1 p-2 lg:p-3 space-y-1 overflow-y-auto">
                     {navItems.map((item) => {
@@ -252,7 +259,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                         onClick={() => {
                             localStorage.removeItem('fira_token');
                             localStorage.removeItem('fira_user');
-                            window.location.href = '/venue-portal/signin';
+                            window.location.href = '/signin';
                         }}
                         className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${isOpen ? '' : 'justify-center'}`}
                         title="Sign Out"

@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import DiscountCodesSection from '@/components/dashboard/DiscountCodesSection';
-import { Button, Modal } from '@/components/ui';
+import { Button, Modal, StepperModal } from '@/components/ui';
+import type { StepperStep } from '@/components/ui';
 import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
 import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +51,7 @@ export default function DashboardEventDetailPage() {
         maxQuantity: number | '';
     }
     const [isEditMode, setIsEditMode] = useState(false);
+    const [editStep, setEditStep] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [editForm, setEditForm] = useState({
         name: '',
@@ -74,8 +76,13 @@ export default function DashboardEventDetailPage() {
     const [postContent, setPostContent] = useState('');
     const [postImages, setPostImages] = useState<File[]>([]);
     const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
+    // 11.10: already-uploaded image URLs kept for an edited post. Removing one
+    // here persists the removal; new uploads (postImages) are added on top.
+    const [existingImages, setExistingImages] = useState<string[]>([]);
     const [isCreatingPost, setIsCreatingPost] = useState(false);
     const [editingPost, setEditingPost] = useState<any>(null);
+    const [postToDelete, setPostToDelete] = useState<string | null>(null);
+    const [isDeletingPost, setIsDeletingPost] = useState(false);
 
     // Scanning Links state
     const [scanningCodes, setScanningCodes] = useState<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>([]);
@@ -188,11 +195,22 @@ export default function DashboardEventDetailPage() {
 
     const formatPrice = (price: number) => {
         if (price === 0) return 'Free';
-        return new Intl.NumberFormat('en-IN', {
+        return formatINR(price);
+    };
+
+    // 11.6: revenue must always show a rupee amount (₹0 when none), never "Free".
+    const formatINR = (price: number) =>
+        new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0,
         }).format(price);
+
+    // 11.7: lowest configured tier price (falls back to ticketPrice when no tiers).
+    const lowestTierPrice = (e: Event): number => {
+        const tiers = e.ticketTiers ?? [];
+        if (tiers.length === 0) return e.ticketPrice ?? 0;
+        return Math.min(...tiers.map(t => t.price));
     };
 
     const handleCancelEvent = async () => {
@@ -253,8 +271,37 @@ export default function DashboardEventDetailPage() {
     const handleEditClick = () => {
         if (event) {
             initEditForm(event);
+            setEditStep(0);
             setIsEditMode(true);
         }
+    };
+
+    // Per-step validation gate for the edit stepper (0-based steps).
+    const validateEditStep = (currentStep: number): boolean => {
+        if (currentStep === 0) {
+            if (!editForm.name.trim()) { showToast('Please enter an event name', 'error'); return false; }
+            if (!editForm.description.trim()) { showToast('Please enter a description', 'error'); return false; }
+        }
+        if (currentStep === 1) {
+            if (!editForm.startDate || !editForm.endDate || !editForm.startTime || !editForm.endTime) {
+                showToast('Please fill in all date and time fields', 'error'); return false;
+            }
+            if (!editForm.maxAttendees || Number(editForm.maxAttendees) < 1) {
+                showToast('Please enter a valid number of maximum attendees', 'error'); return false;
+            }
+        }
+        if (currentStep === 2 && editForm.ticketType === 'paid') {
+            const tiers = editForm.ticketTiers;
+            for (let i = 0; i < tiers.length; i++) {
+                if (!tiers[i].name.trim()) { showToast(`Tier ${i + 1}: Please enter a name`, 'error'); return false; }
+                if (Number(tiers[i].maxQuantity) < 1) { showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error'); return false; }
+            }
+            const names = tiers.map(t => t.name.trim().toLowerCase());
+            if (names.some((n, i) => n && names.indexOf(n) !== i)) {
+                showToast('Tier names must be unique', 'error'); return false;
+            }
+        }
+        return true;
     };
 
     const handleSave = async () => {
@@ -357,8 +404,21 @@ export default function DashboardEventDetailPage() {
         setPostContent('');
         setPostImages([]);
         setPostImagePreviews([]);
+        setExistingImages([]);
         setEditingPost(null);
         setShowPostModal(false);
+    };
+
+    // Remove an image preview at index — maps back to either a kept existing
+    // URL (first N previews) or a newly-added File so remove/replace persists.
+    const handleRemovePostImage = (idx: number) => {
+        if (idx < existingImages.length) {
+            setExistingImages(prev => prev.filter((_, i) => i !== idx));
+        } else {
+            const fileIdx = idx - existingImages.length;
+            setPostImages(prev => prev.filter((_, i) => i !== fileIdx));
+        }
+        setPostImagePreviews(prev => prev.filter((_, i) => i !== idx));
     };
 
     // Create or Update post
@@ -367,20 +427,23 @@ export default function DashboardEventDetailPage() {
 
         setIsCreatingPost(true);
         try {
-            let imageUrls: string[] = [];
+            let uploadedUrls: string[] = [];
             if (postImages.length > 0) {
                 const uploadPromises = postImages.map(file => uploadApi.single(file));
                 const results = await Promise.all(uploadPromises);
-                imageUrls = results.map((r: any) => r.url);
+                uploadedUrls = results.map((r: any) => r.url);
             }
 
             if (editingPost) {
+                // 11.10: final images = kept existing URLs + newly uploaded ones,
+                // so add/remove/replace in edit mode all persist (not text-only).
                 await eventsApi.updatePost(params.id as string, editingPost._id, {
                     content: postContent,
-                    images: imageUrls.length > 0 ? imageUrls : editingPost.images,
+                    images: [...existingImages, ...uploadedUrls],
                     userId: user._id
                 });
             } else {
+                const imageUrls = uploadedUrls;
                 await eventsApi.createPost(params.id as string, {
                     content: postContent,
                     images: imageUrls,
@@ -402,21 +465,27 @@ export default function DashboardEventDetailPage() {
     const handleEditPost = (post: any) => {
         setEditingPost(post);
         setPostContent(post.content);
+        // 11.10: seed both the kept-URL list and the previews so existing
+        // images can be removed/replaced, not just appended to.
+        setExistingImages(post.images || []);
+        setPostImages([]);
         setPostImagePreviews(post.images || []);
         setShowPostModal(true);
     };
 
-    // Delete post
-    const handleDeletePost = async (postId: string) => {
-        if (!params.id || !user?._id) return;
-        if (!confirm('Are you sure you want to delete this post?')) return;
-
+    // Delete post — 11.11: confirm via in-app modal, not native confirm().
+    const confirmDeletePost = async () => {
+        if (!params.id || !user?._id || !postToDelete) return;
+        setIsDeletingPost(true);
         try {
-            await eventsApi.deletePost(params.id as string, postId, user._id);
+            await eventsApi.deletePost(params.id as string, postToDelete, user._id);
             fetchPosts();
             showToast('Post deleted', 'success');
+            setPostToDelete(null);
         } catch (err) {
             showToast('Failed to delete post', 'error');
+        } finally {
+            setIsDeletingPost(false);
         }
     };
 
@@ -462,7 +531,9 @@ export default function DashboardEventDetailPage() {
     const venue = event.venue as Venue;
     const spotsLeft = event.maxAttendees - event.currentAttendees;
     const ticketsSold = tickets.reduce((sum, t) => sum + t.quantity, 0);
-    const totalRevenue = tickets.reduce((sum, t) => sum + t.price, 0);
+    // 11.6: revenue = Σ(ticketsBooked × price). `t.price` is the per-ticket
+    // price, so multiply by quantity or multi-ticket bookings undercount.
+    const totalRevenue = tickets.reduce((sum, t) => sum + t.price * t.quantity, 0);
     const eventLink = typeof window !== 'undefined' ? `${window.location.origin}/events/${event._id}` : '';
 
     return (
@@ -514,8 +585,8 @@ export default function DashboardEventDetailPage() {
                     </div>
                 </div>
 
-                {/* Hero Image */}
-                <div className="relative h-[200px] md:h-[300px] rounded-2xl overflow-hidden mb-8 group">
+                {/* Hero Image — 11.5: sized to match the events-listing card (EventCard h-44). */}
+                <div className="relative h-44 rounded-2xl overflow-hidden mb-8 group">
                     {event.images && event.images.length > 0 ? (
                         <img src={event.images[0]} alt={event.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
@@ -583,7 +654,7 @@ export default function DashboardEventDetailPage() {
                                 <div className="text-gray-300 text-sm">Spots Left</div>
                             </div>
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
-                                <div className="text-2xl font-bold text-green-400">{formatPrice(totalRevenue)}</div>
+                                <div className="text-2xl font-bold text-green-400">{formatINR(totalRevenue)}</div>
                                 <div className="text-gray-300 text-sm">Total Revenue</div>
                             </div>
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
@@ -729,7 +800,7 @@ export default function DashboardEventDetailPage() {
                         </div>
 
                         {/* Discount Codes */}
-                        <DiscountCodesSection eventId={event._id} />
+                        <DiscountCodesSection eventId={event._id} eventStart={event.startDateTime} eventEnd={event.endDateTime} />
 
                         {/* Attendees / Tickets */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
@@ -782,12 +853,21 @@ export default function DashboardEventDetailPage() {
                         {/* Edit Form - opens as a centred modal (like Create Event)
                             rather than swapping this card inline, which rendered
                             the form far down the page where it went unnoticed. */}
-                        <Modal
+                        <StepperModal
                             isOpen={isEditMode}
                             onClose={() => setIsEditMode(false)}
                             title="Edit Event Details"
                             size="lg"
-                        >
+                            step={editStep}
+                            onStepChange={setEditStep}
+                            canAdvance={validateEditStep}
+                            onFinish={handleSave}
+                            finishLabel="Save Changes"
+                            isFinishing={isSaving}
+                            steps={[
+                              {
+                                label: 'Basic Information',
+                                content: (
                                 <div className="space-y-4">
                                     {/* Name */}
                                     <div>
@@ -810,7 +890,13 @@ export default function DashboardEventDetailPage() {
                                             className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
                                         />
                                     </div>
-
+                                </div>
+                                ),
+                              },
+                              {
+                                label: 'Date, Time & Tickets',
+                                content: (
+                                <div className="space-y-4">
                                     {/* Date & Time */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
@@ -863,6 +949,7 @@ export default function DashboardEventDetailPage() {
                                                 min={1}
                                                 value={editForm.maxAttendees}
                                                 onChange={(e) => setEditForm({ ...editForm, maxAttendees: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                                                onWheel={(e) => e.currentTarget.blur()}
                                                 className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                             />
                                         </div>
@@ -878,7 +965,13 @@ export default function DashboardEventDetailPage() {
                                             </select>
                                         </div>
                                     </div>
-
+                                </div>
+                                ),
+                              },
+                              {
+                                label: 'Tiers & Terms',
+                                content: (
+                                <div className="space-y-4">
                                     {/* Ticket Tiers for Paid Events */}
                                     {editForm.ticketType === 'paid' && (
                                         <div className="space-y-3">
@@ -940,6 +1033,7 @@ export default function DashboardEventDetailPage() {
                                                                 tiers[index] = { ...tiers[index], price: Math.max(0, parseInt(e.target.value) || 0) };
                                                                 setEditForm({ ...editForm, ticketTiers: tiers });
                                                             }}
+                                                            onWheel={(e) => e.currentTarget.blur()}
                                                             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                                         />
                                                     </div>
@@ -966,6 +1060,7 @@ export default function DashboardEventDetailPage() {
                                                                 tiers[index] = { ...tiers[index], maxQuantity: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0) };
                                                                 setEditForm({ ...editForm, ticketTiers: tiers });
                                                             }}
+                                                            onWheel={(e) => e.currentTarget.blur()}
                                                             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                                                         />
                                                     </div>
@@ -997,21 +1092,11 @@ export default function DashboardEventDetailPage() {
                                             className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
                                         />
                                     </div>
-
-                                    <div className="flex justify-end gap-3 pt-2">
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => setIsEditMode(false)}
-                                            disabled={isSaving}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button onClick={handleSave} isLoading={isSaving}>
-                                            Save Changes
-                                        </Button>
-                                    </div>
                                 </div>
-                        </Modal>
+                                ),
+                              },
+                            ] as StepperStep[]}
+                        />
 
                         {/* Venue Details - Non-editable */}
                         {venue && typeof venue === 'object' && (
@@ -1076,10 +1161,13 @@ export default function DashboardEventDetailPage() {
                                 <h3 className="text-lg font-semibold text-white mb-4">Event Info</h3>
 
                                 <div className="space-y-4">
+                                    {/* 11.7: show the lowest tier price as "from ₹X onwards". */}
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-gray-300">Ticket Price</span>
-                                        <span className={`font-semibold ${event.ticketPrice === 0 ? 'text-green-400' : 'text-white'}`}>
-                                            {formatPrice(event.ticketPrice)}
+                                        <span className={`font-semibold ${lowestTierPrice(event) === 0 ? 'text-green-400' : 'text-white'}`}>
+                                            {lowestTierPrice(event) === 0
+                                                ? 'Free'
+                                                : `from ${formatINR(lowestTierPrice(event))} onwards`}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
@@ -1167,7 +1255,7 @@ export default function DashboardEventDetailPage() {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={() => handleDeletePost(post._id)}
+                                            onClick={() => setPostToDelete(post._id)}
                                             className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1210,10 +1298,7 @@ export default function DashboardEventDetailPage() {
                                 <div key={idx} className="relative">
                                     <img src={preview} alt="" className="w-full h-20 object-cover rounded-lg" />
                                     <button
-                                        onClick={() => {
-                                            setPostImagePreviews(prev => prev.filter((_, i) => i !== idx));
-                                            setPostImages(prev => prev.filter((_, i) => i !== idx));
-                                        }}
+                                        onClick={() => handleRemovePostImage(idx)}
                                         className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
                                     >
                                         ×
@@ -1246,6 +1331,40 @@ export default function DashboardEventDetailPage() {
                             disabled={isCreatingPost || !postContent.trim()}
                         >
                             {isCreatingPost ? 'Posting...' : (editingPost ? 'Update Post' : 'Create Post')}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Delete Post Confirmation — 11.11: in-app modal, not native confirm(). */}
+            <Modal isOpen={!!postToDelete} onClose={() => !isDeletingPost && setPostToDelete(null)} title="Delete Post" size="sm">
+                <div className="space-y-6">
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                        <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="text-sm text-gray-300">
+                                Are you sure you want to delete this post? This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() => setPostToDelete(null)}
+                            disabled={isDeletingPost}
+                        >
+                            Keep Post
+                        </Button>
+                        <Button
+                            variant="primary"
+                            className="flex-1 !bg-red-500 hover:!bg-red-600"
+                            onClick={confirmDeletePost}
+                            disabled={isDeletingPost}
+                        >
+                            {isDeletingPost ? 'Deleting...' : 'Delete Post'}
                         </Button>
                     </div>
                 </div>

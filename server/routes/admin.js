@@ -68,6 +68,16 @@ router.get('/venues', async (req, res) => {
     }
 });
 
+// Venue owners with their venues + payout bank details (admin-only read, Flow 8.6).
+router.get('/venue-owners', async (req, res) => {
+    try {
+        const result = await adminService.getVenueOwners(req.query);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/venues/:id', async (req, res) => {
     try {
         const venue = await adminService.getVenueById(req.params.id);

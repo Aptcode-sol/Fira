@@ -52,6 +52,11 @@ const payoutSchema = new mongoose.Schema({
         enum: ['pending', 'processing', 'completed', 'failed'],
         default: 'pending'
     },
+    method: {
+        type: String,
+        enum: ['manual', 'gateway'],
+        default: 'manual'
+    },
     gatewayPayoutId: {
         type: String,
         default: null

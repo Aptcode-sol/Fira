@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { brandsApi } from '@/lib/api';
 import CreatePostModal from './modals/CreatePostModal';
@@ -48,8 +49,6 @@ export default function FloatingActionButton() {
         '/signin',
         '/signup',
         '/forgot-password',
-        '/venue-portal/signin',
-        '/venue-portal/signup',
         '/create/event',
         '/create/creator',
     ];
@@ -57,7 +56,7 @@ export default function FloatingActionButton() {
     const shouldHide = hiddenPaths.some(path => pathname.startsWith(path));
 
     // Only show for authenticated regular users (not venue owners on their portal)
-    const isVenueOwner = user?.role === 'venue_owner';
+    const userIsVenueOwner = isVenueOwner(user);
     const isOnVenuePortal = pathname.startsWith('/venue-portal');
 
     // On a brand/creator page the only sensible action is posting to that
@@ -71,7 +70,7 @@ export default function FloatingActionButton() {
 
     const postOnly = isOnBrandPage && isCreator && Boolean(brandId);
 
-    if (!isMounted || !isAuthenticated || shouldHide || (isVenueOwner && isOnVenuePortal)) {
+    if (!isMounted || !isAuthenticated || shouldHide || (userIsVenueOwner && isOnVenuePortal)) {
         return null;
     }
 
@@ -91,6 +90,11 @@ export default function FloatingActionButton() {
 
     const handleCreateEvent = () => {
         router.push('/create/event');
+        setShowOptions(false);
+    };
+
+    const handleCreateVenue = () => {
+        router.push('/venue-portal/venues/create');
         setShowOptions(false);
     };
 
@@ -123,6 +127,31 @@ export default function FloatingActionButton() {
                 <AnimatePresence>
                     {showOptions && (
                         <div className="flex flex-col-reverse items-end gap-3 mb-3">
+                            {/* Create Venue — venue owners only (Flow 7). A normal
+                                user with no owner role never sees this option
+                                (preservation 3.10). Hidden on brand pages too. */}
+                            {!postOnly && userIsVenueOwner && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                                    transition={{ delay: 0.15 }}
+                                    className="flex items-center gap-3 mr-2"
+                                >
+                                    <span className="bg-black/90 border border-white/10 text-white text-sm font-medium px-3 py-1.5 rounded-lg shadow-lg">
+                                        Create Venue
+                                    </span>
+                                    <button
+                                        onClick={handleCreateVenue}
+                                        className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg flex items-center justify-center hover:shadow-xl hover:shadow-violet-500/30 transition-all"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                    </button>
+                                </motion.div>
+                            )}
+
                             {/* Hidden on brand pages - see `postOnly`. */}
                             {!postOnly && (
                                 <motion.div

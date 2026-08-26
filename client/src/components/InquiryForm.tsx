@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Input } from '@/components/ui';
-import { inquiriesApi } from '@/lib/api';
+import { inquiriesApi, messagesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 
@@ -40,6 +40,7 @@ export default function InquiryForm({ referenceType, referenceId, referenceName,
         if (!validate()) return;
         setIsSubmitting(true);
         try {
+            // Preservation (24.1): the inquiry record is always created first.
             await inquiriesApi.submit({
                 referenceType,
                 referenceId,
@@ -50,6 +51,28 @@ export default function InquiryForm({ referenceType, referenceId, referenceName,
             });
             showToast('Inquiry submitted successfully!', 'success');
             onClose();
+
+            // Chat entry point (23.1): once the inquiry exists, an authenticated
+            // sender is taken into a conversation bound to this reference so they
+            // can converse with the owner. Reuses messagesApi (find-or-create).
+            // Guests just get the confirmation above — they cannot hold a
+            // conversation without an account.
+            if (isAuthenticated && user?._id) {
+                try {
+                    const { conversation } = await messagesApi.startInquiryConversation({
+                        referenceType,
+                        referenceId,
+                        message: message.trim(),
+                    });
+                    // ponytail: plain client navigation (same pattern the brand/
+                    // creator enquiry redirect already uses) avoids taking a
+                    // router-context dependency in this shared form.
+                    window.location.href = `/messages?conversation=${conversation._id}`;
+                } catch (convErr) {
+                    // The inquiry succeeded; failing to open chat is non-fatal.
+                    console.error('Failed to open inquiry conversation:', convErr);
+                }
+            }
         } catch (err: any) {
             if (err.status === 400) {
                 showToast(err.message || 'Reference is unavailable', 'error');
@@ -115,7 +138,7 @@ export default function InquiryForm({ referenceType, referenceId, referenceName,
                     placeholder="Enter your phone number"
                     type="tel"
                     value={senderPhone}
-                    onChange={(e) => setSenderPhone(e.target.value)}
+                    onChange={(e) => setSenderPhone(e.target.value.replace(/\D/g, ''))}
                 />
             </div>
 

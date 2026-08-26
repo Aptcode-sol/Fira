@@ -6,6 +6,33 @@ import { Button } from '../components/ui/Button';
 
 const ITEMS_PER_PAGE = 10;
 
+// Format a venue capacity value for display. Capacity may be a plain
+// number/string or an object like {min, max} or {seated, standing};
+// rendering an object directly would print "[object Object]" (Flow 8.8).
+const formatCapacity = (capacity) => {
+    if (capacity === null || capacity === undefined || capacity === '') return '0';
+    if (typeof capacity === 'number' || typeof capacity === 'string') {
+        const num = Number(capacity);
+        return Number.isFinite(num) ? num.toLocaleString() : String(capacity);
+    }
+    if (typeof capacity === 'object') {
+        // Pick the two most meaningful numeric bounds present.
+        const low = capacity.min ?? capacity.seated;
+        const high = capacity.max ?? capacity.standing;
+        const lowNum = Number(low);
+        const highNum = Number(high);
+        const hasLow = low != null && Number.isFinite(lowNum);
+        const hasHigh = high != null && Number.isFinite(highNum);
+        if (hasLow && hasHigh) return `${lowNum.toLocaleString()}\u2013${highNum.toLocaleString()}`;
+        if (hasHigh) return highNum.toLocaleString();
+        if (hasLow) return lowNum.toLocaleString();
+        // Fallback: first finite numeric value on the object, else "0".
+        const firstNum = Object.values(capacity).map(Number).find(Number.isFinite);
+        return firstNum != null ? firstNum.toLocaleString() : '0';
+    }
+    return '0';
+};
+
 export default function Venues() {
     const navigate = useNavigate();
     const [venues, setVenues] = useState([]);
@@ -101,7 +128,7 @@ export default function Venues() {
                     {pendingCount > 0 && (
                         <div className="bg-yellow-500/10 text-yellow-400 px-4 py-2 rounded-xl border border-yellow-500/20 flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                            {pendingCount} pending requests
+                            {pendingCount} pending approvals
                         </div>
                     )}
                 </div>
@@ -193,7 +220,7 @@ export default function Venues() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-300 text-sm">{venue.address?.city || 'N/A'}</td>
-                                            <td className="px-6 py-4 text-gray-300 text-sm">{(venue.capacity || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-gray-300 text-sm">{formatCapacity(venue.capacity)}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(venue.status)}`}>
                                                     {venue.status.charAt(0).toUpperCase() + venue.status.slice(1)}

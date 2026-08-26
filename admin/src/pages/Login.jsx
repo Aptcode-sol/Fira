@@ -60,7 +60,9 @@ export default function Login({ onLogin }) {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-white/20 via-white/3 to-transparent blur-3xl"></div>
             </div>
 
-            <main className="relative z-20 min-h-screen flex items-center justify-center px-4 py-12">
+            {/* mx-auto guards true horizontal centering: a global `main { max-width: 1440px }`
+                rule (index.css, ultrawide cap) otherwise left-aligns this block on >1440px viewports */}
+            <main className="relative z-20 min-h-screen mx-auto flex items-center justify-center px-4 py-12">
                 <div className="w-full max-w-md">
                     <div className="text-center mb-8">
                         <div className="inline-block mb-6">

@@ -35,16 +35,13 @@ const optionalAuth = async (req, res, next) => {
 // POST /api/inquiries — submit an inquiry (public, optional auth to capture userId)
 router.post('/', optionalAuth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
-        const { referenceType, referenceId, senderName, senderEmail, senderPhone, message } = req.body;
+        const { referenceType, referenceId, message } = req.body;
 
         const inquiry = await inquiryService.submitInquiry({
             referenceType,
             referenceId,
-            senderName,
-            senderEmail,
-            senderPhone,
             message,
-            userId: req.user?._id || null
+            user: req.user
         });
 
         res.status(201).json(inquiry);

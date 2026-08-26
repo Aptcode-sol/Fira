@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 
 export default function VenuePortalLandingNavbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -14,7 +15,7 @@ export default function VenuePortalLandingNavbar() {
     const { user, isAuthenticated } = useAuth();
 
     // Check if user is a venue owner
-    const isVenueOwner = isAuthenticated && user?.role === 'venue_owner';
+    const ownerAccount = isAuthenticated && isVenueOwner(user);
 
     useEffect(() => {
         setShouldAnimate(true);
@@ -89,7 +90,7 @@ export default function VenuePortalLandingNavbar() {
 
                         {/* Auth Buttons - Dynamic based on login state */}
                         <div className="flex items-center gap-3 ml-6">
-                            {isVenueOwner ? (
+                            {ownerAccount ? (
                                 <Link
                                     href="/venue-portal/dashboard"
                                     className="px-4 py-1.5 bg-white text-black rounded-full text-sm font-medium hover:bg-gray-100 transition-colors"
@@ -99,13 +100,13 @@ export default function VenuePortalLandingNavbar() {
                             ) : (
                                 <>
                                     <Link
-                                        href="/venue-portal/signin"
+                                        href="/signin"
                                         className="text-sm text-gray-300 hover:text-white transition-colors"
                                     >
                                         Sign In
                                     </Link>
                                     <Link
-                                        href="/venue-portal/signup"
+                                        href="/signup"
                                         className="px-4 py-1.5 bg-white text-black rounded-full text-sm font-medium hover:bg-gray-100 transition-colors"
                                     >
                                         List Venue
@@ -166,7 +167,7 @@ export default function VenuePortalLandingNavbar() {
                             ))}
                         </div>
                         <div className="mt-4 pt-4 border-t border-white/10 flex gap-3">
-                            {isVenueOwner ? (
+                            {ownerAccount ? (
                                 <Link
                                     href="/venue-portal/dashboard"
                                     className="flex-1 text-center px-4 py-2.5 bg-white text-black rounded-full text-sm font-medium hover:bg-gray-100"
@@ -176,13 +177,13 @@ export default function VenuePortalLandingNavbar() {
                             ) : (
                                 <>
                                     <Link
-                                        href="/venue-portal/signin"
+                                        href="/signin"
                                         className="flex-1 text-center px-4 py-2.5 text-white border border-white/20 rounded-full text-sm font-medium hover:bg-white/5"
                                     >
                                         Sign In
                                     </Link>
                                     <Link
-                                        href="/venue-portal/signup"
+                                        href="/signup"
                                         className="flex-1 text-center px-4 py-2.5 bg-white text-black rounded-full text-sm font-medium hover:bg-gray-100"
                                     >
                                         List Venue

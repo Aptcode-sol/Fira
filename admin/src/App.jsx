@@ -23,6 +23,7 @@ function retryImport(importFn, retries = 2, delay = 500) {
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
 const Venues = lazyWithRetry(() => import('./pages/Venues'));
 const VenueDetail = lazyWithRetry(() => import('./pages/VenueDetail'));
+const VenueOwners = lazyWithRetry(() => import('./pages/VenueOwners'));
 const Events = lazyWithRetry(() => import('./pages/Events'));
 const EventDetail = lazyWithRetry(() => import('./pages/EventDetail'));
 const Brands = lazyWithRetry(() => import('./pages/Brands'));
@@ -133,6 +134,7 @@ function App() {
           <Routes>
             <Route path="/" element={<ErrorBoundary fallbackMessage="Failed to load Dashboard."><Dashboard /></ErrorBoundary>} />
             <Route path="/venues" element={<ErrorBoundary fallbackMessage="Failed to load Venues."><Venues /></ErrorBoundary>} />
+            <Route path="/venue-owners" element={<ErrorBoundary fallbackMessage="Failed to load Venue Owners."><VenueOwners /></ErrorBoundary>} />
             <Route path="/venues/:id" element={<ErrorBoundary fallbackMessage="Failed to load Venue details."><VenueDetail /></ErrorBoundary>} />
             <Route path="/events" element={<ErrorBoundary fallbackMessage="Failed to load Events."><Events /></ErrorBoundary>} />
             <Route path="/events/:id" element={<ErrorBoundary fallbackMessage="Failed to load Event details."><EventDetail /></ErrorBoundary>} />

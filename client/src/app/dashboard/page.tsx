@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { dashboardApi, DashboardOverview, usersApi } from '@/lib/api';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { X, Users } from 'lucide-react';
 
@@ -29,6 +30,9 @@ export default function DashboardPage() {
     const [followingBrands, setFollowingBrands] = useState<FollowingBrand[]>([]);
     const [followingCount, setFollowingCount] = useState(0);
     const [showFollowingModal, setShowFollowingModal] = useState(false);
+
+    // Lock body scroll while the hand-rolled following-creators overlay is open (mirrors <Modal>).
+    useBodyScrollLock(showFollowingModal);
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -429,7 +433,7 @@ export default function DashboardPage() {
                                     <p className="text-sm text-gray-300 text-center py-4">No recent activity</p>
                                 )}
                             </div>
-                            <Link href="/dashboard/notifications" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
+                            <Link href="/notifications" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
                                 View all activity →
                             </Link>
                         </div>

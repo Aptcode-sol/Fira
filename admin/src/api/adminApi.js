@@ -99,6 +99,12 @@ const adminApi = {
         return handle(res, 'Failed to fetch venue');
     },
 
+    async getVenueOwners(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        const res = await fetch(`${API_BASE}/venue-owners?${query}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch venue owners');
+    },
+
     async updateVenueStatus(venueId, status) {
         const res = await fetch(`${API_BASE}/venues/${venueId}/status`, {
             method: 'PUT',

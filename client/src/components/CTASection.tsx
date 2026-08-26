@@ -2,8 +2,15 @@
 
 import Link from 'next/link';
 import { FadeIn, SlideUp } from './animations';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CTASection() {
+    const { isAuthenticated } = useAuth();
+
+    // 5.5: the "Join Now" sign-up CTA only makes sense for logged-out visitors;
+    // hide it once the user is authenticated (they've already joined).
+    if (isAuthenticated) return null;
+
     return (
         <FadeIn>
             <section className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 flex items-center justify-center">

@@ -10,6 +10,10 @@ interface FadeInProps {
     direction?: 'up' | 'down' | 'left' | 'right' | 'none';
     className?: string;
     once?: boolean;
+    // 16.1/17.1: opt-in to animate on mount instead of on scroll-into-view.
+    // whileInView keeps content at opacity:0 until it enters the viewport, which
+    // left below-the-fold lists (e.g. My Bookings on mobile) blank until scroll.
+    animateOnMount?: boolean;
 }
 
 const directionOffset = {
@@ -27,6 +31,7 @@ export default function FadeIn({
     direction = 'up',
     className = '',
     once = true,
+    animateOnMount = false,
 }: FadeInProps) {
     const variants: Variants = {
         hidden: {
@@ -45,11 +50,16 @@ export default function FadeIn({
         },
     };
 
+    // animateOnMount: drive the visible state immediately (animate) rather than
+    // waiting for the element to scroll into view (whileInView).
+    const activation = animateOnMount
+        ? { animate: 'visible' as const }
+        : { whileInView: 'visible' as const, viewport: { once, amount: 0.2 } };
+
     return (
         <motion.div
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once, amount: 0.2 }}
+            {...activation}
             variants={variants}
             className={className}
         >

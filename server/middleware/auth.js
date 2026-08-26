@@ -69,9 +69,17 @@ function requireAuth(...roles) {
                 return res.status(401).json({ error: 'User no longer exists. Please register again.' });
             }
 
-            // Role check — if roles were specified, user.role must be one of them
-            if (roles.length > 0 && !roles.includes(user.role)) {
-                return res.status(403).json({ error: 'Insufficient permissions for this action.' });
+            // Role check — if roles were specified, the user must hold at least
+            // one of them. A user can carry multiple roles (Flow 7): the source
+            // of truth is the `roles` array, with the legacy single `role` kept
+            // for backward compatibility. So a required role matches when it is
+            // in `user.roles` OR equals the legacy `user.role`.
+            if (roles.length > 0) {
+                const held = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role];
+                const allowed = roles.some(r => held.includes(r) || r === user.role);
+                if (!allowed) {
+                    return res.status(403).json({ error: 'Insufficient permissions for this action.' });
+                }
             }
 
             /** @type {any} */ (req).user = user;

@@ -71,8 +71,7 @@ const whatsappRoutes = require('./routes/whatsapp');
 const scanRoutes = require('./routes/scan');
 const discountRoutes = require('./routes/discount');
 const inquiryRoutes = require('./routes/inquiry');
-// CHAT DISABLED - messaging routes are not mounted for now
-// const messageRoutes = require('./routes/message');
+const messageRoutes = require('./routes/message');
 
 // ponytail: mount on both /api/v1 (canonical) and /api (backward compat alias).
 // When v2 lands, /api/v1 stays frozen and /api can be re-pointed.
@@ -94,8 +93,7 @@ const routeTable = [
     ['scan', scanRoutes],
     ['discounts', discountRoutes],
     ['inquiries', inquiryRoutes],
-    // CHAT DISABLED
-    // ['messages', messageRoutes],
+    ['messages', messageRoutes],
 ];
 
 for (const [path, router] of routeTable) {

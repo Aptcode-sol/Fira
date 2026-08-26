@@ -26,7 +26,9 @@ const adminService = {
             Event.countDocuments(),
             BrandProfile.countDocuments(),
             Venue.countDocuments({ status: 'pending' }),
-            Event.countDocuments({ status: 'pending' }),
+            // Exclude venue-less events from the pending count (8.1). A genuinely
+            // pending event that HAS a venue still counts (preservation 3.11).
+            Event.countDocuments({ status: 'pending', venue: { $exists: true, $ne: null } }),
             BrandProfile.countDocuments({ status: 'pending' }),
             User.countDocuments({ isBlocked: true }),
             Ticket.countDocuments(),
@@ -148,8 +150,49 @@ const adminService = {
         };
     },
 
+    // Venue owners with their venues + bank details (admin-only read — this
+    // router is gated behind adminAuth, so surfacing bankDetails here is safe).
+    // Flow 8.6: list venue owners, expandable to their venues, with the owner's
+    // stored payout bank details visible to admins.
+    async getVenueOwners(query = {}) {
+        const { search } = query;
+
+        // Group venues by owner so we don't fan out one query per owner.
+        const venues = await Venue.find({})
+            .select('name status address capacity owner createdAt')
+            .sort({ createdAt: -1 });
+
+        const ownerIds = [...new Set(venues.map((v) => String(v.owner)).filter(Boolean))];
+        if (ownerIds.length === 0) return { owners: [] };
+
+        const ownerFilter = { _id: { $in: ownerIds } };
+        if (search) {
+            ownerFilter.$or = [
+                { name: new RegExp(search, 'i') },
+                { email: new RegExp(search, 'i') }
+            ];
+        }
+
+        // bankDetails is intentionally selected — admin-only read (Flow 8.6).
+        const owners = await User.find(ownerFilter)
+            .select('name email phone role roles adminRole bankDetails');
+
+        const venuesByOwner = venues.reduce((acc, v) => {
+            const key = String(v.owner);
+            (acc[key] = acc[key] || []).push(v);
+            return acc;
+        }, {});
+
+        return {
+            owners: owners.map((o) => ({
+                ...o.toObject(),
+                venues: venuesByOwner[String(o._id)] || []
+            }))
+        };
+    },
+
     async getVenueById(id) {
-        const venue = await Venue.findById(id).populate('owner', 'name email phone');
+        const venue = await Venue.findById(id).populate('owner', 'name email phone bankDetails');
         if (!venue) throw new Error('Venue not found');
 
         // Get booking stats
@@ -219,8 +262,10 @@ const adminService = {
     },
 
     async getEventById(id) {
+        // organizer bankDetails is an admin-only read (Flow 8.6) — this service
+        // is only reachable through the adminAuth-gated router.
         const event = await Event.findById(id)
-            .populate('organizer', 'name email phone')
+            .populate('organizer', 'name email phone bankDetails')
             .populate('venue', 'name address');
         if (!event) throw new Error('Event not found');
 

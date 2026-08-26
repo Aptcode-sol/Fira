@@ -8,6 +8,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { ticketsApi } from '@/lib/api';
 import TicketDisplay from '@/components/TicketDisplay';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
@@ -49,6 +50,9 @@ export default function TicketsPage() {
     }, [isLoading, isAuthenticated, router]);
 
     const [selectedTicket, setSelectedTicket] = useState<any>(null);
+
+    // Lock body scroll while the hand-rolled ticket-details overlay is open (mirrors <Modal>).
+    useBodyScrollLock(!!selectedTicket);
 
     useEffect(() => {
         const fetchTickets = async () => {

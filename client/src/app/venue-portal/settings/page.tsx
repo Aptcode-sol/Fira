@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { Button, Input } from '@/components/ui';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -14,11 +15,11 @@ export default function VenuePortalSettingsPage() {
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/venue-portal/signin');
+            router.push('/signin');
             return;
         }
 
-        if (!isLoading && isAuthenticated && user?.role !== 'venue_owner') {
+        if (!isLoading && isAuthenticated && !isVenueOwner(user)) {
             router.push('/dashboard');
             return;
         }
@@ -34,13 +35,15 @@ export default function VenuePortalSettingsPage() {
         );
     }
 
-    if (!isAuthenticated || user?.role !== 'venue_owner') {
+    if (!isAuthenticated || !isVenueOwner(user)) {
         return null;
     }
 
     return (
         <VenueDashboardLayout>
-            <div className="p-6 lg:p-8">
+            {/* max-w-4xl mx-auto matches dashboard/settings so content is centered on
+                desktop instead of flushed left; on mobile it stays full-width (21.3). */}
+            <div className="p-4 md:p-8 max-w-4xl mx-auto">
                 {/* Header */}
                 <SlideUp>
                     <div className="mb-8">
@@ -73,7 +76,7 @@ export default function VenuePortalSettingsPage() {
 
                 <FadeIn delay={0.2}>
                     {activeTab === 'profile' && (
-                        <div className="max-w-2xl">
+                        <div>
                             <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 mb-6">
                                 <h3 className="text-lg font-semibold text-white mb-4">Profile Information</h3>
                                 <div className="space-y-4">
@@ -112,7 +115,7 @@ export default function VenuePortalSettingsPage() {
                     )}
 
                     {activeTab === 'notifications' && (
-                        <div className="max-w-2xl">
+                        <div>
                             <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
                                 <h3 className="text-lg font-semibold text-white mb-4">Notification Preferences</h3>
                                 <div className="space-y-4">
@@ -138,7 +141,7 @@ export default function VenuePortalSettingsPage() {
                     )}
 
                     {activeTab === 'billing' && (
-                        <div className="max-w-2xl">
+                        <div>
                             <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 mb-6">
                                 <h3 className="text-lg font-semibold text-white mb-4">Billing Overview</h3>
                                 <div className="grid grid-cols-2 gap-4">

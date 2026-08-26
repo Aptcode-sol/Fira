@@ -91,6 +91,15 @@ const paymentSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    discountBearer: {
+        type: String,
+        enum: ['platform', 'owner'],
+        default: null
+    },
+    listedPrice: {
+        type: Number,
+        default: 0
+    },
     metadata: {
         type: mongoose.Schema.Types.Mixed,
         default: {}

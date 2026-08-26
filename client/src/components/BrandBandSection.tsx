@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { FadeIn, SlideUp, StaggerContainer, StaggerItem } from './animations';
 
 const features = [
@@ -67,16 +66,7 @@ export default function BrandBandSection() {
                                         Don't worry, we care for you. Organize your events, parties, and celebrate the moments with ease.
                                         Get your dedicated space and connect with your fans like never before.
                                     </p>
-
-                                    <Link
-                                        href="/creators"
-                                        className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
-                                    >
-                                        Learn more
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                        </svg>
-                                    </Link>
+                                    {/* 5.6: "Learn more" CTA removed. */}
                                 </div>
                             </SlideUp>
 

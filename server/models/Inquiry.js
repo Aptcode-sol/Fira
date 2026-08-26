@@ -40,13 +40,34 @@ const inquirySchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         default: null
+    },
+    replyText: {
+        type: String,
+        minlength: 1,
+        maxlength: 2000,
+        default: null
+    },
+    responder: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    repliedAt: {
+        type: Date,
+        default: null
+    },
+    senderSeenReply: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true
 });
 
 // Indexes
-inquirySchema.index({ referenceId: 1, senderEmail: 1, createdAt: -1 });
-inquirySchema.index({ referenceType: 1, status: 1 });
+inquirySchema.index({ referenceId: 1, senderEmail: 1, createdAt: -1 }); // rate-limit count
+inquirySchema.index({ referenceType: 1, status: 1 }); // admin filter
+inquirySchema.index({ user: 1, createdAt: -1 }); // My Enquiries (sender view)
+inquirySchema.index({ referenceType: 1, referenceId: 1, createdAt: -1 }); // owner view
 
 module.exports = mongoose.model('Inquiry', inquirySchema);

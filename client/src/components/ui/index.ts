@@ -2,6 +2,8 @@ export { Button } from './Button';
 export { Input } from './Input';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { Modal } from './Modal';
+export { StepperModal } from './StepperModal';
+export type { StepperStep } from './StepperModal';
 export { ToastProvider, useToast } from './Toast';
 export * from './Select';
 
