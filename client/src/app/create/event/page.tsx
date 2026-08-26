@@ -275,7 +275,7 @@ function CreateEventForm() {
                     setStep(3);
                     return;
                 }
-                if (tiers[i].maxQuantity < 1) {
+                if (Number(tiers[i].maxQuantity) < 1) {
                     showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error');
                     setStep(3);
                     return;

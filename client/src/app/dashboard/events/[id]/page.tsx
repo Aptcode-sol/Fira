@@ -320,7 +320,7 @@ export default function DashboardEventDetailPage() {
                     showToast(`Tier ${i + 1}: Please enter a name`, 'error');
                     return;
                 }
-                if (tiers[i].maxQuantity < 1) {
+                if (Number(tiers[i].maxQuantity) < 1) {
                     showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error');
                     return;
                 }
