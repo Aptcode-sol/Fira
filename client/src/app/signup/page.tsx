@@ -321,11 +321,7 @@ function SignUpContent() {
                                 <p className="mt-6 text-center text-sm text-gray-300">
                                     By creating an account, you agree to our{' '}
                                     <Link href="/terms" className="text-violet-400 hover:text-violet-300">
-                                        Terms
-                                    </Link>{' '}
-                                    and{' '}
-                                    <Link href="/privacy" className="text-violet-400 hover:text-violet-300">
-                                        Privacy Policy
+                                        Terms &amp; Conditions
                                     </Link>
                                 </p>
 

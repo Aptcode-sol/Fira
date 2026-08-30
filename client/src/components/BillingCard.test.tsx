@@ -17,8 +17,8 @@ describe('calculateBilling', () => {
     expect(result.subtotal).toBe(1000);
     expect(result.discountedSubtotal).toBe(800);
     expect(result.platformFee).toBe(40);
-    expect(result.gstAmount).toBe(7);
-    expect(result.totalAmount).toBe(847);
+    expect(result.gstAmount).toBe(7.2);
+    expect(result.totalAmount).toBe(847.2);
   });
 
   it('caps discount at subtotal', () => {
@@ -27,6 +27,16 @@ describe('calculateBilling', () => {
     expect(result.platformFee).toBe(0);
     expect(result.gstAmount).toBe(0);
     expect(result.totalAmount).toBe(0);
+  });
+
+  // The preview the buyer sees has to equal what the server charges. If these
+  // two ever diverge, the gateway screen is where the customer finds out.
+  it('keeps paise instead of rounding to whole rupees, matching the server', () => {
+    const result = calculateBilling(333, 3, 3);
+    expect(result.subtotal).toBe(999);
+    expect(result.platformFee).toBe(29.97);
+    expect(result.gstAmount).toBe(5.39);
+    expect(result.totalAmount).toBe(1034.36);
   });
 });
 
@@ -45,8 +55,29 @@ describe('BillingCard component', () => {
     expect(screen.getByText('Billing Summary')).toBeInTheDocument();
     expect(screen.getByText('₹500.00')).toBeInTheDocument();
     expect(screen.getByText('×2')).toBeInTheDocument();
-    expect(screen.getByText('₹1000.00')).toBeInTheDocument();
-    expect(screen.getByText('₹1059.00')).toBeInTheDocument();
+    expect(screen.getByText('₹1,000.00')).toBeInTheDocument();
+    expect(screen.getByText('₹1,059.00')).toBeInTheDocument();
+  });
+
+  it('shows the paise on a fee that is not a whole rupee', () => {
+    render(
+      <BillingCard ticketPrice={333} quantity={3} platformFeePercentage={3} />
+    );
+    expect(screen.getByText('₹29.97')).toBeInTheDocument();
+    expect(screen.getByText('₹1,034.36')).toBeInTheDocument();
+  });
+
+  it('itemises the platform fee without publishing the commission rate', () => {
+    render(
+      <BillingCard ticketPrice={500} quantity={2} platformFeePercentage={5} />
+    );
+    // The fee is charged, so it has to be shown - as a rupee amount only. The rate
+    // is commercial information and used to sit on every checkout screen.
+    expect(screen.getByText('Platform fee')).toBeInTheDocument();
+    expect(screen.getByText('₹50.00')).toBeInTheDocument();
+    expect(screen.queryByText(/Platform fee \(/)).toBeNull();
+    // GST keeps its rate: statutory tax, not our margin.
+    expect(screen.getByText('GST (18%)')).toBeInTheDocument();
   });
 
   it('displays discount with code name when provided', () => {

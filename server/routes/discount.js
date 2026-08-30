@@ -17,15 +17,14 @@ router.post('/events/:id/discount-codes', auth, async (req, res) => {
             return res.status(403).json({ error: 'Only the event organizer can create discount codes' });
         }
 
-        const { code, discountType, discountValue, maxUses, validFrom, validUntil } = req.body;
+        // No validFrom/validUntil: the service derives the window from this event.
+        const { code, discountType, discountValue, maxUses } = req.body;
         const discount = await discountService.createDiscountCode({
             eventId: req.params.id,
             code,
             discountType,
             discountValue,
             maxUses,
-            validFrom,
-            validUntil,
             createdBy: req.user._id
         });
         res.status(201).json(discount);

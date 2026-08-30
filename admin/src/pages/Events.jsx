@@ -74,7 +74,10 @@ export default function Events() {
     const fetchEvents = async () => {
         try {
             setLoading(true);
-            const params = { page: currentPage, limit: ITEMS_PER_PAGE, includeCompleted: true };
+            // No includeCompleted flag: that is a param of the *public* /api/events
+            // route. The admin listing is /api/admin/events, which has no status
+            // allow-list at all, so `status: 'completed'` is enough here.
+            const params = { page: currentPage, limit: ITEMS_PER_PAGE };
             if (filter === 'public' || filter === 'private') {
                 params.eventType = filter;
             } else if (filter !== 'all') {
@@ -124,6 +127,21 @@ export default function Events() {
             fetchEvents();
         } catch (err) {
             console.error('Failed to block event:', err);
+        }
+    };
+
+    // Soft delete on the server: the event leaves every listing but its tickets
+    // and revenue stay queryable. It does NOT refund ticket holders - use the
+    // cancel flow for that, which is why the confirm says so explicitly.
+    const handleDelete = async (event, e) => {
+        e.stopPropagation();
+        if (!window.confirm(`Delete "${event.name}"?\n\nIt will be removed from all listings. Ticket holders are NOT refunded automatically - cancel the event instead if refunds are needed.`)) return;
+        try {
+            await adminApi.deleteEvent(event._id);
+            fetchEvents();
+        } catch (err) {
+            console.error('Failed to delete event:', err);
+            alert(err.message || 'Failed to delete event');
         }
     };
 
@@ -427,17 +445,29 @@ export default function Events() {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                                        {event.status === 'approved' && (
+                                                        <div className="flex items-center gap-2">
+                                                            {event.status === 'approved' && (
+                                                                <button
+                                                                    onClick={(e) => handleBlock(event._id, e)}
+                                                                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                                                                    title="Block"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                                    </svg>
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={(e) => handleBlock(event._id, e)}
+                                                                onClick={(e) => handleDelete(event, e)}
                                                                 className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
-                                                                title="Block"
+                                                                title="Delete Event"
+                                                                aria-label={`Delete event ${event.name}`}
                                                             >
                                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                                 </svg>
                                                             </button>
-                                                        )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}

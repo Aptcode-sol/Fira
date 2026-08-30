@@ -17,6 +17,7 @@ const ScanningCode = require('./ScanningCode');
 const Inquiry = require('./Inquiry');
 const DiscountCode = require('./DiscountCode');
 const VenueReview = require('./VenueReview');
+const Settlement = require('./Settlement');
 
 module.exports = {
     User,
@@ -36,5 +37,6 @@ module.exports = {
     ScanningCode,
     Inquiry,
     DiscountCode,
-    VenueReview
+    VenueReview,
+    Settlement
 };

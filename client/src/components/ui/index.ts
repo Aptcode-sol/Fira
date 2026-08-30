@@ -1,5 +1,6 @@
 export { Button } from './Button';
 export { default as BackButton } from './BackButton';
+export { default as ShareButton } from './ShareButton';
 export { Input } from './Input';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { Modal } from './Modal';

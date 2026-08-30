@@ -417,7 +417,15 @@ export default function CreateCreatorPage() {
                             <div className="space-y-8">
                                 {/* Cover Photo */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-3">Cover Photo</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-1">Cover Photo</label>
+                                    {/* Same guidance as the event cover image, so one
+                                        photo works for both and nobody has to prepare two
+                                        sizes. The 2MB cap was previously only discoverable
+                                        by exceeding it - it lived in the change handler
+                                        and surfaced as a toast after picking a file. */}
+                                    <p className="text-xs text-gray-400 mb-3">
+                                        Landscape, 1200 × 675 px or larger (16:9). JPG or PNG, up to 2MB.
+                                    </p>
                                     <div className="relative h-40 rounded-xl overflow-hidden border border-dashed border-white/20 bg-black/40">
                                         {coverPreview ? (
                                             <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
@@ -426,7 +434,7 @@ export default function CreateCreatorPage() {
                                                 <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span className="text-sm">1200 x 400 recommended</span>
+                                                <span className="text-sm">Click to upload</span>
                                             </div>
                                         )}
                                         <input

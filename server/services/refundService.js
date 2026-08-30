@@ -5,6 +5,7 @@ const Event = require('../models/Event');
 const Booking = require('../models/Booking');
 const Razorpay = require('razorpay');
 const notificationService = require('./notificationService');
+const { roundMoney, toPaise } = require('../utils/money');
 
 /**
  * Refund Service
@@ -41,7 +42,7 @@ const refundService = {
         }
 
         return {
-            amount: Math.round(originalAmount * (refundPercentage / 100)),
+            amount: roundMoney(originalAmount * (refundPercentage / 100)),
             refundType,
             policy,
             refundPercentage
@@ -99,7 +100,7 @@ const refundService = {
                 });
 
                 const razorpayRefund = await razorpay.payments.refund(payment.gatewayTransactionId, {
-                    amount: refundAmount * 100, // Convert to paise
+                    amount: toPaise(refundAmount), // integer paise - Razorpay rejects fractions
                     notes: {
                         reason,
                         refundId: refund._id.toString()
@@ -486,7 +487,7 @@ const refundService = {
                     });
 
                     const razorpayRefund = await razorpay.payments.refund(refund.payment.gatewayTransactionId, {
-                        amount: refund.amount * 100
+                        amount: toPaise(refund.amount)
                     });
 
                     refund.gatewayRefundId = razorpayRefund.id;

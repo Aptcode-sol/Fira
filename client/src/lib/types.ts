@@ -19,7 +19,10 @@ export interface User {
     emailVerified: boolean;
     emailVerifiedAt?: string;
     verificationBadge: 'none' | 'brand' | 'band' | 'organizer';
-    creatorApplicationStatus?: 'pending' | 'rejected' | null;
+    // No creator application status here on purpose: it lives on BrandProfile and
+    // arrives with the dashboard payload. A copy on the user object would be frozen
+    // at sign-in (this object is cached in localStorage), so an approval would not
+    // show until the next login.
     socialLinks: {
         instagram: string | null;
         twitter: string | null;
@@ -118,9 +121,23 @@ export interface TicketTier {
     soldCount: number;
 }
 
+/**
+ * The approved brand an event is run under, attached server-side alongside
+ * `organizer` (see eventService.attachOrganizerBrands). Absent when the organizer has
+ * no approved brand profile.
+ */
+export interface OrganizerBrand {
+    _id: string;
+    name: string;
+    type: string;
+    profilePhoto: string | null;
+}
+
 export interface Event {
     _id: string;
     organizer: string | User;
+    /** Presentation identity. `organizer` stays the real account. */
+    organizerBrand?: OrganizerBrand | null;
     venue: string | Venue;
     booking: string | null;
     name: string;

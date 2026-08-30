@@ -5,17 +5,7 @@ const Ticket = require('../models/Ticket');
 const { PURCHASE_FALLBACK_TIER } = require('./ticketTiers');
 const { citySlug } = require('../utils/citySlug');
 const crypto = require('crypto');
-
-/**
- * Escape a user-supplied string before it is used inside a RegExp.
- *
- * Search terms and city names come straight off the query string. Unescaped, a
- * value like "a(" throws and 500s the listing, and a pathological pattern can be
- * made to burn CPU on every request.
- */
-function escapeRegex(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const { escapeRegex } = require('../utils/escapeRegex');
 
 /**
  * Statuses a public listing will show. `approved` is what the approval flow
@@ -163,12 +153,14 @@ const eventService = {
         else if (sort === 'latest') sortOption = { createdAt: -1 };
 
         const events = await Event.find(filter)
-            .populate('organizer', 'name email verificationBadge')
+            .populate('organizer', 'name email avatar verificationBadge')
             .populate('venue', 'name address images')
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
             .sort(sortOption)
             .lean();
+
+        await eventService.attachOrganizerBrands(events);
 
         const total = await Event.countDocuments(filter);
 
@@ -178,6 +170,50 @@ const eventService = {
             currentPage: parseInt(page),
             total
         };
+    },
+
+    /**
+     * Attach each organizer's approved brand identity to a list of lean events.
+     *
+     * An event run under a brand should carry the brand's name and photo, not the
+     * personal account behind it - that is the identity the audience follows and the
+     * one on the poster. The organizer object is still returned untouched, so
+     * anything that needs the real account (admin queues, payouts, ownership checks)
+     * is unaffected; this only adds `organizerBrand` for presentation.
+     *
+     * Only `status: 'approved'` brands qualify. A pending applicant billing their
+     * events under an unreviewed brand name is the same self-verification hole that
+     * was just closed on the badge.
+     *
+     * ponytail: one batched query for the whole page rather than a lookup per event.
+     * Ceiling: it is a second round trip. If event listings ever need to filter or
+     * sort by brand, this becomes a $lookup in the aggregation instead.
+     */
+    async attachOrganizerBrands(events) {
+        const list = Array.isArray(events) ? events : [events];
+        const organizerId = e => String(e?.organizer?._id || e?.organizer || '');
+
+        const ids = [...new Set(list.map(organizerId).filter(Boolean))];
+        if (!ids.length) return events;
+
+        const BrandProfile = require('../models/BrandProfile');
+        const brands = await BrandProfile.find({ user: { $in: ids }, status: 'approved' })
+            .select('user name type profilePhoto')
+            .lean();
+
+        const byUser = new Map(brands.map(b => [String(b.user), b]));
+        for (const event of list) {
+            const brand = byUser.get(organizerId(event));
+            if (!brand) continue;
+            event.organizerBrand = {
+                _id: brand._id,
+                name: brand.name,
+                type: brand.type,
+                profilePhoto: brand.profilePhoto || null,
+            };
+        }
+
+        return events;
     },
 
     // Get upcoming events (public, approved/upcoming)
@@ -195,11 +231,13 @@ const eventService = {
         if (category) filter.category = category;
 
         const events = await Event.find(filter)
-            .populate('organizer', 'name verificationBadge')
+            .populate('organizer', 'name avatar verificationBadge')
             .populate('venue', 'name address')
             .limit(limit * 1)
             .sort({ startDateTime: 1 })
             .lean();
+
+        await eventService.attachOrganizerBrands(events);
 
         return events;
     },
@@ -226,6 +264,8 @@ const eventService = {
                 throw new Error('Event not found');
             }
         }
+
+        await eventService.attachOrganizerBrands(event);
 
         return event;
     },

@@ -25,6 +25,17 @@ assert.equal(
     'exactly one link to /dashboard/events - it was rendered twice before'
 );
 
+// --- My Brand sits directly under Overview --------------------------------
+assert.equal(
+    userLabels.indexOf('My Brand') - userLabels.indexOf('Overview'),
+    1,
+    'My Brand must sit directly after Overview'
+);
+assert.ok(
+    !labels(venueNavItems).includes('My Brand'),
+    'My Brand is a user-dashboard destination only'
+);
+
 // --- the grouped sections are gone ----------------------------------------
 for (const [name, items] of [['user', userNavItems], ['venue', venueNavItems]]) {
     for (const gone of ['Events Management', 'Venue Management']) {

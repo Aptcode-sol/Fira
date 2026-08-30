@@ -153,7 +153,6 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
             city: '',
             state: '',
             pincode: '',
-            capacity: '' as number | '',
             images: [] as string[],
             locationLink: ''
         }
@@ -220,7 +219,6 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                 city: event.customVenue?.city ?? '',
                 state: event.customVenue?.state ?? '',
                 pincode: event.customVenue?.pincode ?? '',
-                capacity: (event.customVenue?.capacity ?? '') as number | '',
                 images: event.customVenue?.images ?? [],
                 locationLink: event.customVenue?.locationLink ?? '',
             },
@@ -499,7 +497,8 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                 if (!isFilled(cv.state)) found['customVenue.state'] = 'State is required';
                 if (!isFilled(cv.pincode)) found['customVenue.pincode'] = 'PIN code is required';
                 else if (!isValidPincode(cv.pincode)) found['customVenue.pincode'] = 'Enter a valid 6-digit PIN code';
-                if (!cv.capacity || Number(cv.capacity) < 1) found['customVenue.capacity'] = 'Enter a capacity of at least 1';
+                // No capacity rule: the field is gone, and the tiers define how many
+                // people the event admits.
                 if (!isFilled(cv.locationLink)) found['customVenue.locationLink'] = 'A maps link is required';
                 else if (!isValidLocationLink(cv.locationLink)) {
                     found['customVenue.locationLink'] = 'Enter a valid URL, e.g. https://maps.google.com/...';
@@ -1024,27 +1023,20 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                             />
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Input
-                                                label="PIN Code *"
-                                                placeholder="6-digit PIN code"
-                                                inputMode="numeric"
-                                                maxLength={6}
-                                                value={formData.customVenue.pincode}
-                                                onChange={(e) => setCustomVenue('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                                error={fieldErrors['customVenue.pincode']}
-                                            />
-                                            <Input
-                                                label="Capacity *"
-                                                type="number"
-                                                min={1}
-                                                placeholder="Max capacity"
-                                                value={formData.customVenue.capacity}
-                                                onChange={(e) => setCustomVenue('capacity', e.target.value === '' ? '' : parseInt(e.target.value))}
-                                                onWheel={(e) => e.currentTarget.blur()}
-                                                error={fieldErrors['customVenue.capacity']}
-                                            />
-                                        </div>
+                                        {/* No capacity field. How many people the event
+                                            admits is the sum of the per-tier attendee
+                                            caps on the next step, so asking for a venue
+                                            capacity here was a third number competing
+                                            with those - and nothing reconciled it. */}
+                                        <Input
+                                            label="PIN Code *"
+                                            placeholder="6-digit PIN code"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            value={formData.customVenue.pincode}
+                                            onChange={(e) => setCustomVenue('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            error={fieldErrors['customVenue.pincode']}
+                                        />
 
                                         <Input
                                             label="Maps Link *"
@@ -1234,7 +1226,19 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
 
                                 {/* Event Cover Image */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Event Cover Image (Optional)</label>
+                                    <label htmlFor="cover-image-upload" className="block text-sm font-medium text-gray-300 mb-1">
+                                        Event Cover Image (Optional)
+                                    </label>
+                                    {/* The 2MB cap was only discoverable by exceeding it -
+                                        the limit lived in the change handler and surfaced
+                                        as a toast after picking a file. Stating the size
+                                        up front means nobody picks a 6MB photo first.
+                                        Dimensions matter too: this image is cropped to a
+                                        wide hero on the event page and to a shorter strip
+                                        on cards, so anything portrait loses its subject. */}
+                                    <p id="cover-image-help" className="text-xs text-gray-400 mb-2">
+                                        Landscape, 1200 × 675 px or larger (16:9). JPG or PNG, up to 2MB.
+                                    </p>
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -1253,6 +1257,7 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                             }}
                                             className="hidden"
                                             id="cover-image-upload"
+                                            aria-describedby="cover-image-help"
                                         />
                                         <label
                                             htmlFor="cover-image-upload"

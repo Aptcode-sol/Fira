@@ -1,4 +1,5 @@
 const BrandProfile = require('../models/BrandProfile');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 /**
  * Map a BrandProfile.type onto a User.verificationBadge.
@@ -37,7 +38,7 @@ const brandService = {
 
         if (search) {
             // Use regex for more reliable search (works without text index)
-            const searchRegex = new RegExp(search, 'i');
+            const searchRegex = new RegExp(escapeRegex(search), 'i');
             andConditions.push({
                 $or: [
                     { name: searchRegex },
@@ -47,7 +48,7 @@ const brandService = {
         }
 
         if (city && city !== 'All') {
-            const cityRegex = new RegExp(`^${city}$`, 'i');
+            const cityRegex = new RegExp(`^${escapeRegex(city)}$`, 'i');
             andConditions.push({
                 $or: [
                     { primaryCity: cityRegex },
@@ -148,27 +149,65 @@ const brandService = {
         return brand;
     },
 
+    // Fields the account holder does not own on their own brand profile.
+    //
+    // `status` is the admin's decision, and the badge grant below follows it - so a
+    // profile save carrying `status: 'approved'` approved itself and collected the
+    // verified badge on the same request, with the admin queue bypassed entirely.
+    // `stats` are the follower/view counters, only ever $inc'd by the platform.
+    // `user` is the ownership link. Same list shape as PROTECTED_VENUE_FIELDS.
+    PROTECTED_BRAND_FIELDS: ['status', 'stats', 'user', 'isVerified', 'verificationBadge', '_id', 'createdAt', 'updatedAt'],
+
+    // Pure: a copy of an update payload with the protected fields removed. Kept
+    // separate so it is unit-testable without a DB round-trip.
+    stripProtectedFields(data = {}) {
+        const safe = { ...data };
+        for (const field of brandService.PROTECTED_BRAND_FIELDS) delete safe[field];
+        return safe;
+    },
+
     // Create or Update Brand Profile
     async updateProfile(userId, data) {
-        // Ensure user exists and is verified (logic usually in controller/middleware, but double check here if needed)
-        // Upsert: Create if not exists
+        // The request body reached `$set` whole, with only `userId` removed at the
+        // route. Guarded here rather than there so every caller is covered once -
+        // this is the only write path onto a self-owned profile.
+        const safe = brandService.stripProtectedFields(data);
+
+        // Editing a rejected profile IS the resubmission - that is what the client's
+        // "Reapply" control does. Without this the strip above leaves it rejected
+        // forever, so reapplying changed nothing and the profile could never come
+        // back to the admin queue.
+        //
+        // Only from 'rejected'. 'approved' must not drop back to pending or an
+        // approved creator would lose their badge by editing their own bio, and
+        // 'blocked' must not be escapable by editing - that is the whole point of it
+        // being separate from rejected.
+        const existing = await BrandProfile.findOne({ user: userId }).select('status').lean();
+        if (existing?.status === 'rejected') safe.status = 'pending';
+
         const profile = await BrandProfile.findOneAndUpdate(
             { user: userId },
-            { $set: data },
+            { $set: safe },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
 
-        // Keep the user's creator badge in step with their profile.
+        // The badge is granted by ADMIN APPROVAL, never by creating the profile.
         //
-        // Creating a brand did not grant the badge, and `verificationBadge` is
-        // what every creator feature checks (the "+" button's Create Post, the
-        // Brand section of the dashboard sidebar). So a genuine creator ended up
-        // with a profile they could not post to - exactly what happened to the
-        // two live accounts that had a brand but badge 'none'.
-        const User = require('../models/User');
-        await User.findByIdAndUpdate(userId, {
-            $set: { verificationBadge: badgeForBrandType(profile.type) }
-        });
+        // This used to set `verificationBadge` here unconditionally, which meant the
+        // moment anyone submitted a creator application they were shown as a "Verified
+        // Creator" - the badge is what the whole client reads to decide that. Self-
+        // service verification, with the admin queue reduced to decoration.
+        //
+        // The badge now follows `status`, and only adminService.updateBrandStatus
+        // moves that. A profile awaiting review keeps whatever badge the account
+        // already had, so an approved creator who edits their profile does not lose
+        // their badge mid-edit.
+        if (profile.status === 'approved') {
+            const User = require('../models/User');
+            await User.findByIdAndUpdate(userId, {
+                $set: { verificationBadge: badgeForBrandType(profile.type) }
+            });
+        }
 
         return profile;
     },

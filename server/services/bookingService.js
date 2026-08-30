@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const whatsappService = require('./whatsappService');
 const whatsappTemplates = require('../utils/whatsappTemplates');
+const { roundMoney } = require('../utils/money');
 
 const bookingService = {
     // Get all bookings
@@ -307,7 +308,7 @@ const bookingService = {
         // source (calculateBilling) so the advance is charged and recorded with a
         // full breakdown: advance is the subtotal, qty 1. Fail closed — if billing
         // throws, we abort before any Razorpay order is created.
-        const advanceAmount = Math.round(booking.totalAmount * 0.10); // 10% advance preserved
+        const advanceAmount = roundMoney(booking.totalAmount * 0.10); // 10% advance preserved
         const feePct = booking.venue?.platformFeePercentage ?? 5; // config, not hardcoded
         const billing = paymentService.calculateBilling(advanceAmount, 1, feePct);
 
@@ -336,7 +337,7 @@ const bookingService = {
                 venueName: booking.venue?.name,
                 totalAmount: booking.totalAmount,
                 advanceAmount: advanceAmount,
-                remainingAmount: booking.totalAmount - advanceAmount,
+                remainingAmount: roundMoney(booking.totalAmount - advanceAmount),
                 bookingDate: booking.bookingDate
             }
         };

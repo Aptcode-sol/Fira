@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { Venue } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { venueDayRate } from '@/lib/venuePricing';
+import { formatInr as formatPrice } from '@/lib/formatInr';
 
 interface VenueCardProps {
     venue: Venue;
@@ -10,13 +11,6 @@ interface VenueCardProps {
 }
 
 export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(price);
-    };
 
     return (
         // The card is a plain container, NOT a <Link> wrapper.

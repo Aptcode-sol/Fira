@@ -4,6 +4,7 @@ const Refund = require('../models/Refund');
 const User = require('../models/User');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const { roundMoney, toPaise } = require('../utils/money');
 
 // Owner bank details must be real before a payout is recorded (fail closed).
 // ponytail: inline check here; the shared API-boundary validator is task 8.
@@ -42,11 +43,13 @@ const isValidBankDetails = (b) =>
 const paymentService = {
     // Pure billing calculation with GST breakdown
     calculateBilling(ticketPrice, quantity, platformFeePercentage, discountAmount = 0) {
-        const subtotal = ticketPrice * quantity;
-        const discountedSubtotal = Math.max(0, subtotal - discountAmount);
-        const platformFee = Math.round(discountedSubtotal * platformFeePercentage / 100);
-        const gstAmount = Math.round(platformFee * 0.18);
-        const totalAmount = discountedSubtotal + platformFee + gstAmount;
+        // Rounded to paise at each step, in this order. Rounding the sum instead
+        // would let the displayed lines disagree with the total by a paise.
+        const subtotal = roundMoney(ticketPrice * quantity);
+        const discountedSubtotal = roundMoney(Math.max(0, subtotal - discountAmount));
+        const platformFee = roundMoney(discountedSubtotal * platformFeePercentage / 100);
+        const gstAmount = roundMoney(platformFee * 0.18);
+        const totalAmount = roundMoney(discountedSubtotal + platformFee + gstAmount);
 
         return {
             subtotal,
@@ -113,7 +116,7 @@ const paymentService = {
         const chargeAmount = totalAmount || amount;
 
         const options = {
-            amount: Math.round(chargeAmount * 100), // amount in the smallest currency unit (paise)
+            amount: toPaise(chargeAmount), // smallest currency unit (paise)
             currency: "INR",
             receipt: `rcpt_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             notes: {
@@ -224,7 +227,7 @@ const paymentService = {
 
             // Call Razorpay refund API
             const razorpayRefund = await razorpay.payments.refund(payment.gatewayTransactionId, {
-                amount: Math.round(refundAmount * 100), // Amount in paise
+                amount: toPaise(refundAmount), // Amount in paise
                 speed: 'normal', // 'normal' or 'optimum'
                 notes: {
                     reason: reason,
@@ -297,8 +300,8 @@ const paymentService = {
     async processPayout({ recipientId, type, referenceId, referenceModel, grossAmount, platformFeePercentage }) {
         // Commission from config; fall back to 5 only if genuinely absent.
         const commissionPercentage = platformFeePercentage ?? 5;
-        const platformCommission = Math.round(grossAmount * (commissionPercentage / 100));
-        const netAmount = grossAmount - platformCommission;
+        const platformCommission = roundMoney(grossAmount * (commissionPercentage / 100));
+        const netAmount = roundMoney(grossAmount - platformCommission);
 
         // Bank details are authoritative from the owner, not the caller. Fail
         // closed if the owner has no valid stored details — a payout must be

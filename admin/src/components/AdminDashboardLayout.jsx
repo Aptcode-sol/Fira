@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import ErrorBoundary from './ErrorBoundary';
+import { getAdminRoleFromToken } from '../lib/adminRole';
 
 const navItems = [
     { href: '/', icon: 'home', label: 'Dashboard' },
@@ -14,20 +15,6 @@ const navItems = [
     { href: '/discount-codes', icon: 'tag', label: 'Discount Codes' },
     { href: '/payouts', icon: 'currency', label: 'Payouts' },
 ];
-
-// ponytail: decode JWT payload without a library — it's just base64url JSON.
-function getAdminRoleFromToken() {
-    try {
-        const token = localStorage.getItem('fira_admin_token');
-        if (!token) return null;
-        const payload = token.split('.')[1];
-        if (!payload) return null;
-        const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-        return decoded.adminRole || null;
-    } catch {
-        return null;
-    }
-}
 
 /**
  * Role-based nav visibility (Requirements 3.3, 3.4):

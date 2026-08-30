@@ -44,6 +44,18 @@ const nextConfig: NextConfig = {
     return [
       { source: '/dashboard/venues', destination: '/venue-portal/venues', permanent: false },
       { source: '/dashboard/requests', destination: '/venue-portal/events', permanent: false },
+      /**
+       * Retired standalone policy pages. Their content now lives inside the main
+       * Terms & Conditions, so the old URLs land on the matching section instead
+       * of 404-ing. Keeps existing inbound links, crawled URLs, and the privacy /
+       * refund URLs registered with the payment gateway working.
+       *
+       * ponytail: redirects rather than three stub pages. Permanent (308) because
+       * the pages are not coming back.
+       */
+      { source: '/privacy', destination: '/terms#data-protection', permanent: true },
+      { source: '/refund-policy', destination: '/terms#refunds', permanent: true },
+      { source: '/community-guidelines', destination: '/terms#conduct', permanent: true },
     ];
   },
 };

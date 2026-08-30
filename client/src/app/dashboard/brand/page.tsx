@@ -10,10 +10,40 @@ import { brandsApi, uploadApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
+/** Review state of the creator application. Mirrors BrandProfile.status. */
+type BrandStatus = 'pending' | 'approved' | 'rejected' | 'blocked';
+
+/**
+ * What a profile that is not approved needs to say on this page.
+ *
+ * The public /creators listing already filters on `status: 'approved'`, so an
+ * unapproved profile is invisible there - but this page gave no sign of that, and
+ * showed the same management UI either way. Someone who had just applied saw a live
+ * brand page and reasonably concluded they were live.
+ */
+const STATUS_NOTICE: Record<Exclude<BrandStatus, 'approved'>, { tone: string; title: string; body: string }> = {
+    pending: {
+        tone: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300',
+        title: 'Awaiting review',
+        body: 'Your creator profile is with our team. It stays hidden from the public creators list until it is approved - you can keep editing it in the meantime.',
+    },
+    rejected: {
+        tone: 'bg-red-500/10 border-red-500/30 text-red-300',
+        title: 'Not approved',
+        body: 'This profile was not approved. Update the details below and it will go back into the review queue.',
+    },
+    blocked: {
+        tone: 'bg-red-500/10 border-red-500/30 text-red-300',
+        title: 'Blocked',
+        body: 'This profile has been blocked and is hidden from the public creators list. Please contact support if you think this is a mistake.',
+    },
+};
+
 interface BrandProfile {
     _id: string;
     name: string;
     type: 'brand' | 'band' | 'organizer';
+    status: BrandStatus;
     bio: string;
     coverPhoto: string | null;
     profilePhoto: string | null;
@@ -382,6 +412,15 @@ export default function BrandDashboardPage() {
                 {error && (
                     <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl mb-6">
                         {error}
+                    </div>
+                )}
+
+                {/* Review state. Above the profile card so it is read before the
+                    management controls, not after. */}
+                {brand.status && brand.status !== 'approved' && STATUS_NOTICE[brand.status] && (
+                    <div className={`border px-4 py-3 rounded-xl mb-6 ${STATUS_NOTICE[brand.status].tone}`}>
+                        <p className="font-semibold">{STATUS_NOTICE[brand.status].title}</p>
+                        <p className="text-sm mt-1 text-gray-300">{STATUS_NOTICE[brand.status].body}</p>
                     </div>
                 )}
 

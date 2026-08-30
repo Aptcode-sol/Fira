@@ -8,6 +8,8 @@
  * inconsistently, and so `pricePerHour` is dead everywhere at once.
  */
 
+import { roundMoney } from './formatInr';
+
 interface VenueLikePricing {
     pricing?: {
         pricePerDay?: number | null;
@@ -47,12 +49,12 @@ export function venueBookingTotal(
     startDate: string,
     endDate?: string | null
 ): number {
-    return venueDayRate(venue) * billableDays(startDate, endDate);
+    return roundMoney(venueDayRate(venue) * billableDays(startDate, endDate));
 }
 
 /**
  * Share of the booking total taken as a non-refundable advance at checkout.
- * Mirrors `Math.round(booking.totalAmount * 0.10)` in bookingService.
+ * Mirrors `roundMoney(booking.totalAmount * 0.10)` in bookingService.
  */
 export const BOOKING_ADVANCE_RATE = 0.1;
 
@@ -86,28 +88,29 @@ export interface AdvanceBreakdown {
  * the real number, which is the worst possible place to learn it.
  *
  * Every line here mirrors the server:
- *   advance     = round(total × 0.10)
- *   platformFee = round(advance × feePct / 100)
- *   gst         = round(platformFee × 0.18)
+ *   advance     = roundMoney(total × 0.10)
+ *   platformFee = roundMoney(advance × feePct / 100)
+ *   gst         = roundMoney(platformFee × 0.18)
  *   payableNow  = advance + platformFee + gst
  *
- * Rounding happens at each step, in the same order, because rounding the sum
- * instead of the parts can differ by a rupee - and a rupee is the entire bug.
+ * Rounding is to paise, at each step and in the same order as the server.
+ * Rounding the sum instead of the parts can differ by a paise, and rounding to
+ * whole rupees (what this did before) threw away the paise entirely.
  */
 export function bookingAdvance(
     bookingTotal: number,
     platformFeePercentage: number = DEFAULT_PLATFORM_FEE_PERCENTAGE
 ): AdvanceBreakdown {
-    const advance = Math.round(bookingTotal * BOOKING_ADVANCE_RATE);
-    const platformFee = Math.round((advance * platformFeePercentage) / 100);
-    const gstAmount = Math.round(platformFee * GST_ON_FEE_RATE);
+    const advance = roundMoney(bookingTotal * BOOKING_ADVANCE_RATE);
+    const platformFee = roundMoney((advance * platformFeePercentage) / 100);
+    const gstAmount = roundMoney(platformFee * GST_ON_FEE_RATE);
 
     return {
         advance,
         platformFee,
         platformFeePercentage,
         gstAmount,
-        payableNow: advance + platformFee + gstAmount,
-        remaining: bookingTotal - advance,
+        payableNow: roundMoney(advance + platformFee + gstAmount),
+        remaining: roundMoney(bookingTotal - advance),
     };
 }

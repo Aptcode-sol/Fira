@@ -1,12 +1,39 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
+import { Select } from '../components/ui/Select';
+import { Pagination } from '../components/ui/Pagination';
 
 const ITEMS_PER_PAGE = 20;
 
-const ENTITY_TYPES = ['event', 'venue', 'creator', 'user'];
-const ACTIONS = ['approve', 'reject', 'block', 'unblock', 'feature', 'unfeature'];
+const ENTITY_TYPE_OPTIONS = [
+    { value: '', label: 'All Entity Types' },
+    { value: 'event', label: 'Event' },
+    { value: 'venue', label: 'Venue' },
+    { value: 'creator', label: 'Creator' },
+    { value: 'user', label: 'User' },
+];
 
+const ACTION_OPTIONS = [
+    { value: '', label: 'All Actions' },
+    { value: 'approve', label: 'Approve' },
+    { value: 'reject', label: 'Reject' },
+    { value: 'block', label: 'Block' },
+    { value: 'unblock', label: 'Unblock' },
+    { value: 'feature', label: 'Feature' },
+    { value: 'unfeature', label: 'Unfeature' },
+    { value: 'delete', label: 'Delete' },
+    { value: 'update', label: 'Other change' },
+];
+
+/**
+ * Absolute time plus a relative one.
+ *
+ * "2 hours ago" is what answers "is this recent?" at a glance, but on its own it is
+ * useless for reconciling against anything, so both are shown - the exact stamp as
+ * the value and the relative one underneath.
+ */
 const formatTimestamp = (ts) => {
     if (!ts) return 'N/A';
     const dt = new Date(ts);
@@ -19,6 +46,22 @@ const formatTimestamp = (ts) => {
     return `${day} ${month} ${year} ${hours}:${mins}`;
 };
 
+const formatRelative = (ts) => {
+    const dt = new Date(ts);
+    if (!ts || isNaN(dt.getTime())) return '';
+    const secs = Math.round((Date.now() - dt.getTime()) / 1000);
+    if (secs < 60) return 'just now';
+    const mins = Math.round(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    if (days < 31) return `${days}d ago`;
+    const months = Math.round(days / 30);
+    if (months < 12) return `${months}mo ago`;
+    return `${Math.round(months / 12)}y ago`;
+};
+
 const getActionColor = (action) => {
     switch (action) {
         case 'approve': return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -27,9 +70,60 @@ const getActionColor = (action) => {
         case 'unblock': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
         case 'feature': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
         case 'unfeature': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+        case 'delete': return 'bg-red-900/30 text-red-300 border-red-900/40';
+        case 'update': return 'bg-violet-500/20 text-violet-300 border-violet-500/30';
         default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
 };
+
+/** Where an entry's subject can be opened in the dashboard, if anywhere. */
+const ENTITY_PATH = { event: '/events', venue: '/venues', creator: '/brands', user: '/users' };
+
+const shortId = (id) => (id ? String(id).slice(-8) : '—');
+
+const describeValue = (v) => {
+    if (v === true) return 'yes';
+    if (v === false) return 'no';
+    if (v === null || v === undefined || v === '') return '—';
+    return String(v);
+};
+
+/**
+ * What changed, in words.
+ *
+ * The table used to show only action / entity type / entity id, so reviewing a
+ * decision meant copying a 24-character id into another screen and guessing what the
+ * previous state had been. The from/to now recorded on every entry is the part that
+ * makes the trail reviewable rather than merely present.
+ */
+function ChangeDetail({ log }) {
+    const meta = log.metadata || {};
+    const hasTransition = meta.field && (meta.from !== undefined || meta.to !== undefined);
+
+    return (
+        <div className="min-w-0">
+            <div className="text-sm text-white truncate">
+                {meta.name || <span className="text-gray-500">Unnamed {log.entityType}</span>}
+            </div>
+            {hasTransition && (
+                <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-gray-500">{meta.field}</span>
+                    <span className="line-through">{describeValue(meta.from)}</span>
+                    <span aria-hidden="true">→</span>
+                    <span className="text-gray-200">{describeValue(meta.to)}</span>
+                </div>
+            )}
+            {meta.badgeChanged && (
+                <div className="text-xs text-violet-300 mt-0.5">
+                    Verified badge {meta.to === 'approved' ? 'granted' : 'removed'}
+                </div>
+            )}
+            {meta.email && !hasTransition && (
+                <div className="text-xs text-gray-400 mt-0.5 truncate">{meta.email}</div>
+            )}
+        </div>
+    );
+}
 
 export default function AuditTrail() {
     const [logs, setLogs] = useState([]);
@@ -77,32 +171,35 @@ export default function AuditTrail() {
                             <span>Admin action history</span>
                             <span className="w-1 h-1 rounded-full bg-gray-600"></span>
                             <span>{total} total entries</span>
+                            {/* Kept from the old pager, which showed this beside its
+                                arrows. The shared Pagination matches the other admin
+                                lists and does not, so it moves up here rather than
+                                being lost. */}
+                            {totalPages > 1 && (
+                                <>
+                                    <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                    <span>Page {currentPage} of {totalPages}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                    <select
+                {/* Filters. Fixed-width on desktop so two short dropdowns don't stretch
+                    the full page width; full-width stacked below sm. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:max-w-xl gap-3 mb-6">
+                    <Select
                         value={entityTypeFilter}
                         onChange={handleFilterChange(setEntityTypeFilter)}
-                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
-                    >
-                        <option value="">All Entity Types</option>
-                        {ENTITY_TYPES.map(type => (
-                            <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
-                        ))}
-                    </select>
-                    <select
+                        options={ENTITY_TYPE_OPTIONS}
+                        aria-label="Filter by entity type"
+                    />
+                    <Select
                         value={actionFilter}
                         onChange={handleFilterChange(setActionFilter)}
-                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
-                    >
-                        <option value="">All Actions</option>
-                        {ACTIONS.map(action => (
-                            <option key={action} value={action}>{action.charAt(0).toUpperCase() + action.slice(1)}</option>
-                        ))}
-                    </select>
+                        options={ACTION_OPTIONS}
+                        aria-label="Filter by action"
+                    />
                 </div>
 
                 {/* Table */}
@@ -114,17 +211,16 @@ export default function AuditTrail() {
                             <table className="w-full text-left">
                                 <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                     <tr>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Admin User</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Action</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Entity Type</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Entity ID</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Timestamp</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">What changed</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">By</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">When</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {logs.length === 0 ? (
                                         <tr>
-                                            <td colSpan="5" className="px-6 py-12 text-center">
+                                            <td colSpan="4" className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <span className="text-2xl">📋</span>
                                                     <span className="text-gray-300">No audit logs found</span>
@@ -132,23 +228,42 @@ export default function AuditTrail() {
                                             </td>
                                         </tr>
                                     ) : logs.map((log) => (
-                                        <tr key={log._id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="px-6 py-4">
-                                                <span className="text-white text-sm">{log.adminUser?.name || 'Unknown'}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
+                                        <tr key={log._id} className="hover:bg-white/[0.02] transition-colors align-top">
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getActionColor(log.action)}`}>
                                                     {log.action}
                                                 </span>
+                                                <div className="text-xs text-gray-400 mt-1 capitalize">{log.entityType}</div>
+                                            </td>
+                                            <td className="px-6 py-4 max-w-xs">
+                                                <ChangeDetail log={log} />
+                                                {/* Last 8 characters, not all 24. The full id made every
+                                                    row the same width as its longest column and pushed the
+                                                    timestamp off screen; the tail is enough to tell two
+                                                    entries apart, and the link is the way through. */}
+                                                {ENTITY_PATH[log.entityType] && log.action !== 'delete' ? (
+                                                    <Link
+                                                        to={`${ENTITY_PATH[log.entityType]}/${log.entityId}`}
+                                                        title={String(log.entityId)}
+                                                        className="text-xs font-mono text-violet-400 hover:text-violet-300 mt-1 inline-block"
+                                                    >
+                                                        …{shortId(log.entityId)}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-xs font-mono text-gray-500 mt-1 inline-block" title={String(log.entityId)}>
+                                                        …{shortId(log.entityId)}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-gray-300 text-sm capitalize">{log.entityType}</span>
+                                                <div className="text-white text-sm">{log.adminUser?.name || 'Unknown'}</div>
+                                                {log.adminUser?.email && (
+                                                    <div className="text-xs text-gray-400 mt-0.5">{log.adminUser.email}</div>
+                                                )}
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-gray-400 text-xs font-mono">{log.entityId}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-gray-300 text-sm">{formatTimestamp(log.timestamp)}</span>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-gray-300 text-sm">{formatTimestamp(log.timestamp)}</div>
+                                                <div className="text-xs text-gray-500 mt-0.5">{formatRelative(log.timestamp)}</div>
                                             </td>
                                         </tr>
                                     ))}
@@ -157,28 +272,28 @@ export default function AuditTrail() {
                         </div>
                     )}
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-white/[0.05] flex items-center justify-between">
-                            <span className="text-sm text-gray-400">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
+                    {/* Numbered pages, not just Previous/Next.
+                        The other admin lists all have numbered pages; this one had two
+                        arrows, so the only way to reach an entry from last month was to
+                        click Next through every page in between - on the one screen whose
+                        whole purpose is looking back. */}
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onChange={setCurrentPage}
+                    />
+
+                    {/* The pager hides itself at a single page, so a stale page number
+                        would otherwise leave an empty table with no way back. */}
+                    {totalPages <= 1 && currentPage > 1 && (
+                        <div className="p-4 border-t border-white/[0.05] flex justify-center">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(1)}
+                                className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white"
+                            >
+                                Back to first page
+                            </button>
                         </div>
                     )}
                 </div>

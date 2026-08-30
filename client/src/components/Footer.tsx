@@ -90,10 +90,9 @@ export default function Footer() {
     const popularCities = useMemo(() => byActivity(listedCities).slice(0, 8), [listedCities]);
 
     const legalLinks = [
-        { label: 'Privacy Policy', href: '/privacy' },
-        { label: 'Terms of Service', href: '/terms' },
-        { label: 'Refund Policy', href: '/refund-policy' },
-        { label: 'Community Guidelines', href: '/community-guidelines' },
+        { label: 'Terms & Conditions', href: '/terms' },
+        { label: 'Organiser Agreement', href: '/organiser-agreement' },
+        { label: 'Host Agreement', href: '/host-agreement' },
         { label: 'Help & Support', href: '/help' },
     ];
 

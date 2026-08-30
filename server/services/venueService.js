@@ -2,6 +2,7 @@ const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
 const VenueReview = require('../models/VenueReview');
 const { citySlug } = require('../utils/citySlug');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 const DEFAULT_CANCELLATION_POLICY = {
     freeCancellationHours: 48,
@@ -55,9 +56,10 @@ const venueService = {
         }
 
         if (search) {
+            const term = new RegExp(escapeRegex(search), 'i');
             filter.$or = [
-                { name: new RegExp(search, 'i') },
-                { description: new RegExp(search, 'i') }
+                { name: term },
+                { description: term }
             ];
         }
 

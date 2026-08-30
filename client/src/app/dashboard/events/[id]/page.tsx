@@ -13,6 +13,7 @@ import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateTimeRange } from '@/lib/dateUtils';
+import { formatInr } from '@/lib/formatInr';
 
 interface Ticket {
     _id: string;
@@ -162,18 +163,10 @@ export default function DashboardEventDetailPage() {
         });
     };
 
-    const formatPrice = (price: number) => {
-        if (price === 0) return 'Free';
-        return formatINR(price);
-    };
+    const formatPrice = (price: number) => (price === 0 ? 'Free' : formatINR(price));
 
-    // 11.6: revenue must always show a rupee amount (₹0 when none), never "Free".
-    const formatINR = (price: number) =>
-        new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(price);
+    // 11.6: revenue must always show a rupee amount (₹0.00 when none), never "Free".
+    const formatINR = formatInr;
 
     // 11.7: lowest configured tier price (falls back to ticketPrice when no tiers).
     const lowestTierPrice = (e: Event): number => {
@@ -613,7 +606,9 @@ export default function DashboardEventDetailPage() {
                         </div>
 
                         {/* Discount Codes */}
-                        <DiscountCodesSection eventId={event._id} eventStart={event.startDateTime} eventEnd={event.endDateTime} />
+                        {/* eventEnd is display only - the server derives the code's
+                            validity window from the event itself. */}
+                        <DiscountCodesSection eventId={event._id} eventEnd={event.endDateTime} />
 
                         {/* Attendees / Tickets */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">

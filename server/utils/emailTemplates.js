@@ -310,18 +310,27 @@ const emailTemplates = {
   /**
    * Ticket Confirmation Email Template
    * @param {string} userName - User's name
-   * @param {object} event - Event details (name, date, time, venue)
-   * @param {object} ticket - Ticket details (ticketId, qrCode, quantity, price)
+   * @param {object} event - Event details (name, startDateTime, venue/customVenue, images)
+   * @param {object} ticket - Ticket details (ticketId, qrCode, ticketType, quantity, price)
    * @returns {string} - HTML email template
    */
   ticketConfirmation(userName, event, ticket) {
-    const isPaid = ticket.price > 0;
-    const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
+    // The schema stores startDateTime, not date/startTime. `event.date` stays as a
+    // fallback only to match brandNewEvent's style for legacy callers.
+    const startsAt = new Date(event.startDateTime || event.date);
+    const formattedDate = startsAt.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+    const formattedTime = startsAt.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    // An event either points at a Venue or carries a customVenue the organiser
+    // typed. Either can be absent, and `venue` may be an unpopulated ObjectId.
+    const venueName = event.venue?.name || event.customVenue?.name || event.customVenue?.address || 'Venue to be announced';
 
     return `
 <!DOCTYPE html>
@@ -359,11 +368,15 @@ const emailTemplates = {
             </tr>
             <tr>
               <td style="padding: 5px 0; color: #888; font-size: 14px;">Time</td>
-              <td style="padding: 5px 0; color: #fff; text-align: right; font-size: 14px;">${event.startTime}</td>
+              <td style="padding: 5px 0; color: #fff; text-align: right; font-size: 14px;">${formattedTime}</td>
             </tr>
             <tr>
               <td style="padding: 5px 0; color: #888; font-size: 14px;">Venue</td>
-              <td style="padding: 5px 0; color: #fff; text-align: right; font-size: 14px;">${event.venue.name}</td>
+              <td style="padding: 5px 0; color: #fff; text-align: right; font-size: 14px;">${venueName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; color: #888; font-size: 14px;">Tier</td>
+              <td style="padding: 5px 0; color: #fff; text-align: right; font-size: 14px; text-transform: capitalize;">${ticket.ticketType}</td>
             </tr>
           </table>
         </div>
@@ -384,7 +397,7 @@ const emailTemplates = {
         
         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed #ccc; display: flex; justify-content: space-between;">
            <div style="text-align: left;">
-              <div style="font-size: 12px; color: #666;">Type</div>
+              <div style="font-size: 12px; color: #666;">Tier</div>
               <div style="font-weight: bold; text-transform: capitalize;">${ticket.ticketType}</div>
            </div>
            <div style="text-align: right;">
@@ -409,53 +422,6 @@ const emailTemplates = {
     <!-- Footer -->
     <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
       <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
-  },
-
-  /**
-   * Ticket Confirmation Email Template
-   */
-  ticketConfirmation(userName, event, ticket) {
-    const isPaid = ticket.price > 0;
-    const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Ticket for ${event.name} - FIRA</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
-  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
-    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 30px; text-align: center;">
-      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">FIRA</h1>
-      <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Let's Celebrate</p>
-    </div>
-    <div style="padding: 30px;">
-      <h2 style="margin: 0 0 20px; font-size: 24px; text-align: center;">You're Going! 🎉</h2>
-      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
-        Hey ${userName}, your booking is confirmed.
-      </p>
-      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden; margin-bottom: 30px;">
-        ${event.images?.[0] ? `<img src="${event.images[0]}" alt="${event.name}" style="width: 100%; height: 200px; object-fit: cover; display: block;">` : ''}
-        <div style="padding: 20px;">
-          <h3 style="margin: 0 0 10px; font-size: 20px; color: #fff;">${event.name}</h3>
-          <p style="color: #ccc; margin: 5px 0;">${formattedDate} • ${event.startTime}</p>
-          <p style="color: #888; font-size: 14px;">${event.venue.name}</p>
-        </div>
-      </div>
-      </div>
     </div>
   </div>
 </body>

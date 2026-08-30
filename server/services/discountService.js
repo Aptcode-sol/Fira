@@ -1,12 +1,32 @@
 const DiscountCode = require('../models/DiscountCode');
 const Payment = require('../models/Payment');
+const Event = require('../models/Event');
+const { roundMoney } = require('../utils/money');
 
 const discountService = {
     /**
+     * The window a discount code is usable in, derived from its event.
+     *
+     * A code is checked at PURCHASE time, and tickets are bought before the event
+     * runs - so the window is "from now until the event finishes", not the event's
+     * own start-to-end span. The client used to collect validFrom/validUntil by hand
+     * and constrain them to [eventStart, eventEnd], which meant a code created for
+     * next month's event could not legally start before that event began: unusable
+     * for the whole selling period, which is the only period that matters.
+     *
+     * Derived rather than entered, so the two can't disagree.
+     */
+    discountWindow(event) {
+        const validUntil = event?.endDateTime || event?.startDateTime;
+        if (!validUntil) throw new Error('Event has no end date, cannot derive discount validity');
+        return { validFrom: new Date(), validUntil: new Date(validUntil) };
+    },
+
+    /**
      * Create a new discount code for an event.
      */
-    async createDiscountCode({ eventId, code, discountType, discountValue, maxUses, validFrom, validUntil, createdBy }) {
-        if (!eventId || !code || !discountType || discountValue == null || !validFrom || !validUntil || !createdBy) {
+    async createDiscountCode({ eventId, code, discountType, discountValue, maxUses, createdBy }) {
+        if (!eventId || !code || !discountType || discountValue == null || !createdBy) {
             throw new Error('Missing required fields');
         }
 
@@ -27,13 +47,15 @@ const discountService = {
             throw new Error('Code must be between 3 and 20 characters');
         }
 
-        if (new Date(validUntil) <= new Date(validFrom)) {
-            throw new Error('validUntil must be after validFrom');
-        }
-
         if (maxUses != null && (maxUses < 1 || maxUses > 100000)) {
             throw new Error('maxUses must be between 1 and 100000');
         }
+
+        // The window comes from the event, never from the request - so a client that
+        // still sends validFrom/validUntil cannot widen a code past its event.
+        const event = await Event.findById(eventId).select('startDateTime endDateTime').lean();
+        if (!event) throw new Error('Event not found');
+        const { validFrom, validUntil } = discountService.discountWindow(event);
 
         const discount = await DiscountCode.create({
             event: eventId,
@@ -63,7 +85,10 @@ const discountService = {
             throw new Error('Not authorized to edit this discount code');
         }
 
-        const allowedFields = ['discountType', 'discountValue', 'maxUses', 'validFrom', 'validUntil'];
+        // validFrom/validUntil are deliberately not editable: the window is derived
+        // from the event (see discountWindow). Leaving them here would let an edit
+        // reintroduce exactly the out-of-range window that create no longer accepts.
+        const allowedFields = ['discountType', 'discountValue', 'maxUses'];
         const filtered = {};
         for (const key of allowedFields) {
             if (updates[key] !== undefined) {
@@ -84,14 +109,6 @@ const discountService = {
         }
         if (type === 'flat' && (value < 1 || value > 99999)) {
             throw new Error('Flat discount must be between 1 and 99999');
-        }
-
-        if (filtered.validFrom || filtered.validUntil) {
-            const from = filtered.validFrom ? new Date(filtered.validFrom) : discount.validFrom;
-            const until = filtered.validUntil ? new Date(filtered.validUntil) : discount.validUntil;
-            if (until <= from) {
-                throw new Error('validUntil must be after validFrom');
-            }
         }
 
         if (filtered.maxUses != null && filtered.maxUses !== null && (filtered.maxUses < 1 || filtered.maxUses > 100000)) {
@@ -155,10 +172,10 @@ const discountService = {
         // Compute discount amount
         let discountAmount;
         if (discount.discountType === 'percentage') {
-            discountAmount = Math.round(subtotal * discount.discountValue / 100);
+            discountAmount = roundMoney(subtotal * discount.discountValue / 100);
         } else {
             // flat — cap at subtotal
-            discountAmount = Math.min(discount.discountValue, subtotal);
+            discountAmount = roundMoney(Math.min(discount.discountValue, subtotal));
         }
 
         // Atomic increment usedCount with concurrency guard

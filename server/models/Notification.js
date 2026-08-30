@@ -36,6 +36,11 @@ const notificationSchema = new mongoose.Schema({
             'private_event_rejected',
             'new_follower',
             'payout_completed',
+            // Emitted by settlementService when a settlement entry is recorded against a
+            // listing and when one is reversed. A missing value here would throw a
+            // ValidationError mid-record, so the owner would never learn money moved.
+            'settlement_recorded',
+            'settlement_reversed',
             'brand_new_event',
             'brand_new_post',
             'event_new_post',

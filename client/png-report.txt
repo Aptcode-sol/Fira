@@ -1,0 +1,2 @@
+prod-icon.png: 192x192 depth=8 color=rgba  transparent=0.0% nearWhite=11.1% nearBlack=88.2%
+prod-logo.png: 1536x1024 depth=8 color=rgba  transparent=72.6% nearWhite=0.0% nearBlack=27.4%

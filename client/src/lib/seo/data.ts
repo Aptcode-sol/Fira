@@ -69,6 +69,26 @@ export interface SeoEvent {
     createdAt?: string;
 }
 
+/** A creator/brand profile, as the crawler-facing reads need it. */
+export interface SeoCreator {
+    _id?: string;
+    name?: string;
+    /** 'dj' | 'band' | 'planner' | 'organizer' | ... - ten values on the server. */
+    type?: string;
+    bio?: string;
+    profilePhoto?: string;
+    coverPhoto?: string;
+    primaryCity?: string;
+    cities?: string[];
+    /** Only 'approved' profiles are publicly listed. */
+    status?: string;
+    stats?: { followers?: number; events?: number; views?: number };
+    members?: { name?: string; role?: string }[];
+    socialLinks?: Record<string, string | null>;
+    updatedAt?: string;
+    createdAt?: string;
+}
+
 /** Never let a slow or down API break a page render - degrade to null. */
 async function getJson<T>(path: string, revalidate = 600): Promise<T | null> {
     try {
@@ -93,6 +113,12 @@ export const getVenue = cache(async (id: string): Promise<SeoVenue | null> => {
     const data = await getJson<{ venue?: SeoVenue } & SeoVenue>(`/venues/${id}`);
     if (!data) return null;
     return data.venue ?? data;
+});
+
+export const getCreator = cache(async (id: string): Promise<SeoCreator | null> => {
+    const data = await getJson<{ brand?: SeoCreator } & SeoCreator>(`/brands/${id}`);
+    if (!data) return null;
+    return data.brand ?? data;
 });
 
 export const getEventsByCity = cache(async (city: string, limit = 24): Promise<SeoEvent[]> => {

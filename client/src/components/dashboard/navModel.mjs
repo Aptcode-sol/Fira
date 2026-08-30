@@ -42,6 +42,12 @@
  */
 export const userNavItems = [
     { href: '/dashboard', icon: 'home', label: 'Overview' },
+    // Directly under Overview, and a plain nav item rather than a pinned "Brand
+    // Profile" section at the very bottom with its own header and divider. The
+    // creator identity is the account's own standing, so it sits beside the
+    // account summary, not below the transactional lists. It appears only here -
+    // the venue portal has no creator surface.
+    { href: '/dashboard/brand', icon: 'sparkles', label: 'My Brand' },
     { href: '/dashboard/bookings', icon: 'building', label: 'My Bookings' },
     { href: '/dashboard/tickets', icon: 'ticket', label: 'My Tickets' },
     { href: '/dashboard/events', icon: 'calendar', label: 'My Events' },

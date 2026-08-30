@@ -5,6 +5,10 @@ const BrandProfile = require('../models/BrandProfile');
 const Ticket = require('../models/Ticket');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
+const { escapeRegex } = require('../utils/escapeRegex');
+
+/** Case-insensitive "contains" match on a user-supplied search term. */
+const searchRegex = (value) => new RegExp(escapeRegex(value), 'i');
 
 const adminService = {
     // ================== DASHBOARD STATS ==================
@@ -22,13 +26,15 @@ const adminService = {
             revenueData
         ] = await Promise.all([
             User.countDocuments(),
-            Venue.countDocuments(),
-            Event.countDocuments(),
+            // Deleted listings are excluded here so the headline counts agree
+            // with what the Venues/Events tables actually show.
+            Venue.countDocuments({ isDeleted: { $ne: true } }),
+            Event.countDocuments({ isDeleted: { $ne: true } }),
             BrandProfile.countDocuments(),
-            Venue.countDocuments({ status: 'pending' }),
+            Venue.countDocuments({ status: 'pending', isDeleted: { $ne: true } }),
             // Exclude venue-less events from the pending count (8.1). A genuinely
             // pending event that HAS a venue still counts (preservation 3.11).
-            Event.countDocuments({ status: 'pending', venue: { $exists: true, $ne: null } }),
+            Event.countDocuments({ status: 'pending', venue: { $exists: true, $ne: null }, isDeleted: { $ne: true } }),
             BrandProfile.countDocuments({ status: 'pending' }),
             User.countDocuments({ isBlocked: true }),
             Ticket.countDocuments(),
@@ -58,11 +64,16 @@ const adminService = {
 
         if (search) {
             filter.$or = [
-                { name: new RegExp(search, 'i') },
-                { email: new RegExp(search, 'i') }
+                { name: searchRegex(search) },
+                { email: searchRegex(search) }
             ];
         }
-        if (role && role !== 'all') filter.role = role;
+        // `roles` is the source of truth (a user can be both user and venue_owner);
+        // `role` is the legacy single field. Matching only `role` missed every
+        // account whose second role is the one being filtered for.
+        if (role && role !== 'all') {
+            filter.$and = [...(filter.$and || []), { $or: [{ roles: role }, { role }] }];
+        }
         if (status === 'blocked') filter.isBlocked = true;
         if (status === 'active') filter.isBlocked = { $ne: true };
 
@@ -101,35 +112,145 @@ const adminService = {
         };
     },
 
-    async blockUser(userId) {
+    // ================== AUDIT WRITER ==================
+
+    /**
+     * Map a new status value onto an audit action.
+     *
+     * Pure, so it is checkable without a database. 'update' is the honest answer for
+     * a status the action enum has no word for (back to 'pending', an event moved to
+     * 'cancelled'): the specific values live in metadata either way.
+     */
+    actionForStatus(status) {
+        return ({
+            approved: 'approve',
+            rejected: 'reject',
+            blocked: 'block',
+            unblocked: 'unblock',
+            active: 'unblock',
+        })[String(status || '').toLowerCase()] || 'update';
+    },
+
+    /**
+     * The single place an admin action is recorded.
+     *
+     * Every mutating operation on this service used to decide for itself whether to
+     * write an AuditLog, and only four of nine did - deleteUser, deleteVenue,
+     * deleteEvent and toggleFeatured. So approving an event, rejecting a venue,
+     * approving a creator and blocking a user, the decisions the trail exists for,
+     * left no record at all. Routing them all through one writer is what stops the
+     * next operation added here from being invisible too.
+     *
+     * A failed audit write is logged, not thrown: the change it describes has already
+     * been committed by the time we get here, so raising would report failure for an
+     * action that actually took effect and invite a double-apply on retry.
+     */
+    async recordAdminAction({ adminUser, action, entityType, entityId, metadata = {} }) {
+        if (!adminUser) {
+            // Not fatal, but it means a route forgot to pass req.user._id and the
+            // entry would be unattributable - which is the one thing an audit trail
+            // cannot be missing.
+            console.error(`AuditLog: no adminUser for ${action} on ${entityType} ${entityId}`);
+            return null;
+        }
+        try {
+            return await AuditLog.create({ adminUser, action, entityType, entityId, metadata });
+        } catch (error) {
+            console.error('AuditLog write failed:', error.message);
+            return null;
+        }
+    },
+
+    async blockUser(userId, adminUserId) {
         const user = await User.findByIdAndUpdate(
             userId,
             { $set: { isBlocked: true } },
             { new: true }
         ).select('-password');
         if (!user) throw new Error('User not found');
+
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: 'block',
+            entityType: 'user',
+            entityId: userId,
+            // The name and email are copied in rather than left to a join: the account
+            // can later be deleted, and a trail of bare ids is not reviewable.
+            metadata: { name: user.name, email: user.email, field: 'isBlocked', from: false, to: true },
+        });
         return user;
     },
 
-    async unblockUser(userId) {
+    async unblockUser(userId, adminUserId) {
         const user = await User.findByIdAndUpdate(
             userId,
             { $set: { isBlocked: false } },
             { new: true }
         ).select('-password');
         if (!user) throw new Error('User not found');
+
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: 'unblock',
+            entityType: 'user',
+            entityId: userId,
+            metadata: { name: user.name, email: user.email, field: 'isBlocked', from: true, to: false },
+        });
         return user;
+    },
+
+    // Hard-delete a user account and everything they own. Reuses
+    // userService.deleteAccount so the admin path and the self-service path
+    // cascade over exactly the same collections — one cascade to maintain.
+    // Two guards, both to prevent an irreversible loss of access: an admin
+    // cannot delete themselves, and no admin account can be deleted from the
+    // dashboard at all (remove the admin role first, then delete).
+    // Pure guard, exported so it can be checked without a database.
+    // Returns null when the delete is allowed, else { status, message }.
+    userDeleteBlockReason(target, userId, adminUserId) {
+        if (String(userId) === String(adminUserId)) {
+            return { status: 400, message: 'You cannot delete your own account' };
+        }
+        const targetIsAdmin = target.role === 'admin'
+            || (Array.isArray(target.roles) && target.roles.includes('admin'));
+        if (targetIsAdmin) {
+            return { status: 403, message: 'Admin accounts cannot be deleted. Remove the admin role first.' };
+        }
+        return null;
+    },
+
+    async deleteUser(userId, adminUserId) {
+        const target = await User.findById(userId).select('role roles');
+        if (!target) throw new Error('User not found');
+
+        const blocked = this.userDeleteBlockReason(target, userId, adminUserId);
+        if (blocked) throw Object.assign(new Error(blocked.message), { status: blocked.status });
+
+        // Name/email captured before the cascade - after it there is no account left
+        // to join against, so an id-only entry would be permanently unreadable.
+        const named = await User.findById(userId).select('name email').lean();
+        const result = await require('./userService').deleteAccount(userId);
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: 'delete',
+            entityType: 'user',
+            entityId: userId,
+            metadata: { name: named?.name, email: named?.email },
+        });
+        return result;
     },
 
     // ================== VENUES ==================
     async getVenues(query = {}) {
         const { page = 1, limit = 20, search, status } = query;
-        const filter = {};
+        // Soft-deleted venues are gone as far as the dashboard is concerned;
+        // the audit trail is the record that they existed.
+        const filter = { isDeleted: { $ne: true } };
 
         if (search) {
             filter.$or = [
-                { name: new RegExp(search, 'i') },
-                { 'address.city': new RegExp(search, 'i') }
+                { name: searchRegex(search) },
+                { 'address.city': searchRegex(search) }
             ];
         }
         if (status && status !== 'all') filter.status = status;
@@ -158,7 +279,7 @@ const adminService = {
         const { search } = query;
 
         // Group venues by owner so we don't fan out one query per owner.
-        const venues = await Venue.find({})
+        const venues = await Venue.find({ isDeleted: { $ne: true } })
             .select('name status address capacity owner createdAt')
             .sort({ createdAt: -1 });
 
@@ -168,8 +289,8 @@ const adminService = {
         const ownerFilter = { _id: { $in: ownerIds } };
         if (search) {
             ownerFilter.$or = [
-                { name: new RegExp(search, 'i') },
-                { email: new RegExp(search, 'i') }
+                { name: searchRegex(search) },
+                { email: searchRegex(search) }
             ];
         }
 
@@ -209,33 +330,64 @@ const adminService = {
         };
     },
 
-    async updateVenueStatus(venueId, status) {
+    async updateVenueStatus(venueId, status, adminUserId) {
+        // Read the old status first so the trail can show what changed, not just what
+        // it ended up as. "approved" on its own does not tell a reviewer whether this
+        // was a first approval or a reversal of a rejection.
+        const before = await Venue.findById(venueId).select('status name').lean();
+        if (!before) throw new Error('Venue not found');
+
         const venue = await Venue.findByIdAndUpdate(
             venueId,
             { $set: { status } },
             { new: true }
         );
         if (!venue) throw new Error('Venue not found');
+
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: adminService.actionForStatus(status),
+            entityType: 'venue',
+            entityId: venueId,
+            metadata: { name: before.name, field: 'status', from: before.status, to: status },
+        });
         return venue;
+    },
+
+    // Delist a venue. Reuses the owner-facing soft delete (isDeleted +
+    // isActive:false) so bookings, payouts and reconciliation figures stay
+    // queryable — a hard delete here would silently break earnings totals.
+    async deleteVenue(venueId, adminUserId) {
+        const named = await Venue.findById(venueId).select('name').lean();
+        const result = await require('./venueService').deleteVenue(venueId);
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: 'delete',
+            entityType: 'venue',
+            entityId: venueId,
+            metadata: { name: named?.name },
+        });
+        return result;
     },
 
     // ================== EVENTS ==================
     async getEvents(query = {}) {
         const { page = 1, limit = 20, search, status, eventType } = query;
-        const filter = {};
+        // Same rule as getVenues: deleted listings drop out of the dashboard.
+        const filter = { isDeleted: { $ne: true } };
 
         if (search) {
             const matchingVenues = await Venue.find({
                 $or: [
-                    { name: new RegExp(search, 'i') },
-                    { 'address.city': new RegExp(search, 'i') }
+                    { name: searchRegex(search) },
+                    { 'address.city': searchRegex(search) }
                 ]
             }).select('_id');
-            
+
             filter.$or = [
-                { name: new RegExp(search, 'i') },
-                { 'customVenue.city': new RegExp(search, 'i') },
-                { 'customVenue.name': new RegExp(search, 'i') },
+                { name: searchRegex(search) },
+                { 'customVenue.city': searchRegex(search) },
+                { 'customVenue.name': searchRegex(search) },
                 { venue: { $in: matchingVenues.map(v => v._id) } }
             ];
         }
@@ -285,14 +437,41 @@ const adminService = {
         };
     },
 
-    async updateEventStatus(eventId, status) {
+    async updateEventStatus(eventId, status, adminUserId) {
+        const before = await Event.findById(eventId).select('status name').lean();
+        if (!before) throw new Error('Event not found');
+
         const event = await Event.findByIdAndUpdate(
             eventId,
             { $set: { status } },
             { new: true }
         );
         if (!event) throw new Error('Event not found');
+
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: adminService.actionForStatus(status),
+            entityType: 'event',
+            entityId: eventId,
+            metadata: { name: before.name, field: 'status', from: before.status, to: status },
+        });
         return event;
+    },
+
+    // Delist an event. Same reasoning as deleteVenue: soft delete via the
+    // existing organizer-facing path keeps tickets and revenue queryable.
+    // Refunds are NOT triggered here — use the cancel flow for that.
+    async deleteEvent(eventId, adminUserId) {
+        const named = await Event.findById(eventId).select('name').lean();
+        const result = await require('./eventService').deleteEvent(eventId);
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: 'delete',
+            entityType: 'event',
+            entityId: eventId,
+            metadata: { name: named?.name },
+        });
+        return result;
     },
 
     async toggleFeatured(eventId, isFeatured, adminUserId) {
@@ -303,14 +482,16 @@ const adminService = {
             throw new Error('Event must be in approved or upcoming status to be featured');
         }
 
+        const was = Boolean(event.isFeatured);
         event.isFeatured = isFeatured;
         await event.save();
 
-        await AuditLog.create({
+        await adminService.recordAdminAction({
             adminUser: adminUserId,
             action: isFeatured ? 'feature' : 'unfeature',
             entityType: 'event',
-            entityId: eventId
+            entityId: eventId,
+            metadata: { name: event.name, field: 'isFeatured', from: was, to: Boolean(isFeatured) },
         });
 
         return event;
@@ -322,9 +503,7 @@ const adminService = {
         const filter = {};
 
         if (search) {
-            filter.$or = [
-                { name: new RegExp(search, 'i') }
-            ];
+            filter.name = searchRegex(search);
         }
         if (status && status !== 'all') filter.status = status;
 
@@ -373,24 +552,92 @@ const adminService = {
         };
     },
 
-    async updateBrandStatus(brandId, status) {
+    /**
+     * Approve, reject or block a creator profile - and move the account's badge with it.
+     *
+     * This only wrote BrandProfile.status before, while brandService granted
+     * `verificationBadge` at profile-creation time. So the badge every creator feature
+     * reads was handed out on application and this decision changed nothing about it:
+     * approving was a no-op and rejecting left the applicant still badged as verified.
+     *
+     * Granting on approval and clearing on anything else makes this the single place
+     * creator verification is decided.
+     */
+    async updateBrandStatus(brandId, status, adminUserId) {
+        const before = await BrandProfile.findById(brandId).select('status name').lean();
+        if (!before) throw new Error('Brand not found');
+
         const brand = await BrandProfile.findByIdAndUpdate(
             brandId,
             { $set: { status } },
             { new: true }
         );
         if (!brand) throw new Error('Brand not found');
+
+        // Mirrors brandService's mapping: a profile has ten types, the badge
+        // distinguishes three, and anything not a band or organiser is a 'brand'.
+        const badgeForBrandType = (type) =>
+            ({ band: 'band', organizer: 'organizer' })[String(type || '').toLowerCase()] || 'brand';
+
+        if (brand.user) {
+            await User.findByIdAndUpdate(brand.user, {
+                $set:
+                    status === 'approved'
+                        ? { verificationBadge: badgeForBrandType(brand.type), isVerified: true }
+                        // Rejected, blocked or back to pending: the account is not a
+                        // verified creator, so the badge must go with it.
+                        : { verificationBadge: 'none', isVerified: false },
+            });
+        }
+
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: adminService.actionForStatus(status),
+            entityType: 'creator',
+            entityId: brandId,
+            // badgeChanged records the side effect, which is the part an account holder
+            // will ask about: this decision also grants or removes their verified tick.
+            metadata: {
+                name: before.name,
+                field: 'status',
+                from: before.status,
+                to: status,
+                badgeChanged: (before.status === 'approved') !== (status === 'approved'),
+            },
+        });
+
         return brand;
     },
 
     // ================== AUDIT TRAIL ==================
+
+    /** Largest page the audit endpoint will serve, whatever the caller asks for. */
+    AUDIT_MAX_LIMIT: 100,
+
+    /**
+     * Clamp paging input. Pure, so it is checkable without a database.
+     *
+     * `limit` was passed straight to .limit() from the query string, so
+     * `?limit=1000000` returned the entire audit table in one populated query - a table
+     * that only ever grows, and now grows on every admin action rather than only on
+     * deletes. `page` was equally unguarded: `?page=0` produced skip -20 and
+     * `?page=abc` produced NaN, either of which Mongo rejects or silently mishandles.
+     */
+    auditPaging({ page = 1, limit = 20 } = {}) {
+        const safePage = Math.max(1, Math.floor(Number(page)) || 1);
+        const requested = Math.floor(Number(limit)) || 20;
+        const safeLimit = Math.min(Math.max(1, requested), adminService.AUDIT_MAX_LIMIT);
+        return { page: safePage, limit: safeLimit, skip: (safePage - 1) * safeLimit };
+    },
+
     async getAuditTrail({ page = 1, limit = 20, entityType, action } = {}) {
         const filter = {};
         if (entityType) filter.entityType = entityType;
         if (action) filter.action = action;
 
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        const parsedLimit = parseInt(limit);
+        const paging = adminService.auditPaging({ page, limit });
+        const skip = paging.skip;
+        const parsedLimit = paging.limit;
 
         const [entries, total] = await Promise.all([
             AuditLog.find(filter)
@@ -404,8 +651,11 @@ const adminService = {
         return {
             entries,
             total,
-            page: parseInt(page),
-            pages: Math.ceil(total / parsedLimit)
+            page: paging.page,
+            // At least 1. An empty result used to report `pages: 0`, which the admin page
+            // only survived because it reads `data.pages || data.totalPages || 1` and 0
+            // is falsy - a coincidence, not a contract.
+            pages: Math.max(1, Math.ceil(total / parsedLimit)),
         };
     }
 };

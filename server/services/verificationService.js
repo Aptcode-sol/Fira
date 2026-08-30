@@ -112,11 +112,18 @@ const verificationService = {
                 existingUser.verificationBadge = request.type;
                 await existingUser.save();
 
-                // Create or update BrandProfile — don't create a duplicate
+                // Create or update BrandProfile — don't create a duplicate.
+                //
+                // `status` is set explicitly: this branch runs only on approval, and
+                // BrandProfile.status defaults to 'pending' on insert. Leaving it to the
+                // default badged the account while its profile still read "pending
+                // review", so the dashboard told an approved creator their application
+                // was still in the queue.
                 const brandProfileData = {
                     user: existingUser._id,
                     name: request.name,
                     type: request.type,
+                    status: 'approved',
                     bio: request.description || '',
                     socialLinks: request.socialLinks || {}
                 };

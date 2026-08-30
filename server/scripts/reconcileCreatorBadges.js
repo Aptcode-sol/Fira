@@ -1,25 +1,33 @@
 /**
  * Reconcile User.verificationBadge with the BrandProfile that should back it.
  *
- * The badge and the profile are stored independently and had drifted in BOTH
- * directions:
+ * One rule, matching the runtime code: an account carries a creator badge if and
+ * only if it has a BrandProfile with `status: 'approved'`. adminService is the only
+ * place that moves that status, so the badge follows the admin's decision and
+ * nothing else.
  *
- *   A) badge but NO profile (26 accounts)
- *      Purely seed artifacts - `verificationBadge` is never granted at runtime,
- *      only by seedAll.js. These users showed a verified tick with nothing
- *      behind it, and /create/creator used to refuse to let them make one.
+ * Three drifts to repair:
+ *
+ *   A) badge but NO profile
+ *      Seed artifacts. A verified tick with nothing behind it.
  *      -> badge reset to 'none'
  *
- *   B) profile but NO badge (2 accounts)
- *      The damaging direction. Creating a brand did not set the badge, and the
- *      badge is what every creator feature checks - the "+" button's Create
- *      Post, the Brand section of the dashboard sidebar. So a real creator had
- *      a profile they could not post to.
+ *   B) approved profile but NO badge
+ *      A real, admin-approved creator whose badge never got set - and the badge is
+ *      what every creator feature checks (the "+" button's Create Post, the creator
+ *      dashboard). So they had a profile they could not post from.
  *      -> badge granted from the profile's type
  *
- * The root cause of (B) is fixed in brandService.updateProfile, which now sets
- * the badge whenever a profile is created or updated. This script repairs the
- * accounts that predate that fix.
+ *   C) badge but the profile is NOT approved
+ *      The damaging direction, and the reason this script was rewritten.
+ *      brandService.updateProfile used to grant the badge on every profile save, so
+ *      submitting an application was enough to be shown as a "Verified Creator"
+ *      while the admin queue decided nothing. Every account that applied before that
+ *      fix is in this state.
+ *      -> badge cleared; they go back to "Applied" until an admin approves
+ *
+ * Section B used to grant a badge to ANY profile missing one, with no regard for
+ * status. Running that version now would re-create (C) on every pending applicant.
  *
  * Usage:
  *   node server/scripts/reconcileCreatorBadges.js            # preview
@@ -36,6 +44,12 @@ const CREATOR_BADGES = ['brand', 'band', 'organizer'];
 const BADGE_BY_TYPE = { band: 'band', organizer: 'organizer' };
 const badgeForBrandType = type => BADGE_BY_TYPE[String(type || '').toLowerCase()] || 'brand';
 
+const preview = (rows, limit = 6) => {
+    rows.slice(0, limit).forEach(line => console.log(`   ${line}`));
+    if (rows.length > limit) console.log(`   ... and ${rows.length - limit} more`);
+    if (rows.length === 0) console.log('   none');
+};
+
 async function main() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log(apply ? '=== APPLYING ===\n' : '=== DRY RUN (nothing written) ===\n');
@@ -43,52 +57,60 @@ async function main() {
     const User = require('../models/User');
     const BrandProfile = require('../models/BrandProfile');
 
-    // Load every profile once and index by user id - avoids an exists() query
-    // per user, which mattered at 140 users and will matter more later.
-    const profiles = await BrandProfile.find({}).select('user type name').lean();
+    // Load both sides once and join in memory - one query each instead of one per
+    // account, which mattered at 140 users and will matter more later.
+    const profiles = await BrandProfile.find({}).select('user type name status').lean();
     const profileByUser = new Map(profiles.map(p => [String(p.user), p]));
 
-    /* ---- A) badge with no profile -> clear ---- */
-    const badged = await User.find({ verificationBadge: { $in: CREATOR_BADGES } })
-        .select('email verificationBadge')
-        .lean();
+    const users = await User.find({}).select('email verificationBadge').lean();
 
-    const toClear = badged.filter(u => !profileByUser.has(String(u._id)));
-    console.log(`A) Badge but NO brand profile: ${toClear.length}`);
-    toClear.slice(0, 6).forEach(u =>
-        console.log(`   ${u.email.padEnd(34)} ${u.verificationBadge} -> none`)
-    );
-    if (toClear.length > 6) console.log(`   ... and ${toClear.length - 6} more`);
+    const clear = [];   // ids whose badge must go
+    const grant = [];   // { _id, badge }
 
-    if (apply && toClear.length) {
-        const r = await User.updateMany(
-            { _id: { $in: toClear.map(u => u._id) } },
-            { $set: { verificationBadge: 'none' } }
-        );
-        console.log(`   -> cleared ${r.modifiedCount}`);
+    for (const u of users) {
+        const p = profileByUser.get(String(u._id));
+        const badged = CREATOR_BADGES.includes(u.verificationBadge);
+        const approved = p?.status === 'approved';
+
+        if (badged && !approved) clear.push({ ...u, profile: p });
+        if (!badged && approved) grant.push({ ...u, profile: p, badge: badgeForBrandType(p.type) });
     }
 
-    /* ---- B) profile with no badge -> grant ---- */
-    console.log(`\nB) Brand profile but NO badge:`);
-    let granted = 0;
-    for (const p of profiles) {
-        const user = await User.findById(p.user).select('email verificationBadge').lean();
-        if (!user) continue;                                   // orphaned profile
-        if (CREATOR_BADGES.includes(user.verificationBadge)) continue;
+    const noProfile = clear.filter(u => !u.profile);
+    const notApproved = clear.filter(u => u.profile);
 
-        const badge = badgeForBrandType(p.type);
-        granted++;
-        console.log(`   ${user.email.padEnd(34)} ${user.verificationBadge} -> ${badge}   (${p.name}, ${p.type})`);
+    console.log(`A) Badge but NO brand profile: ${noProfile.length}`);
+    preview(noProfile.map(u => `${u.email.padEnd(34)} ${u.verificationBadge} -> none`));
 
-        if (apply) {
-            await User.updateOne({ _id: p.user }, { $set: { verificationBadge: badge } });
+    console.log(`\nB) Approved profile but NO badge: ${grant.length}`);
+    preview(grant.map(u => `${u.email.padEnd(34)} ${u.verificationBadge} -> ${u.badge}   (${u.profile.name}, ${u.profile.type})`));
+
+    console.log(`\nC) Badge but profile NOT approved: ${notApproved.length}`);
+    preview(notApproved.map(u => `${u.email.padEnd(34)} ${u.verificationBadge} -> none   (${u.profile.name}, status=${u.profile.status})`));
+
+    if (apply) {
+        if (clear.length) {
+            const r = await User.updateMany(
+                { _id: { $in: clear.map(u => u._id) } },
+                { $set: { verificationBadge: 'none', isVerified: false } }
+            );
+            console.log(`\n-> cleared ${r.modifiedCount} badge(s)`);
+        }
+        // Grouped by target badge so this stays three updateMany calls rather than
+        // one write per account.
+        for (const badge of CREATOR_BADGES) {
+            const ids = grant.filter(u => u.badge === badge).map(u => u._id);
+            if (!ids.length) continue;
+            const r = await User.updateMany(
+                { _id: { $in: ids } },
+                { $set: { verificationBadge: badge, isVerified: true } }
+            );
+            console.log(`-> granted ${r.modifiedCount} '${badge}' badge(s)`);
         }
     }
-    if (granted === 0) console.log('   none');
-    console.log(`   ${granted} account(s) ${apply ? 'granted' : 'would be granted'} a badge`);
 
     console.log(apply
-        ? '\nDone. Badges and profiles are now consistent.'
+        ? '\nDone. A creator badge now means exactly "has an approved brand profile".'
         : '\nRe-run with --apply to write these changes.');
 }
 

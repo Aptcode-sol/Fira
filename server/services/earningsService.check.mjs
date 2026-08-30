@@ -26,8 +26,11 @@ assert.deepEqual(computePayeeGross({ listedPrice: 1000, discountAmount: 0, disco
 assert.deepEqual(computePayeeGross({ listedPrice: 1000 }), { gross: 1000 });
 // full discount by owner → exactly zero, never negative
 assert.deepEqual(computePayeeGross({ listedPrice: 500, discountAmount: 500, discountBearer: 'owner' }), { gross: 0 });
-// Math.round semantics mirror calculateBilling/processPayout (halves up)
-assert.deepEqual(computePayeeGross({ listedPrice: 100.5, discountAmount: 0, discountBearer: 'platform' }), { gross: 101 });
+// roundMoney semantics mirror calculateBilling/processPayout: rounded to paise,
+// not to whole rupees - a half-rupee is money the owner is owed, not a rounding
+// artefact to be absorbed.
+assert.deepEqual(computePayeeGross({ listedPrice: 100.5, discountAmount: 0, discountBearer: 'platform' }), { gross: 100.5 });
+assert.deepEqual(computePayeeGross({ listedPrice: 29.976, discountAmount: 0, discountBearer: 'platform' }), { gross: 29.98 });
 
 // --- invalid inputs are excluded with an error indication, never negative ---
 // owner discount greater than listedPrice
@@ -402,3 +405,109 @@ for (const bad of [NaN, undefined, null, 'x', Infinity]) {
 }
 
 console.log('earningsService.buildVenueEarnings check: all assertions passed');
+
+// --- buildListingFigures: verbatim passthrough, whitelisted shape, fail-closed
+//     (per-listing-settlement-tracking task 2.1) ---
+// Requirements 2.1, 2.4, 3.1, 3.4, 12.1, 12.5. Pure assembly of already-aggregated
+// per-listing sums/counts, exercised here without a DB.
+const { buildListingFigures } = earningsService;
+
+const listingMoney = {
+    grossCollected: 10000, platformFeeCollected: 500, gstRetained: 900,
+    ownerGross: 10000, platformCommission: 500, netPayable: 9500, refundedTotal: 250,
+};
+const listingActivity = {
+    successfulPayments: 4, unitsSold: 7, confirmed: 6, cancelled: 1, refundedPayments: 1,
+    lastPaymentAt: new Date('2024-03-04T05:06:07.000Z'),
+};
+
+// every money figure and count is carried through verbatim (Req 12.1)
+{
+    const out = buildListingFigures({
+        money: listingMoney,
+        activity: listingActivity,
+        payout: { _id: 'po1', status: 'pending', netAmount: 9500 },
+    });
+    assert.deepEqual(out.money, listingMoney);
+    assert.equal(out.activity.successfulPayments, 4);
+    assert.equal(out.activity.unitsSold, 7);
+    assert.equal(out.activity.confirmed, 6);
+    assert.equal(out.activity.cancelled, 1);
+    assert.equal(out.activity.refundedPayments, 1);
+    assert.equal(out.activity.lastPaymentAt.toISOString(), '2024-03-04T05:06:07.000Z');
+    assert.deepEqual(out.payout, { payoutId: 'po1', status: 'pending', netAmount: 9500 });
+}
+
+// the shape is a whitelist: an extra aggregated field never reaches the caller
+{
+    const out = buildListingFigures({
+        money: { ...listingMoney, secretField: 42 },
+        activity: { ...listingActivity, _id: null },
+        payout: { _id: 'po1', status: 'completed', netAmount: 9500, bankDetails: { accountNumber: '123456789012' } },
+    });
+    assert.ok(!('secretField' in out.money));
+    assert.ok(!('_id' in out.activity));
+    assert.deepEqual(Object.keys(out.payout), ['payoutId', 'status', 'netAmount']);
+}
+
+// no payout record → payout null; netPayable is whatever was summed (0 in that
+// case), never invented from a percentage (design decision 1, Req 1.7)
+{
+    const out = buildListingFigures({
+        money: { ...listingMoney, ownerGross: 0, platformCommission: 0, netPayable: 0 },
+        activity: listingActivity,
+        payout: null,
+    });
+    assert.equal(out.payout, null);
+    assert.equal(out.money.netPayable, 0);
+}
+
+// empty listing → all zeros, and "no payments yet" is null, not a placeholder date (Req 3.4)
+{
+    const out = buildListingFigures({
+        money: {
+            grossCollected: 0, platformFeeCollected: 0, gstRetained: 0,
+            ownerGross: 0, platformCommission: 0, netPayable: 0, refundedTotal: 0,
+        },
+        activity: { successfulPayments: 0, unitsSold: 0, confirmed: 0, cancelled: 0, refundedPayments: 0, lastPaymentAt: null },
+        payout: null,
+    });
+    assert.equal(out.activity.lastPaymentAt, null);
+    assert.equal(out.money.grossCollected, 0);
+    assert.equal(out.payout, null);
+}
+
+// an ISO string timestamp is normalised to a Date rather than passed through raw
+{
+    const out = buildListingFigures({
+        money: listingMoney,
+        activity: { ...listingActivity, lastPaymentAt: '2024-03-04T05:06:07.000Z' },
+        payout: null,
+    });
+    assert.ok(out.activity.lastPaymentAt instanceof Date);
+}
+
+// fail closed: a non-finite money sum throws rather than returning a zeroed
+// figure set that would become a settlement basis (Req 12.5)
+for (const bad of [NaN, undefined, null, 'x', Infinity]) {
+    assert.throws(() => buildListingFigures({
+        money: { ...listingMoney, netPayable: bad },
+        activity: listingActivity,
+        payout: null,
+    }), /finite/);
+    // ...and so does a non-finite count
+    assert.throws(() => buildListingFigures({
+        money: listingMoney,
+        activity: { ...listingActivity, unitsSold: bad },
+        payout: null,
+    }), /finite/);
+}
+
+// fail closed: a present-but-unparseable timestamp is corrupt data
+assert.throws(() => buildListingFigures({
+    money: listingMoney,
+    activity: { ...listingActivity, lastPaymentAt: 'not-a-date' },
+    payout: null,
+}), /valid date/);
+
+console.log('earningsService.buildListingFigures check: all assertions passed');

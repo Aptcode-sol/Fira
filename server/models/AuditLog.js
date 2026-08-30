@@ -8,7 +8,17 @@ const auditLogSchema = new mongoose.Schema({
     },
     action: {
         type: String,
-        enum: ['approve', 'reject', 'block', 'unblock', 'feature', 'unfeature'],
+        // 'update' covers a change the other words cannot name - a status moved back
+        // to 'pending', an event 'cancelled'. Without it those writes failed enum
+        // validation and the action went unrecorded, which is the worst outcome for an
+        // audit log: silently incomplete. metadata carries the actual from/to.
+        // 'settle' / 'reverse' are money movement over a listing's settlement ledger.
+        // They are named rather than folded into 'update' for the same reason: a value
+        // missing here means Settlement recording fails enum validation and the action
+        // goes silently unrecorded, and a distinct word is what lets the audit surface
+        // filter money movement apart from ordinary status edits.
+        enum: ['approve', 'reject', 'block', 'unblock', 'feature', 'unfeature', 'delete', 'update',
+            'settle', 'reverse'],
         required: true
     },
     entityType: {

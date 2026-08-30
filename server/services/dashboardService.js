@@ -225,11 +225,18 @@ const dashboardService = {
             // User's venues
             venues,
 
-            // Brand profile summary
+            // Brand profile summary.
+            //
+            // `status` is included because it is the only place the client can learn
+            // where an application stands. The badge on the User document says
+            // "approved creator" or nothing, so without this a pending applicant and
+            // an account that never applied look identical, and the dashboard had no
+            // way to say "awaiting review".
             brandProfile: brandProfile ? {
                 _id: brandProfile._id,
                 name: brandProfile.name,
                 type: brandProfile.type,
+                status: brandProfile.status,
                 profilePhoto: brandProfile.profilePhoto,
                 followers: brandProfile.stats?.followers || 0,
                 events: brandProfile.stats?.events || 0

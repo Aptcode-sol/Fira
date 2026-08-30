@@ -1,5 +1,5 @@
 import { SITE_URL, SITE_NAME, absoluteUrl } from '@/lib/siteConfig';
-import type { SeoEvent, SeoVenue, SeoAddress } from './data';
+import type { SeoEvent, SeoVenue, SeoAddress, SeoCreator } from './data';
 import { clampText } from './data';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -200,5 +200,52 @@ export function venueSchema(venue: SeoVenue, id: string) {
         isAccessibleForFree: false,
         publisher: { '@id': `${SITE_URL}/#organization` },
         provider: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+    };
+}
+
+/**
+ * A creator profile - a band, DJ, artist or event organiser.
+ *
+ * `MusicGroup` for the performing types and `Organization` for the rest, because
+ * schema.org has no single "creative act" type and MusicGroup is what earns a band the
+ * richer treatment. Both accept the same properties used here.
+ *
+ * Followers are NOT emitted as interactionStatistic: the count is our own internal
+ * metric, and marking it up as a social interaction invites the sort of inflated-signal
+ * comparison Google discounts.
+ */
+export function creatorSchema(creator: SeoCreator, id: string) {
+    const url = absoluteUrl(`/creators/${id}`);
+    const performing = ['band', 'dj', 'singer', 'musician'].includes(
+        String(creator.type || '').toLowerCase()
+    );
+    const city = creator.primaryCity || creator.cities?.[0];
+
+    return {
+        '@context': 'https://schema.org',
+        '@type': performing ? 'MusicGroup' : 'Organization',
+        '@id': `${url}#creator`,
+        name: creator.name,
+        url,
+        ...(creator.bio ? { description: clampText(creator.bio, 500) } : {}),
+        ...(creator.profilePhoto ? { image: creator.profilePhoto } : {}),
+        ...(creator.profilePhoto ? { logo: creator.profilePhoto } : {}),
+        ...(city ? { areaServed: { '@type': 'City', name: city } } : {}),
+        ...(creator.members?.length
+            ? {
+                member: creator.members
+                    .filter(m => m.name)
+                    .slice(0, 20)
+                    .map(m => ({
+                        '@type': 'Person',
+                        name: m.name,
+                        ...(m.role ? { jobTitle: m.role } : {}),
+                    })),
+            }
+            : {}),
+        ...(Object.values(creator.socialLinks || {}).some(Boolean)
+            ? { sameAs: Object.values(creator.socialLinks || {}).filter((u): u is string => Boolean(u)) }
+            : {}),
+        subjectOf: { '@id': `${SITE_URL}/#website` },
     };
 }

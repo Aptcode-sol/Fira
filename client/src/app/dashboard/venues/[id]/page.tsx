@@ -14,6 +14,7 @@ import { venueDayRate } from '@/lib/venuePricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { formatInr } from '@/lib/formatInr';
 
 interface Venue {
     _id: string;
@@ -396,7 +397,7 @@ export default function VenueManagePage() {
     const prevMonth = () => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
     const nextMonth = () => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
 
-    const formatPrice = (price: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
+    const formatPrice = formatInr;
 
     // Format DateTime like "3 Jan 2026 14:00"
     const formatDateTime = (dateTimeStr: string) => {

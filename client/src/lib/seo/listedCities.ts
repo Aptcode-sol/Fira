@@ -28,6 +28,46 @@ const REVALIDATE_SECONDS = 3600;
  * cold is a worse outcome than briefly generating no city pages, which the next
  * revalidate fixes by itself.
  */
+/**
+ * Is this a city worth having a page for?
+ *
+ * The city list is built from address fields typed by venue owners and organisers, so
+ * it carries whatever they typed. The live list currently includes a city named
+ * "bokkaa" in a state called "midanaabadh", and one whose state is the literal string
+ * "https://vwver". The sitemap has previously advertised /events/in/a,
+ * /events/in/haiene, /events/in/narasa and /events/in/narasaraopet - every one of which
+ * 404s now, because the listing behind it was edited or removed. Submitting URLs that
+ * 404 is a crawl error on every fetch, and a page per typo is thin content that costs
+ * the real city pages their standing.
+ *
+ * Exported and pure so it is checkable without a network call, and applied inside
+ * fetchListedCities so the sitemap and the city page cannot apply different rules -
+ * they were the two sides of the 404.
+ *
+ * Deliberately permissive: this rejects obvious noise, not unfamiliar places. Real
+ * Indian city names it must keep include "Goa" (4 letters) and "Nellore Rural" (two
+ * words). ponytail: a name/length heuristic, not a gazetteer. Ceiling: it cannot tell
+ * "Bokkaa" from a real small town. The durable fix is validating the city field at
+ * entry, against the same list the search box uses.
+ */
+export function isPublishableCity(city: ListedCity): boolean {
+    const name = (city?.city || '').trim();
+    const slug = (city?.slug || '').trim();
+    if (!name || !slug) return false;
+    // 'a' was a real entry. Two characters is below any Indian city name.
+    if (name.length < 3) return false;
+    // Letters, spaces, hyphens, apostrophes and dots only - excludes the entry whose
+    // state field was a URL, and anything else pasted in by accident.
+    //
+    // `\p{M}` is not optional here. Indic scripts write vowels as combining marks, so
+    // "बंगलौर" is Letter + Mark + Letter + Letter + Mark + Letter: a letters-only
+    // pattern rejects every Devanagari, Telugu and Tamil spelling of a real city. On an
+    // Indian product that is not an edge case.
+    if (!/^[\p{L}][\p{L}\p{M}\s.'-]*$/u.test(name)) return false;
+    // A city page with nothing on it is an empty page.
+    return (city.venues ?? 0) + (city.events ?? 0) > 0;
+}
+
 export async function fetchListedCities(): Promise<ListedCity[]> {
     try {
         const res = await fetch(`${API_BASE_URL}/locations/listed`, {
@@ -36,7 +76,8 @@ export async function fetchListedCities(): Promise<ListedCity[]> {
         });
         if (!res.ok) return [];
         const data = await res.json();
-        return Array.isArray(data?.cities) ? data.cities : [];
+        if (!Array.isArray(data?.cities)) return [];
+        return (data.cities as ListedCity[]).filter(isPublishableCity);
     } catch {
         return [];
     }

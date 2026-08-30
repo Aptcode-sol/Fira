@@ -101,6 +101,20 @@ export default function Venues() {
         }
     };
 
+    // Soft delete on the server: the venue leaves every listing but its
+    // bookings and payout history stay intact for reconciliation.
+    const handleDelete = async (venue, e) => {
+        e.stopPropagation();
+        if (!window.confirm(`Delete "${venue.name}"?\n\nIt will be removed from all listings. Existing bookings and payout records are kept.`)) return;
+        try {
+            await adminApi.deleteVenue(venue._id);
+            fetchVenues();
+        } catch (err) {
+            console.error('Failed to delete venue:', err);
+            alert(err.message || 'Failed to delete venue');
+        }
+    };
+
     const getStatusColor = (status) => {
         switch (status) {
             case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -273,6 +287,16 @@ export default function Venues() {
                                                             </svg>
                                                         </button>
                                                     )}
+                                                    <button
+                                                        onClick={(e) => handleDelete(venue, e)}
+                                                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                                                        title="Delete Venue"
+                                                        aria-label={`Delete venue ${venue.name}`}
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

@@ -4,12 +4,27 @@ import { useState, useEffect } from 'react';
 import { discountsApi } from '@/lib/api';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
-import { openPickerOnClick } from '@/lib/dateInput';
 
 const DISCOUNT_TYPES = [
     { value: 'percentage', label: 'Percentage (%)' },
     { value: 'flat', label: 'Flat (₹)' },
 ];
+
+/**
+ * States the validity window instead of asking for it. Removing the two date fields
+ * without saying what replaced them would leave the organizer guessing how long their
+ * code lasts.
+ */
+function ValidityNote({ eventEnd }: { eventEnd?: string }) {
+    const until = eventEnd
+        ? new Date(eventEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+        : null;
+    return (
+        <p className="text-xs text-gray-400">
+            Valid as soon as it is created, until the event ends{until ? ` (${until})` : ''}.
+        </p>
+    );
+}
 
 interface DiscountCode {
     _id: string;
@@ -26,35 +41,27 @@ interface DiscountCode {
 
 interface DiscountCodesSectionProps {
     eventId: string;
-    // Event date window (ISO strings). A discount code's validity must fall
-    // inside [eventStart, eventEnd] — 11.14. Optional so the section still
-    // renders if the parent hasn't loaded the event yet; the window check is
-    // simply skipped when a bound is missing.
-    eventStart?: string;
+    /**
+     * Event end (ISO). Display only - it is what the code's validity is derived
+     * from server-side, so the form states it rather than asking for it.
+     */
     eventEnd?: string;
 }
 
-// 11.14 — a discount is only valid within the event's own date window.
-// Returns an error string for the offending field, or null when in-window.
-// ponytail: date-only compare (slice to YYYY-MM-DD) because the form inputs
-// are <input type="date">; time-of-day precision lives in the server check.
-export function discountWindowError(
-    validFrom: string,
-    validUntil: string,
-    eventStart?: string,
-    eventEnd?: string,
-): string | null {
-    const day = (d: string) => d.slice(0, 10);
-    if (eventStart && validFrom && day(validFrom) < day(eventStart)) {
-        return `Valid from cannot be before the event start (${day(eventStart)})`;
-    }
-    if (eventEnd && validUntil && day(validUntil) > day(eventEnd)) {
-        return `Valid until cannot be after the event end (${day(eventEnd)})`;
-    }
-    return null;
-}
-
-export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: DiscountCodesSectionProps) {
+/**
+ * The validity window is no longer entered here.
+ *
+ * The form used to collect "Valid From" / "Valid Until" and constrain both to
+ * [eventStart, eventEnd]. But a code is checked at PURCHASE time, and tickets sell
+ * before the event runs - so an organizer creating a code for next month's event was
+ * forced to start it on the event's own start date, leaving it unusable for the whole
+ * selling period. Two fields whose only correct value was implied by the event.
+ *
+ * discountService.discountWindow now derives it: usable from creation until the event
+ * ends. The server ignores any dates in the request, so this is not just a hidden
+ * field with a default.
+ */
+export default function DiscountCodesSection({ eventId, eventEnd }: DiscountCodesSectionProps) {
     const { showToast } = useToast();
     const [codes, setCodes] = useState<DiscountCode[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -63,10 +70,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
     const [editingCode, setEditingCode] = useState<DiscountCode | null>(null);
     const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    // Inline date-window error rendered inside the modal (11.14) — never a
-    // toast, so the message sits on the visible layer next to the field.
-    const [addDateError, setAddDateError] = useState<string | null>(null);
-    const [editDateError, setEditDateError] = useState<string | null>(null);
 
     // Add form state
     const [addForm, setAddForm] = useState({
@@ -74,8 +77,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
         discountType: 'percentage' as 'percentage' | 'flat',
         discountValue: '',
         maxUses: '',
-        validFrom: '',
-        validUntil: '',
     });
 
     // Edit form state
@@ -83,8 +84,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
         discountType: 'percentage' as 'percentage' | 'flat',
         discountValue: '',
         maxUses: '',
-        validFrom: '',
-        validUntil: '',
     });
 
     useEffect(() => {
@@ -104,8 +103,7 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
     };
 
     const resetAddForm = () => {
-        setAddForm({ code: '', discountType: 'percentage', discountValue: '', maxUses: '', validFrom: '', validUntil: '' });
-        setAddDateError(null);
+        setAddForm({ code: '', discountType: 'percentage', discountValue: '', maxUses: '' });
         setShowAddModal(false);
     };
 
@@ -121,21 +119,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
             showToast('Discount value must be a positive number', 'error');
             return;
         }
-        if (!addForm.validFrom || !addForm.validUntil) {
-            showToast('Valid from and valid until dates are required', 'error');
-            return;
-        }
-        if (new Date(addForm.validUntil) <= new Date(addForm.validFrom)) {
-            showToast('Valid until must be after valid from', 'error');
-            return;
-        }
-        // 11.14 — reject dates outside the event window with an inline error.
-        const windowErr = discountWindowError(addForm.validFrom, addForm.validUntil, eventStart, eventEnd);
-        if (windowErr) {
-            setAddDateError(windowErr);
-            return;
-        }
-        setAddDateError(null);
 
         setIsSaving(true);
         try {
@@ -145,8 +128,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
                 discountType: addForm.discountType,
                 discountValue,
                 maxUses,
-                validFrom: addForm.validFrom,
-                validUntil: addForm.validUntil,
             });
             setCodes(prev => [created as DiscountCode, ...prev]);
             resetAddForm();
@@ -164,10 +145,7 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
             discountType: code.discountType,
             discountValue: String(code.discountValue),
             maxUses: code.maxUses != null ? String(code.maxUses) : '',
-            validFrom: code.validFrom ? code.validFrom.slice(0, 10) : '',
-            validUntil: code.validUntil ? code.validUntil.slice(0, 10) : '',
         });
-        setEditDateError(null);
         setShowEditModal(true);
     };
 
@@ -178,17 +156,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
             showToast('Discount value must be a positive number', 'error');
             return;
         }
-        if (editForm.validFrom && editForm.validUntil && new Date(editForm.validUntil) <= new Date(editForm.validFrom)) {
-            showToast('Valid until must be after valid from', 'error');
-            return;
-        }
-        // 11.14 — reject dates outside the event window with an inline error.
-        const windowErr = discountWindowError(editForm.validFrom, editForm.validUntil, eventStart, eventEnd);
-        if (windowErr) {
-            setEditDateError(windowErr);
-            return;
-        }
-        setEditDateError(null);
 
         setIsSaving(true);
         try {
@@ -198,8 +165,6 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
             };
             if (editForm.maxUses) data.maxUses = Number(editForm.maxUses);
             else data.maxUses = null;
-            if (editForm.validFrom) data.validFrom = editForm.validFrom;
-            if (editForm.validUntil) data.validUntil = editForm.validUntil;
 
             const updated = await discountsApi.edit(editingCode._id, data);
             setCodes(prev => prev.map(c => c._id === editingCode._id ? (updated as DiscountCode) : c));
@@ -373,39 +338,7 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
                         onWheel={(e) => e.currentTarget.blur()}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Valid From"
-                            type="date"
-                            value={addForm.validFrom}
-                            min={eventStart ? eventStart.slice(0, 10) : undefined}
-                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                            onChange={(e) => { setAddForm({ ...addForm, validFrom: e.target.value }); setAddDateError(null); }}
-                            className="[color-scheme:dark]"
-                            {...openPickerOnClick}
-                        />
-                        <Input
-                            label="Valid Until"
-                            type="date"
-                            value={addForm.validUntil}
-                            min={eventStart ? eventStart.slice(0, 10) : undefined}
-                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                            onChange={(e) => { setAddForm({ ...addForm, validUntil: e.target.value }); setAddDateError(null); }}
-                            className="[color-scheme:dark]"
-                            {...openPickerOnClick}
-                        />
-                    </div>
-
-                    {(eventStart || eventEnd) && (
-                        <p className="text-xs text-gray-400">
-                            Dates must fall within the event window
-                            {eventStart ? ` (${eventStart.slice(0, 10)}` : ' ('}
-                            {eventEnd ? ` – ${eventEnd.slice(0, 10)})` : ')'}.
-                        </p>
-                    )}
-                    {addDateError && (
-                        <p className="text-sm text-red-400">{addDateError}</p>
-                    )}
+                    <ValidityNote eventEnd={eventEnd} />
 
                     <div className="flex justify-end gap-3 pt-4">
                         <Button variant="secondary" onClick={resetAddForm}>Cancel</Button>
@@ -453,39 +386,7 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
                         onWheel={(e) => e.currentTarget.blur()}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Valid From"
-                            type="date"
-                            value={editForm.validFrom}
-                            min={eventStart ? eventStart.slice(0, 10) : undefined}
-                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                            onChange={(e) => { setEditForm({ ...editForm, validFrom: e.target.value }); setEditDateError(null); }}
-                            className="[color-scheme:dark]"
-                            {...openPickerOnClick}
-                        />
-                        <Input
-                            label="Valid Until"
-                            type="date"
-                            value={editForm.validUntil}
-                            min={eventStart ? eventStart.slice(0, 10) : undefined}
-                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                            onChange={(e) => { setEditForm({ ...editForm, validUntil: e.target.value }); setEditDateError(null); }}
-                            className="[color-scheme:dark]"
-                            {...openPickerOnClick}
-                        />
-                    </div>
-
-                    {(eventStart || eventEnd) && (
-                        <p className="text-xs text-gray-400">
-                            Dates must fall within the event window
-                            {eventStart ? ` (${eventStart.slice(0, 10)}` : ' ('}
-                            {eventEnd ? ` – ${eventEnd.slice(0, 10)})` : ')'}.
-                        </p>
-                    )}
-                    {editDateError && (
-                        <p className="text-sm text-red-400">{editDateError}</p>
-                    )}
+                    <ValidityNote eventEnd={eventEnd} />
 
                     <div className="flex justify-end gap-3 pt-4">
                         <Button variant="secondary" onClick={() => { setShowEditModal(false); setEditingCode(null); }}>Cancel</Button>

@@ -55,16 +55,25 @@ export const SITE_NAME = 'FIRA';
 export const SITE_LEGAL_NAME = 'FIRA';
 
 /**
- * Every string a real person might type when they mean this product.
- * Feeding these to Google as `alternateName` is the main on-site lever for
- * connecting the searches "fira", "lets fira" and "letsfira" to one entity.
+ * Fallback site names, and NOT a keyword list.
+ *
+ * `alternateName` is what Google picks from when it does not select your preferred
+ * `name` - per Google's site names documentation, it exists so the system "can
+ * consider other options if your preferred choice isn't selected". So every string
+ * here is a name we would accept seeing above our search results.
+ *
+ * This used to include 'letsfira', 'Lets FIRA' and "Let's FIRA" as query synonyms,
+ * and Google did exactly what the field says it does: it showed "letsfira". Offering
+ * the domain spelling as a candidate name is what caused the brand to be displayed as
+ * the domain. Only FIRA-forward alternates remain, so whichever one is chosen still
+ * reads as the brand.
+ *
+ * The synonyms are still discoverable - they belong in body copy, which is what
+ * actually matches a query. /about states in prose that FIRA is "also written Lets
+ * FIRA or letsfira".
  */
 export const SITE_ALTERNATE_NAMES = [
-    'Lets FIRA',
-    "Let's FIRA",
-    'letsfira',
     'FIRA Events',
-    'FIRA App',
     'FIRA India',
 ];
 

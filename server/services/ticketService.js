@@ -5,6 +5,7 @@ const discountService = require('./discountService'); // Server-side discount re
 const { PURCHASE_FALLBACK_TIER } = require('./ticketTiers');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
+const { roundMoney } = require('../utils/money');
 
 // One money branch for both flat and tier paid purchases (ponytail: stays
 // in-file, no cross-service abstraction until a third caller appears).
@@ -269,7 +270,7 @@ const ticketService = {
                 quantity,
                 // The tier's price when one applies, so the ticket records what was
                 // actually charged rather than the event's base price.
-                price: unitPrice * quantity,
+                price: roundMoney(unitPrice * quantity),
                 payment: paymentId // Link to payment if exists
             });
         } catch (err) {
@@ -304,6 +305,22 @@ const ticketService = {
             priority: 'high',
             channel: 'all'
         }).catch(err => console.error('ticket_purchased notification failed:', err.message));
+
+        // Email the ticket itself - QR, ticket id and the tier they bought. Same
+        // best-effort contract as the notification above: a dead SMTP box must
+        // never lose someone their ticket, so this is never awaited.
+        // The template reads event.venue.name, and `event` here was loaded without
+        // populate, so name the venue before handing it over (events with a
+        // customVenue have no venue to populate - the template handles that).
+        const User = require('../models/User');
+        const emailService = require('./emailService');
+        User.findById(userId).select('name email').lean()
+            .then(async buyer => {
+                if (!buyer?.email) return;
+                if (event.venue) await event.populate({ path: 'venue', select: 'name' });
+                await emailService.sendTicketEmail(buyer.email, buyer.name, event, ticket);
+            })
+            .catch(err => console.error('ticket email failed:', err.message));
 
         // Let the organiser know a ticket moved.
         if (event.organizer && event.organizer.toString() !== userId.toString()) {

@@ -1,0 +1,96 @@
+robots.txt disallow rules (13): /dashboard/ /venue-portal/dashboard /venue-portal/venues /venue-portal/bookings /venue-portal/events /venue-portal/analytics /venue-portal/settings /messages /notifications /create/ /signin /signup /forgot-password
+sitemap URLs: 79
+
+[A] in sitemap BUT disallowed by robots.txt: 0
+
+[B] sitemap entries on a different host than https://www.letsfira.com: 0
+
+[C] per-URL check
+
+  status: 0
+
+  canonical: 26
+    https://www.letsfira.com/events/weekend -> canonical https://www.letsfira.com/events
+    https://www.letsfira.com/events/ready-to-go -> canonical https://www.letsfira.com/events
+    https://www.letsfira.com/help -> canonical https://www.letsfira.com
+    https://www.letsfira.com/terms -> canonical https://www.letsfira.com
+    https://www.letsfira.com/privacy -> canonical https://www.letsfira.com
+    https://www.letsfira.com/refund-policy -> canonical https://www.letsfira.com
+    https://www.letsfira.com/community-guidelines -> canonical https://www.letsfira.com
+    https://www.letsfira.com/brands/6a8c11f58406c2e6b0c9f34a -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/6a74b55344770f9d83016ac1 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d54b7dd13136535f58db04 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d54b6ed13136535f58db03 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fe7 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fe3 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fdf -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fdb -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fd7 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fd3 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fcf -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fcb -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fc7 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fc3 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fbf -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fbb -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fb7 -> canonical https://www.letsfira.com/brands
+    https://www.letsfira.com/brands/69d28359c46675e4050e3fb3 -> canonical https://www.letsfira.com/brands
+    ... and 1 more
+
+  noindex: 0
+
+  noH1: 35
+    https://www.letsfira.com/events/6a4a4c7391d50d0d88207abd
+    https://www.letsfira.com/venues/6a93e66cba72eddab56513e3
+    https://www.letsfira.com/venues/6a8c16af80e848b4c7741a21
+    https://www.letsfira.com/venues/6a6f941cf01449ef49201fc0
+    https://www.letsfira.com/venues/69d5cf151f3332d1e25e4ac3
+    https://www.letsfira.com/venues/69d548f97e25585431122b88
+    https://www.letsfira.com/venues/69d545277e25585431122a35
+    https://www.letsfira.com/venues/69d5421d7e2558543112290c
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff7
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff5
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff3
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff1
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3fef
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3fed
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3feb
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3fe9
+    https://www.letsfira.com/brands/6a8c11f58406c2e6b0c9f34a
+    https://www.letsfira.com/brands/6a74b55344770f9d83016ac1
+    https://www.letsfira.com/brands/69d54b7dd13136535f58db04
+    https://www.letsfira.com/brands/69d54b6ed13136535f58db03
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fe7
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fe3
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fdf
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fdb
+    https://www.letsfira.com/brands/69d2835ac46675e4050e3fd7
+    ... and 10 more
+
+  thin: 41
+    https://www.letsfira.com/events (98 words)
+    https://www.letsfira.com/venues (104 words)
+    https://www.letsfira.com/brands (93 words)
+    https://www.letsfira.com/creators (93 words)
+    https://www.letsfira.com/events/weekend (98 words)
+    https://www.letsfira.com/events/ready-to-go (103 words)
+    https://www.letsfira.com/events/6a4a4c7391d50d0d88207abd (74 words)
+    https://www.letsfira.com/venues/6a93e66cba72eddab56513e3 (74 words)
+    https://www.letsfira.com/venues/6a8c16af80e848b4c7741a21 (73 words)
+    https://www.letsfira.com/venues/6a6f941cf01449ef49201fc0 (73 words)
+    https://www.letsfira.com/venues/69d5cf151f3332d1e25e4ac3 (75 words)
+    https://www.letsfira.com/venues/69d548f97e25585431122b88 (73 words)
+    https://www.letsfira.com/venues/69d545277e25585431122a35 (75 words)
+    https://www.letsfira.com/venues/69d5421d7e2558543112290c (73 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff7 (76 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff5 (74 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff3 (76 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3ff1 (75 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3fef (74 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3fed (74 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3feb (75 words)
+    https://www.letsfira.com/venues/69d2835ac46675e4050e3fe9 (75 words)
+    https://www.letsfira.com/brands/6a8c11f58406c2e6b0c9f34a (68 words)
+    https://www.letsfira.com/brands/6a74b55344770f9d83016ac1 (68 words)
+    https://www.letsfira.com/brands/69d54b7dd13136535f58db04 (68 words)
+    ... and 16 more

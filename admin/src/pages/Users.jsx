@@ -64,6 +64,22 @@ export default function Users() {
         }
     };
 
+    // Irreversible: removes the account plus every event, venue, booking,
+    // ticket and post it owns. window.confirm is the guard - native, and the
+    // operator has to acknowledge the blast radius before the request is sent.
+    const handleDelete = async (user, e) => {
+        e.stopPropagation();
+        const label = user.name || user.email || 'this user';
+        if (!window.confirm(`Permanently delete ${label}?\n\nThis also removes their events, venues, bookings, tickets and posts. This cannot be undone.`)) return;
+        try {
+            await adminApi.deleteUser(user._id);
+            fetchUsers();
+        } catch (err) {
+            console.error('Failed to delete user:', err);
+            alert(err.message || 'Failed to delete user');
+        }
+    };
+
     // The User model has no `status` field - block state lives on `isBlocked`.
     const userStatus = (user) => (user.isBlocked ? 'blocked' : 'active');
 
@@ -240,6 +256,16 @@ export default function Users() {
                                                             </svg>
                                                         </button>
                                                     )}
+                                                    <button
+                                                        onClick={(e) => handleDelete(user, e)}
+                                                        className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
+                                                        title="Delete User"
+                                                        aria-label={`Delete ${user.name || user.email || 'user'}`}
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

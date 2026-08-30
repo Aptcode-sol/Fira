@@ -10,6 +10,7 @@ import { isVenueOwner } from '@/lib/types';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { openEditVenue } from '@/components/modals/CreateVenueLauncher';
 import { VENUE_SAVED } from '@/components/modals/CreateVenueModal';
+import { formatInr } from '@/lib/formatInr';
 
 interface Venue {
     _id: string;
@@ -68,8 +69,7 @@ export default function VenueOwnerPreviewPage() {
         return () => window.removeEventListener(VENUE_SAVED, fetchVenue);
     }, [isAuthenticated, user, venueId]);
 
-    const formatPrice = (price: number) =>
-        new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
+    const formatPrice = formatInr;
 
     const getDateAvailability = (date: Date) => {
         const dayOfWeek = date.getDay();

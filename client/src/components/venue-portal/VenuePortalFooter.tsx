@@ -18,8 +18,8 @@ const footerLinks = {
         { label: 'Contact', href: '/contact' },
     ],
     legal: [
-        { label: 'Privacy', href: '/privacy' },
         { label: 'Terms', href: '/terms' },
+        { label: 'Host Agreement', href: '/host-agreement' },
     ],
 };
 

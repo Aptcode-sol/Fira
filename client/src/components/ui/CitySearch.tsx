@@ -224,12 +224,19 @@ export function CitySearch({
     );
 
     return (
-        <div className={`relative ${className}`} ref={triggerRef}>
+        <div className={`relative ${className}`}>
             {label && (
                 <label htmlFor={inputId} className="block text-sm font-medium text-gray-300 mb-2">
                     {label}
                 </label>
             )}
+            {/* triggerRef wraps the input alone, not the whole field.
+                useFloatingList positions the list from this element's rect, so
+                including the label would anchor the list to the top of the label
+                instead of the input - and when the label wraps to two lines (the
+                creator form's "Cities / Locations (Add multiple...)"), the list
+                opened two lines clear of the box it belongs to. */}
+            <div ref={triggerRef}>
             <input
                 id={inputId}
                 type="text"
@@ -278,6 +285,7 @@ export function CitySearch({
                     : 'border-white/10 hover:border-violet-500/30 focus:ring-violet-500/50'
                     }`}
             />
+            </div>
 
             {showList && isMounted && position && createPortal(list, document.body)}
 

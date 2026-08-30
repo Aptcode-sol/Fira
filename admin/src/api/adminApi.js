@@ -32,13 +32,20 @@ async function handle(res, fallbackMessage) {
     }
     if (!res.ok) {
         let message = fallbackMessage;
+        let body = null;
         try {
-            const body = await res.json();
+            body = await res.json();
             if (body?.error) message = body.error;
         } catch {
             // non-JSON error body; keep the fallback
         }
-        throw new Error(message);
+        const error = new Error(message);
+        // Structured rejections (e.g. the settlement over-settlement guard, which
+        // returns code/netPayable/maxRecordable) are unusable if only the message
+        // survives. Callers that don't care keep reading `.message` as before.
+        error.status = res.status;
+        error.body = body;
+        throw error;
     }
     return res.json();
 }
@@ -87,6 +94,11 @@ const adminApi = {
         return handle(res, 'Failed to unblock user');
     },
 
+    async deleteUser(userId) {
+        const res = await fetch(`${API_BASE}/users/${userId}`, { method: 'DELETE', headers: authHeaders() });
+        return handle(res, 'Failed to delete user');
+    },
+
     // ================== VENUES ==================
     async getVenues(params = {}) {
         const query = new URLSearchParams(params).toString();
@@ -114,6 +126,11 @@ const adminApi = {
         return handle(res, 'Failed to update venue status');
     },
 
+    async deleteVenue(venueId) {
+        const res = await fetch(`${API_BASE}/venues/${venueId}`, { method: 'DELETE', headers: authHeaders() });
+        return handle(res, 'Failed to delete venue');
+    },
+
     // ================== EVENTS ==================
     async getEvents(params = {}) {
         const query = new URLSearchParams(params).toString();
@@ -133,6 +150,11 @@ const adminApi = {
             body: JSON.stringify({ status })
         });
         return handle(res, 'Failed to update event status');
+    },
+
+    async deleteEvent(eventId) {
+        const res = await fetch(`${API_BASE}/events/${eventId}`, { method: 'DELETE', headers: authHeaders() });
+        return handle(res, 'Failed to delete event');
     },
 
     async toggleFeatured(eventId, isFeatured) {
@@ -217,6 +239,30 @@ const adminApi = {
         const query = params.toString();
         const res = await fetch(`${API_BASE}/earnings/payouts${query ? `?${query}` : ''}`, { headers: authHeaders() });
         return handle(res, 'Failed to fetch payouts');
+    },
+
+    // ================== PER-LISTING SETTLEMENT ==================
+    async getListingSettlement(kind, listingId) {
+        const res = await fetch(`${API_BASE}/listings/${kind}/${listingId}/settlement`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch settlement');
+    },
+
+    async recordSettlement(kind, listingId, body) {
+        const res = await fetch(`${API_BASE}/listings/${kind}/${listingId}/settlement/entries`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(body)
+        });
+        return handle(res, 'Failed to record settlement');
+    },
+
+    async reverseSettlement(kind, listingId, entryId, reason) {
+        const res = await fetch(`${API_BASE}/listings/${kind}/${listingId}/settlement/entries/${entryId}/reversal`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ reason })
+        });
+        return handle(res, 'Failed to reverse settlement');
     },
 
     // ================== DISCOUNT CODES ==================

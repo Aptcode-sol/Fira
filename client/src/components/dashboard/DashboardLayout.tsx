@@ -55,10 +55,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         }
     };
 
-    // Derive sidebar visibility from user context — no API calls needed.
-    // This is the only remaining conditional section: a brand profile is a real
-    // separate destination, not a duplicate of something already in the list.
-    const hasBrand = !!(user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge));
+    // No role gating left in this sidebar: every item in the nav model is shown to
+    // every signed-in account. My Brand is visible to all - the page itself handles
+    // the "you don't have a profile yet" case, which is a better answer than hiding
+    // the entrance to it.
 
     // Persist sidebar state
     useEffect(() => {
@@ -246,30 +246,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         })}
                     </div>
 
-                    {/* Brand Profile, pinned above the shared footer. Gated as a whole
-                        so accounts without a brand do not get a stray divider. */}
-                    {hasBrand && (
-                        <div className="shrink-0 space-y-1 pt-3 mt-2 border-t border-white/[0.06]">
-                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
-                                <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
-                                    Brand Profile
-                                </div>
-                            </div>
-                            <Link
-                                href="/dashboard/brand"
-                                onClick={handleLinkClick}
-                                className={sidebarRowClass({
-                                    isOpen,
-                                    isActive: pathname.startsWith('/dashboard/brand'),
-                                    tone: 'brand',
-                                })}
-                                title={!isOpen ? 'My Brand' : undefined}
-                            >
-                                <span className={SIDEBAR_SLOT}>{getIcon('sparkles')}</span>
-                                {isOpen && <span className={SIDEBAR_LABEL}>My Brand</span>}
-                            </Link>
-                        </div>
-                    )}
+                    {/* No pinned "Brand Profile" block. My Brand is a normal nav item in
+                        the scrolling list above - a section header plus a divider plus a
+                        role gate was a lot of chrome around a single link, and pinning it
+                        to the bottom put it furthest from the other destinations. */}
                 </nav>
 
                 {/* Settings, then the signed-in account with Log out opposite it.
@@ -286,7 +266,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="flex flex-wrap gap-2 text-xs text-gray-300">
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
                         <span>•</span>
-                        <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                        <Link href="/organiser-agreement" className="hover:text-white transition-colors">Organisers</Link>
+                        <span>•</span>
+                        <Link href="/host-agreement" className="hover:text-white transition-colors">Hosts</Link>
                         <span>•</span>
                         <Link href="/help" className="hover:text-white transition-colors">Help</Link>
                     </div>

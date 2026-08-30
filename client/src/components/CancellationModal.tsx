@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from '@/components/ui';
 import { ticketsApi } from '@/lib/api';
+import { formatInr } from '@/lib/formatInr';
 
 interface RefundEligibility {
     eligible: boolean;
@@ -100,7 +101,7 @@ export function CancellationModal({
                     {refundResult.refund ? (
                         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mt-4">
                             <p className="text-green-400 text-sm mb-2">Refund Initiated</p>
-                            <p className="text-2xl font-bold text-green-400">₹{refundResult.refund.amount}</p>
+                            <p className="text-2xl font-bold text-green-400">{formatInr(refundResult.refund.amount)}</p>
                             <p className="text-xs text-gray-300 mt-2">
                                 {refundResult.refundEligibility?.policy}
                             </p>
@@ -156,14 +157,14 @@ export function CancellationModal({
                                         <div className="mt-3 pt-3 border-t border-white/10">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-gray-300 text-sm">Original Amount</span>
-                                                <span className="text-white">₹{eligibility.originalAmount}</span>
+                                                <span className="text-white">{formatInr(eligibility.originalAmount)}</span>
                                             </div>
                                             <div className="flex justify-between items-center mt-1">
                                                 <span className="text-gray-300 text-sm">
                                                     Refund ({eligibility.refundPercentage}%)
                                                 </span>
                                                 <span className="text-green-400 font-semibold text-lg">
-                                                    ₹{eligibility.refundAmount}
+                                                    {formatInr(eligibility.refundAmount)}
                                                 </span>
                                             </div>
                                         </div>

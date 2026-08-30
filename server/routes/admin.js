@@ -4,6 +4,7 @@ const adminService = require('../services/adminService');
 const earningsService = require('../services/earningsService');
 const adminAuth = require('../middleware/adminAuth');
 const roleGuard = require('../middleware/roleGuard');
+const { invalidateCache } = require('../middleware/httpCache');
 const User = require('../models/User');
 
 // Gate EVERY admin route behind a valid token + admin role.
@@ -43,7 +44,7 @@ router.get('/users/:id', async (req, res) => {
 
 router.put('/users/:id/block', async (req, res) => {
     try {
-        const user = await adminService.blockUser(req.params.id);
+        const user = await adminService.blockUser(req.params.id, req.user._id);
         res.json(user);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -52,10 +53,21 @@ router.put('/users/:id/block', async (req, res) => {
 
 router.put('/users/:id/unblock', async (req, res) => {
     try {
-        const user = await adminService.unblockUser(req.params.id);
+        const user = await adminService.unblockUser(req.params.id, req.user._id);
         res.json(user);
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+// Destructive: irreversible cascade delete of the account and everything it
+// owns. Moderators are excluded (roleGuard) - block/unblock is their ceiling.
+router.delete('/users/:id', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.deleteUser(req.params.id, req.user._id);
+        res.json(result);
+    } catch (error) {
+        res.status(error.status || (error.message === 'User not found' ? 404 : 400)).json({ error: error.message });
     }
 });
 
@@ -94,10 +106,23 @@ router.put('/venues/:id/status', async (req, res) => {
         if (!['pending', 'approved', 'rejected', 'blocked'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
-        const venue = await adminService.updateVenueStatus(req.params.id, status);
+        const venue = await adminService.updateVenueStatus(req.params.id, status, req.user._id);
         res.json(venue);
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+// Soft delete - drops the venue from every public and admin listing while
+// keeping bookings/payout history intact. Same cache invalidation as the
+// owner-facing DELETE /venues/:id so public pages don't serve a dead listing.
+router.delete('/venues/:id', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.deleteVenue(req.params.id, req.user._id);
+        await invalidateCache('venues');
+        res.json(result);
+    } catch (error) {
+        res.status(error.message === 'Venue not found' ? 404 : 400).json({ error: error.message });
     }
 });
 
@@ -126,10 +151,22 @@ router.put('/events/:id/status', async (req, res) => {
         if (!['pending', 'upcoming', 'approved', 'rejected', 'blocked', 'cancelled'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
-        const event = await adminService.updateEventStatus(req.params.id, status);
+        const event = await adminService.updateEventStatus(req.params.id, status, req.user._id);
         res.json(event);
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+// Soft delete - see DELETE /venues/:id. Does not refund ticket holders; that
+// is the cancel flow's job.
+router.delete('/events/:id', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.deleteEvent(req.params.id, req.user._id);
+        await invalidateCache('events');
+        res.json(result);
+    } catch (error) {
+        res.status(error.message === 'Event not found' ? 404 : 400).json({ error: error.message });
     }
 });
 
@@ -158,7 +195,7 @@ router.put('/brands/:id/status', async (req, res) => {
         if (!['pending', 'approved', 'rejected', 'blocked'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
-        const brand = await adminService.updateBrandStatus(req.params.id, status);
+        const brand = await adminService.updateBrandStatus(req.params.id, status, req.user._id);
         res.json(brand);
     } catch (error) {
         res.status(400).json({ error: error.message });

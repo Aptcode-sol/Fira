@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Event, User, Venue } from '@/lib/types';
+import { Event, Venue } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { formatEventDateTime } from '@/lib/dateUtils';
+import { organizerIdentity } from '@/lib/organizerIdentity';
+import { formatInr } from '@/lib/formatInr';
 
 interface EventCardProps {
     event: Event;
@@ -10,16 +12,14 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, index = 0 }: EventCardProps) {
-    const formatPrice = (price: number) => {
-        if (price === 0) return 'Free';
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(price);
-    };
+    // formatInr, not a local Intl instance: every surface has to show the same
+    // amount the same way, and the local copies all dropped the paise.
+    const formatPrice = (price: number) => (price === 0 ? 'Free' : formatInr(price));
 
-    const organizer = event.organizer as User;
+    // The card is entirely wrapped in a <Link> to the event, so the host is text
+    // here rather than a second anchor - nested anchors are invalid and get hoisted
+    // by the parser, which broke hydration on VenueCard for exactly that reason.
+    const host = organizerIdentity(event);
     const venue = event.venue as Venue;
 
     return (
@@ -102,18 +102,19 @@ export default function EventCard({ event, index = 0 }: EventCardProps) {
                         </div>
                     )}
 
-                    {/* Organizer */}
-                    {organizer && typeof organizer === 'object' && (
+                    {/* Organizer - the brand when the event is run under one. */}
+                    {host && (
                         <div className="flex items-center gap-2 mb-4">
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white text-xs font-medium">
-                                {organizer.avatar ? (
-                                    <img src={organizer.avatar} alt={organizer.name} className="w-full h-full object-cover" />
+                            <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white text-xs font-medium">
+                                {host.photo ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={host.photo} alt={host.name} className="w-full h-full object-cover" />
                                 ) : (
-                                    organizer.name?.charAt(0).toUpperCase()
+                                    host.name?.charAt(0).toUpperCase()
                                 )}
                             </div>
-                            <span className="text-sm text-gray-300">{organizer.name}</span>
-                            {organizer.isVerified && (
+                            <span className="text-sm text-gray-300 line-clamp-1">{host.name}</span>
+                            {host.verified && (
                                 <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>

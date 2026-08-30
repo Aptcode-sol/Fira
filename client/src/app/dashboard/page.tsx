@@ -12,6 +12,7 @@ import { FadeIn, SlideUp } from '@/components/animations';
 import { Pagination } from '@/components/ui';
 import { usePaged } from '@/hooks/usePaged';
 import { X, Users } from 'lucide-react';
+import CreatorStatusButton from '@/components/dashboard/CreatorStatusButton';
 
 interface FollowingBrand {
     _id: string;
@@ -22,6 +23,13 @@ interface FollowingBrand {
     stats: { followers: number; events: number };
     user?: { _id: string; name: string };
 }
+
+/** Chip colours for a creator profile that is not (yet) approved. */
+const CREATOR_STATUS_CHIP: Record<string, string> = {
+    pending: 'bg-yellow-500/20 text-yellow-400',
+    rejected: 'bg-red-500/20 text-red-400',
+    blocked: 'bg-red-500/20 text-red-400',
+};
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -220,22 +228,37 @@ export default function DashboardPage() {
                             numbers with nothing naming what you were looking at. */}
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <h1 className="text-2xl sm:text-3xl font-bold text-white">Overview</h1>
-                            <button
-                                onClick={() => setShowFollowingModal(true)}
-                                // justify-between with the count last pushes it to the
-                                // right edge of the button instead of sitting against the
-                                // label. On desktop the button is only as wide as its
-                                // content, so the two read as one balanced row.
-                                className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl transition-all duration-200 group"
-                            >
-                                <span className="flex items-center gap-2 min-w-0">
-                                    <Users className="w-5 h-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform" />
-                                    <span className="text-white font-medium truncate">Creators You Follow</span>
-                                </span>
-                                <span className="flex-shrink-0 px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-sm font-semibold">
-                                    {followingCount}
-                                </span>
-                            </button>
+                            {/* Creator status sits to the LEFT of the follow shortcut at
+                                both breakpoints - it was buried in Quick Actions further
+                                down, which is the wrong place for the account's own
+                                standing. Same order stacked on mobile. */}
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                {/* `status` comes from the brand profile, the document the
+                                    admin decision is recorded on. Undefined while the
+                                    payload loads, which the button reads as "fall back to
+                                    the badge" rather than "never applied". */}
+                                <CreatorStatusButton
+                                    status={dashboardData?.brandProfile?.status}
+                                    className="w-full sm:w-auto"
+                                />
+                                <button
+                                    onClick={() => setShowFollowingModal(true)}
+                                    // justify-between with the count last pushes it to
+                                    // the right edge of the button instead of sitting
+                                    // against the label. On desktop the button is only
+                                    // as wide as its content, so the two read as one
+                                    // balanced row.
+                                    className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl transition-all duration-200 group"
+                                >
+                                    <span className="flex items-center gap-2 min-w-0">
+                                        <Users className="w-5 h-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform" />
+                                        <span className="text-white font-medium truncate">Creators You Follow</span>
+                                    </span>
+                                    <span className="flex-shrink-0 px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-sm font-semibold">
+                                        {followingCount}
+                                    </span>
+                                </button>
+                            </div>
                         </div>
                     </SlideUp>
 
@@ -266,6 +289,58 @@ export default function DashboardPage() {
                     </FadeIn>
                 </div>
 
+                {/* Creator Profile Card.
+                    Moved up from the very bottom of the page, below the activity feed,
+                    where it needed a deliberate scroll past everything else to reach.
+                    The creator identity is what the account IS, so it belongs with the
+                    account summary at the top rather than after the transactional lists. */}
+                {dashboardData?.brandProfile && (
+                    <FadeIn>
+                        <div className="mb-8 bg-gradient-to-r from-violet-500/10 to-pink-500/10 backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 flex-shrink-0 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 overflow-hidden">
+                                    {dashboardData.brandProfile.profilePhoto ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={dashboardData.brandProfile.profilePhoto}
+                                            alt={dashboardData.brandProfile.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-2xl text-white">
+                                            {dashboardData.brandProfile.name.charAt(0)}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-white">{dashboardData.brandProfile.name}</h3>
+                                        <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs capitalize">
+                                            {dashboardData.brandProfile.type}
+                                        </span>
+                                        {/* Anything other than approved is named here too. The
+                                            card looked identical for a live profile and one
+                                            still in the review queue, so a pending applicant
+                                            read it as "I'm a creator now". */}
+                                        {dashboardData.brandProfile.status !== 'approved' && (
+                                            <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${CREATOR_STATUS_CHIP[dashboardData.brandProfile.status] ?? 'bg-white/10 text-gray-300'}`}>
+                                                {dashboardData.brandProfile.status === 'pending' ? 'Pending review' : dashboardData.brandProfile.status}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
+                                        <span>{dashboardData.brandProfile.followers.toLocaleString()} followers</span>
+                                        <span>{dashboardData.brandProfile.events} events</span>
+                                    </div>
+                                </div>
+                                <Link href={`/creators/${dashboardData.brandProfile._id}`} className="flex-shrink-0">
+                                    <Button variant="secondary" size="sm">View Profile</Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </FadeIn>
+                )}
+
                 {/* Quick Actions */}
                 <FadeIn delay={0.2}>
                     <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 mb-8">
@@ -295,55 +370,6 @@ export default function DashboardPage() {
                                     Find Events
                                 </Button>
                             </Link>
-                            {/* Creator Status Button - Dynamic based on user state */}
-                            {(() => {
-                                const isCreator = user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge);
-                                const applicationStatus = user?.creatorApplicationStatus; // pending, rejected, or undefined
-
-                                if (isCreator) {
-                                    return (
-                                        <Link href="/dashboard/creator">
-                                            <Button variant="secondary" className="bg-violet-500/20 border-violet-500/30 text-violet-400 hover:bg-violet-500/30">
-                                                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                </svg>
-                                                Verified Creator
-                                            </Button>
-                                        </Link>
-                                    );
-                                } else if (applicationStatus === 'pending') {
-                                    return (
-                                        <Button variant="secondary" className="bg-yellow-500/20 border-yellow-500/30 text-yellow-400 cursor-default" disabled>
-                                            <svg className="w-4 h-4 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            Application Pending
-                                        </Button>
-                                    );
-                                } else if (applicationStatus === 'rejected') {
-                                    return (
-                                        <Link href="/create/creator">
-                                            <Button variant="secondary" className="bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30">
-                                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                                Application Rejected - Reapply
-                                            </Button>
-                                        </Link>
-                                    );
-                                } else {
-                                    return (
-                                        <Link href="/create/creator">
-                                            <Button variant="secondary">
-                                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                                </svg>
-                                                Apply as Creator
-                                            </Button>
-                                        </Link>
-                                    );
-                                }
-                            })()}
                         </div>
                     </div>
                 </FadeIn>
@@ -473,46 +499,6 @@ export default function DashboardPage() {
                         </div>
                     </FadeIn>
                 </div>
-
-
-
-                {/* Creator Profile Card */}
-                {dashboardData?.brandProfile && (
-                    <FadeIn>
-                        <div className="mt-6 bg-gradient-to-r from-violet-500/10 to-pink-500/10 backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 overflow-hidden">
-                                    {dashboardData.brandProfile.profilePhoto ? (
-                                        <img
-                                            src={dashboardData.brandProfile.profilePhoto}
-                                            alt={dashboardData.brandProfile.name}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-2xl text-white">
-                                            {dashboardData.brandProfile.name.charAt(0)}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-lg font-semibold text-white">{dashboardData.brandProfile.name}</h3>
-                                        <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs capitalize">
-                                            {dashboardData.brandProfile.type}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
-                                        <span>{dashboardData.brandProfile.followers.toLocaleString()} followers</span>
-                                        <span>{dashboardData.brandProfile.events} events</span>
-                                    </div>
-                                </div>
-                                <Link href={`/creators/${dashboardData.brandProfile._id}`}>
-                                    <Button variant="secondary" size="sm">View Profile</Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </FadeIn>
-                )}
             </div>
 
             {/* Following Brands Modal */}

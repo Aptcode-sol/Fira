@@ -4,20 +4,22 @@
 // client/src/lib/formatInr.ts too.
 
 // ponytail: single module-level formatter — Intl gives Indian grouping
-// ("₹12,34,567") and the ₹ symbol; amounts are integer rupees so there is no
-// paise portion (Requirement 9.1).
+// ("₹12,34,567.00") and the ₹ symbol. Amounts are rupees rounded to paise, so
+// both fraction digits are pinned at 2: paise are never hidden, and a column of
+// amounts lines up on the decimal point.
 const inr = new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
 });
 
 /**
- * Format an integer-rupee amount as an Indian-grouped INR string.
- * Absent, null, undefined, or non-finite input renders as `₹0` (Requirement 9.5).
+ * Format a rupee amount as an Indian-grouped INR string with paise.
+ * Absent, null, undefined, or non-finite input renders as `₹0.00` (Requirement 9.5).
  *
- * @param {number | null | undefined} amount - integer rupees
- * @returns {string} e.g. `₹12,34,567`, or `₹0` when the amount is unavailable
+ * @param {number | null | undefined} amount - rupees, to two decimals
+ * @returns {string} e.g. `₹12,34,567.00`, or `₹0.00` when the amount is unavailable
  */
 export function formatInr(amount) {
     if (typeof amount !== 'number' || !Number.isFinite(amount)) return inr.format(0);

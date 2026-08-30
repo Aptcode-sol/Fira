@@ -618,7 +618,9 @@ export const eventsApi = {
 export const discountsApi = {
     list: (eventId: string) =>
         request<any[]>(`/discounts/events/${eventId}/discount-codes`),
-    create: (eventId: string, data: { code: string; discountType: string; discountValue: number; maxUses: number | null; validFrom: string; validUntil: string }) =>
+    // No validity dates: the server derives the window from the event (usable from
+    // creation until the event ends) and ignores any dates in the request.
+    create: (eventId: string, data: { code: string; discountType: string; discountValue: number; maxUses: number | null }) =>
         request(`/discounts/events/${eventId}/discount-codes`, {
             method: 'POST',
             body: JSON.stringify(data),
@@ -998,6 +1000,8 @@ export interface DashboardOverview {
         _id: string;
         name: string;
         type: string;
+        /** Review state of the creator application. Mirrors BrandProfile.status. */
+        status: 'pending' | 'approved' | 'rejected' | 'blocked';
         profilePhoto: string;
         followers: number;
         events: number;

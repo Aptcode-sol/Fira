@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FadeIn, SlideUp, StaggerContainer, StaggerItem } from './animations';
 import { eventsApi } from '@/lib/api';
+import { formatInr } from '@/lib/formatInr';
 
 interface Event {
     _id: string;
@@ -51,10 +52,8 @@ export default function PartiesSection() {
         return `${hour12}${minutes !== '00' ? ':' + minutes : ''} ${ampm}`;
     };
 
-    const formatPrice = (price?: number) => {
-        if (!price || price === 0) return 'Free';
-        return `₹${price.toLocaleString()}`;
-    };
+    const formatPrice = (price?: number) =>
+        !price || price === 0 ? 'Free' : formatInr(price);
 
     return (
         <FadeIn>

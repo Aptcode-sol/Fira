@@ -2,8 +2,8 @@
 
 // earningsService — the single read-only aggregator for the payout/earnings
 // surfaces (admin dashboard, event-organizer view, venue-owner view). It reads
-// recorded Payment/Payout integer-rupee fields verbatim and never recomputes
-// money a second way. It sits alongside paymentService (which owns the writes:
+// recorded Payment/Payout rupee fields (to paise, 2 decimals) verbatim and never
+// recomputes money a second way. It sits alongside paymentService (which owns the writes:
 // calculateBilling / processPayout) and duplicates none of that math.
 //
 // This module is built method-by-method per the spec tasks. Task 1.3 adds the
@@ -17,6 +17,8 @@ const User = require('../models/User');
 const Event = require('../models/Event');
 const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
+const Ticket = require('../models/Ticket');
+const { roundMoney } = require('../utils/money');
 
 // --- Shared status constants (single source of truth for "what counts") ---
 // "Paid"/"collected" is stored as Payment.status === 'success' (there is no
@@ -30,7 +32,38 @@ const COMPLETED_PAYOUT = 'completed';         // Payout.status → disbursed
 // (absent/corrupt) is surfaced as 'unknown' for display (Requirement 3.5).
 const VALID_PAYOUT_STATUSES = [...PENDING_PAYOUT, COMPLETED_PAYOUT, 'failed'];
 
+// What "confirmed" and "cancelled" mean per listing kind (per-listing-settlement
+// -tracking design, ListingActivity). Kept beside the payment/payout vocabulary
+// so "what counts" stays in one place.
+const TICKET_CONFIRMED = ['active', 'used'];
+const TICKET_CANCELLED = ['cancelled'];
+const BOOKING_CONFIRMED = ['accepted', 'completed'];
+const BOOKING_CANCELLED = ['cancelled', 'rejected'];
+
 const MASK_CHAR = '*';                         // character shown in place of a hidden digit
+
+// Per-listing figure shapes (per-listing-settlement-tracking design). Money is
+// verbatim sums of recorded fields; nothing here is derived from a percentage.
+/** @typedef {{
+ *   grossCollected: number,        // Σ Payment.totalAmount   (success)
+ *   platformFeeCollected: number,  // Σ Payment.platformFee    (success)
+ *   gstRetained: number,           // Σ Payment.gstAmount      (success)
+ *   ownerGross: number,            // Σ Payout.grossAmount
+ *   platformCommission: number,    // Σ Payout.platformCommission
+ *   netPayable: number,            // Σ Payout.netAmount
+ *   refundedTotal: number,         // Σ Payment.totalAmount    (refunded)
+ * }} ListingMoney */
+
+/** @typedef {{
+ *   successfulPayments: number,
+ *   unitsSold: number,             // Σ Ticket.quantity | count(Booking)
+ *   confirmed: number,             // Ticket.status ∈ {active,used} | Booking.status ∈ {accepted,completed}
+ *   cancelled: number,             // Ticket.status 'cancelled'     | Booking.status ∈ {cancelled,rejected}
+ *   refundedPayments: number,
+ *   lastPaymentAt: Date|null,      // max Payment.paidAt (success); null when none
+ * }} ListingActivity */
+
+/** @typedef {{ payoutId: string, status: string, netAmount: number }} PayoutSummary */
 
 const earningsService = {
     PAID,
@@ -74,10 +107,9 @@ const earningsService = {
      *   - discountBearer null/undefined  → listedPrice (no discount)
      *   - any other discountBearer       → excluded, error indication
      *
-     * Rounding uses the same Math.round semantics as calculateBilling /
-     * processPayout (halves round toward +Infinity). Amounts are integer
-     * rupees, so Math.round is effectively a no-op on already-integer inputs,
-     * but is applied to stay byte-identical to the write-side math.
+     * Rounding uses the same `roundMoney` (2 decimals / paise) semantics as
+     * calculateBilling and processPayout, so the read side stays byte-identical to
+     * the write-side math.
      *
      * Returns a structured result rather than throwing so an invalid Payment is
      * *excluded* from an accumulated gross without corrupting it (Req 8.6/8.7):
@@ -100,7 +132,7 @@ const earningsService = {
         // No discount: platform bearer, or absent bearer (null/undefined).
         // The owner keeps the full listed price.
         if (discountBearer === 'platform' || discountBearer === null || discountBearer === undefined) {
-            return { gross: Math.round(listedPrice) };
+            return { gross: roundMoney(listedPrice) };
         }
 
         // Owner absorbs the discount: gross = listedPrice − discountAmount.
@@ -112,7 +144,7 @@ const earningsService = {
                 discountAmount < 0 || discountAmount > listedPrice) {
                 return { error: 'discountAmount is missing, negative, or exceeds listedPrice', field: 'discountAmount' };
             }
-            return { gross: Math.round(listedPrice - discountAmount) };
+            return { gross: roundMoney(listedPrice - discountAmount) };
         }
 
         // Any other bearer value is not one of platform | owner | null.
@@ -761,6 +793,244 @@ const earningsService = {
         });
 
         return earningsService.buildVenueEarnings(venue._id, rows);
+    },
+
+    /**
+     * Pure assembly of the per-listing figures DTO from already-aggregated sums,
+     * counts, and a resolved representative payout. Kept separate from the DB
+     * read (like every other build* helper here) so the fail-closed contract and
+     * the whitelisted shape can be exercised without standing up Mongo (see the
+     * ponytail check).
+     *
+     * Every money field is carried through verbatim — nothing is re-derived from
+     * a percentage (Requirement 12.1). The returned objects are rebuilt key by
+     * key, so an extra field on an aggregation result can never leak into the
+     * settlement basis.
+     *
+     * Fails closed: a non-finite money sum, a non-finite count, or an
+     * unparseable lastPaymentAt means a source field is missing/corrupt, so no
+     * partial figure set is returned (Requirement 12.5).
+     *
+     * @param {{ money: object, activity: object, payout: object|null }} parts
+     * @returns {{ money: ListingMoney, activity: ListingActivity, payout: PayoutSummary|null }}
+     */
+    buildListingFigures({ money, activity, payout }) {
+        const moneyFields = ['grossCollected', 'platformFeeCollected', 'gstRetained',
+            'ownerGross', 'platformCommission', 'netPayable', 'refundedTotal'];
+        for (const f of moneyFields) {
+            const v = money && money[f];
+            if (typeof v !== 'number' || !Number.isFinite(v)) {
+                throw new Error(`listing figures aggregate "${f}" is missing or not a finite number; refusing to return partial totals`);
+            }
+        }
+
+        const countFields = ['successfulPayments', 'unitsSold', 'confirmed', 'cancelled', 'refundedPayments'];
+        for (const f of countFields) {
+            const v = activity && activity[f];
+            if (typeof v !== 'number' || !Number.isFinite(v)) {
+                throw new Error(`listing figures count "${f}" is missing or not a finite number; refusing to return partial totals`);
+            }
+        }
+
+        // Absent is the documented "no successful payments" value (Req 3.4); a
+        // present-but-unparseable timestamp is corrupt data, so fail closed.
+        let lastPaymentAt = null;
+        if (activity.lastPaymentAt != null) {
+            lastPaymentAt = activity.lastPaymentAt instanceof Date
+                ? activity.lastPaymentAt
+                : new Date(activity.lastPaymentAt);
+            if (Number.isNaN(lastPaymentAt.getTime())) {
+                throw new Error('listing figures "lastPaymentAt" is not a valid date; refusing to return partial totals');
+            }
+        }
+
+        return {
+            money: {
+                grossCollected: money.grossCollected,
+                platformFeeCollected: money.platformFeeCollected,
+                gstRetained: money.gstRetained,
+                ownerGross: money.ownerGross,
+                platformCommission: money.platformCommission,
+                netPayable: money.netPayable,
+                refundedTotal: money.refundedTotal,
+            },
+            activity: {
+                successfulPayments: activity.successfulPayments,
+                unitsSold: activity.unitsSold,
+                confirmed: activity.confirmed,
+                cancelled: activity.cancelled,
+                refundedPayments: activity.refundedPayments,
+                lastPaymentAt,
+            },
+            payout: payout
+                ? {
+                    payoutId: String(payout.payoutId != null ? payout.payoutId : payout._id),
+                    status: payout.status,
+                    netAmount: payout.netAmount,
+                }
+                : null,
+        };
+    },
+
+    /**
+     * Per-listing money + activity figures — the single money path, extended per
+     * listing (per-listing-settlement-tracking design). Reads only; writes
+     * nothing. No ownership check: callers own authorization, exactly like
+     * getAdminOverview.
+     *
+     * Money is summed verbatim from recorded Payment/Payout fields; nothing is
+     * re-derived from a percentage (Requirement 12.1, 2.4):
+     *   grossCollected       = Σ Payment.totalAmount      where status = 'success'
+     *   platformFeeCollected = Σ Payment.platformFee       where status = 'success'
+     *   gstRetained          = Σ Payment.gstAmount         where status = 'success'
+     *   refundedTotal        = Σ Payment.totalAmount       where status = 'refunded'
+     *   ownerGross           = Σ Payout.grossAmount        (every referencing payout)
+     *   platformCommission   = Σ Payout.platformCommission
+     *   netPayable           = Σ Payout.netAmount
+     *
+     * Scope (mirrors getEventEarnings / getVenueEarnings):
+     *   event → Payment/Payout { referenceModel: 'Event', referenceId: eventId }, activity from Ticket { event }
+     *   venue → Payment/Payout { referenceModel: 'Booking', referenceId: ∈ that venue's bookings }, activity from Booking { venue }
+     *
+     * Consequence stated in the design: a listing with collected payments but no
+     * Payout record has netPayable = 0 and payout = null — money is owed once a
+     * payout has been raised, and inventing a commission here would be the
+     * second computation path Requirement 12.1 forbids.
+     *
+     * Fails closed on an unknown kind, a malformed or absent listing id, or a
+     * non-finite sum, so a corrupt field never becomes a settlement basis
+     * (Requirement 12.5).
+     *
+     * @param {{ kind: 'event'|'venue', listingId: string }} params
+     * @returns {Promise<{ money: ListingMoney, activity: ListingActivity, payout: PayoutSummary|null }>}
+     */
+    async getListingFigures({ kind, listingId } = /** @type {any} */ ({})) {
+        if (kind !== 'event' && kind !== 'venue') {
+            throw new Error(`getListingFigures: unknown listing kind "${String(kind)}"`);
+        }
+        // A malformed id can never match a listing; fail closed rather than
+        // letting a CastError surface as a 500 (same posture as getEventEarnings).
+        if (!mongoose.isValidObjectId(listingId)) {
+            throw new Error(`getListingFigures: malformed ${kind} id "${String(listingId)}"`);
+        }
+
+        let referenceModel;
+        let referenceIds;
+        let activity;
+
+        if (kind === 'event') {
+            const event = await Event.findById(listingId).select('_id').lean();
+            if (!event) {
+                throw new Error(`getListingFigures: event ${String(listingId)} not found`);
+            }
+            referenceModel = 'Event';
+            referenceIds = [event._id];
+
+            // unitsSold is Σ Ticket.quantity; confirmed/cancelled count tickets.
+            const [t] = await Ticket.aggregate([
+                { $match: { event: event._id } },
+                {
+                    $group: {
+                        _id: null,
+                        unitsSold: { $sum: '$quantity' },
+                        confirmed: { $sum: { $cond: [{ $in: ['$status', TICKET_CONFIRMED] }, 1, 0] } },
+                        cancelled: { $sum: { $cond: [{ $in: ['$status', TICKET_CANCELLED] }, 1, 0] } },
+                    },
+                },
+            ]);
+            activity = {
+                unitsSold: (t && t.unitsSold) || 0,
+                confirmed: (t && t.confirmed) || 0,
+                cancelled: (t && t.cancelled) || 0,
+            };
+        } else {
+            const venue = await Venue.findById(listingId).select('_id').lean();
+            if (!venue) {
+                throw new Error(`getListingFigures: venue ${String(listingId)} not found`);
+            }
+            // The bookings are the payment/payout reference scope AND the
+            // activity source, so one read serves both.
+            const bookings = await Booking.find({ venue: venue._id }).select('status').lean();
+            referenceModel = 'Booking';
+            referenceIds = bookings.map((b) => b._id);
+            activity = {
+                unitsSold: bookings.length,
+                confirmed: bookings.filter((b) => BOOKING_CONFIRMED.includes(b.status)).length,
+                cancelled: bookings.filter((b) => BOOKING_CANCELLED.includes(b.status)).length,
+            };
+        }
+
+        const zeroMoney = {
+            grossCollected: 0, platformFeeCollected: 0, gstRetained: 0,
+            ownerGross: 0, platformCommission: 0, netPayable: 0, refundedTotal: 0,
+        };
+
+        // A venue with no bookings has no reference to match; nothing to query.
+        if (!referenceIds.length) {
+            return earningsService.buildListingFigures({
+                money: zeroMoney,
+                activity: { ...activity, successfulPayments: 0, refundedPayments: 0, lastPaymentAt: null },
+                payout: null,
+            });
+        }
+
+        // $sum/$max ignore non-numeric and null values, so a missing field
+        // contributes 0 rather than corrupting the total.
+        const [paymentAgg, payoutAgg, payout] = await Promise.all([
+            Payment.aggregate([
+                { $match: { referenceModel, referenceId: { $in: referenceIds }, status: { $in: [PAID, REFUNDED] } } },
+                {
+                    $group: {
+                        _id: null,
+                        grossCollected: { $sum: { $cond: [{ $eq: ['$status', PAID] }, '$totalAmount', 0] } },
+                        platformFeeCollected: { $sum: { $cond: [{ $eq: ['$status', PAID] }, '$platformFee', 0] } },
+                        gstRetained: { $sum: { $cond: [{ $eq: ['$status', PAID] }, '$gstAmount', 0] } },
+                        refundedTotal: { $sum: { $cond: [{ $eq: ['$status', REFUNDED] }, '$totalAmount', 0] } },
+                        successfulPayments: { $sum: { $cond: [{ $eq: ['$status', PAID] }, 1, 0] } },
+                        refundedPayments: { $sum: { $cond: [{ $eq: ['$status', REFUNDED] }, 1, 0] } },
+                        lastPaymentAt: { $max: { $cond: [{ $eq: ['$status', PAID] }, '$paidAt', null] } },
+                    },
+                },
+            ]),
+            Payout.aggregate([
+                { $match: { referenceModel, referenceId: { $in: referenceIds } } },
+                {
+                    $group: {
+                        _id: null,
+                        ownerGross: { $sum: '$grossAmount' },
+                        platformCommission: { $sum: '$platformCommission' },
+                        netPayable: { $sum: '$netAmount' },
+                    },
+                },
+            ]),
+            // Representative payout: the most recent one referencing this listing.
+            Payout.findOne({ referenceModel, referenceId: { $in: referenceIds } })
+                .sort({ createdAt: -1 })
+                .select('status netAmount')
+                .lean(),
+        ]);
+
+        const p = paymentAgg[0] || {};
+        const o = payoutAgg[0] || {};
+
+        return earningsService.buildListingFigures({
+            money: {
+                grossCollected: p.grossCollected || 0,
+                platformFeeCollected: p.platformFeeCollected || 0,
+                gstRetained: p.gstRetained || 0,
+                ownerGross: o.ownerGross || 0,
+                platformCommission: o.platformCommission || 0,
+                netPayable: o.netPayable || 0,
+                refundedTotal: p.refundedTotal || 0,
+            },
+            activity: {
+                ...activity,
+                successfulPayments: p.successfulPayments || 0,
+                refundedPayments: p.refundedPayments || 0,
+                lastPaymentAt: p.lastPaymentAt != null ? p.lastPaymentAt : null,
+            },
+            payout: payout || null,
+        });
     },
 };
 

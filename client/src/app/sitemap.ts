@@ -50,9 +50,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         { url: `${SITE_URL}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
         { url: `${SITE_URL}/help`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
         { url: `${SITE_URL}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
-        { url: `${SITE_URL}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
-        { url: `${SITE_URL}/refund-policy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
-        { url: `${SITE_URL}/community-guidelines`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+        { url: `${SITE_URL}/organiser-agreement`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+        { url: `${SITE_URL}/host-agreement`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     ];
 
     // City landing pages. These are the realistic organic-traffic surface -
@@ -96,6 +95,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ...cityRoutes,
         ...events.map(doc => toEntry('/events', doc, 0.8)),
         ...venues.map(doc => toEntry('/venues', doc, 0.8)),
-        ...brands.map(doc => toEntry('/brands', doc, 0.5)),
+        // '/creators/<id>', not '/brands/<id>'. Both routes render the same profile,
+        // but every link in the product - the nav, the event card's host, "View
+        // Profile" - points at /creators. Advertising the /brands spelling here
+        // submitted 22 URLs that nothing on the site linked to: orphans with no
+        // internal signal, which is precisely what Google files under "Discovered -
+        // currently not indexed". A sitemap should list the URL you want ranked, and
+        // that is the one you link to.
+        ...brands.map(doc => toEntry('/creators', doc, 0.5)),
     ];
 }
