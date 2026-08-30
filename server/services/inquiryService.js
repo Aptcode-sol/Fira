@@ -70,6 +70,10 @@ function assertRequesterIsOwner(ownerId, requester) {
 
 const inquiryService = {
     normalizeStatus,
+    // Exposed so read paths (e.g. GET /inquiries/:id) can authorize the listing
+    // owner using the same resolution the write paths use, rather than growing a
+    // second copy of the event->organizer / venue->owner rule.
+    resolveOwnerId,
 
     /**
      * Submit a new inquiry for an event or venue.

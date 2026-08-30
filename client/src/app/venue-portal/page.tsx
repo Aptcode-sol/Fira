@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVenueOwner } from '@/lib/types';
 
 export default function VenuePortalHomePage() {
     const router = useRouter();
@@ -11,7 +12,11 @@ export default function VenuePortalHomePage() {
     useEffect(() => {
         if (isLoading) return;
 
-        if (isAuthenticated && user?.role === 'venue_owner') {
+        // `isVenueOwner` (roles[] source of truth, legacy scalar honored) is the
+        // single authority for owner status. Checking `role === 'venue_owner'`
+        // here missed accounts that hold the role only in roles[] (e.g. a user
+        // who upgraded via the become-a-venue-owner flow).
+        if (isAuthenticated && isVenueOwner(user)) {
             // Redirect authenticated venue owners to dashboard
             router.replace('/venue-portal/dashboard');
         } else {

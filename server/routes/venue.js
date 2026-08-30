@@ -3,6 +3,7 @@ const express = require('express');
 const { z } = require('zod');
 const router = express.Router();
 const venueService = require('../services/venueService');
+const earningsService = require('../services/earningsService');
 const validate = require('../middleware/validate');
 const { venueOwnerAuth, requireAuth } = require('../middleware/venueOwnerAuth');
 const { publicCache, noStoreCache, invalidateCache } = require('../middleware/httpCache');
@@ -73,6 +74,20 @@ router.get('/my-venues', venueOwnerAuth, noStoreCache, /** @param {Authenticated
         res.json(venues);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/venues/:id/earnings - Per-booking earnings breakdown for the venue
+// owner (Requirements 6.7, 6.8, 11.4). Behind requireAuth() (any authenticated
+// user); ownership is enforced server-side inside getVenueEarnings, which throws
+// an auth error with status 403 when the requester is not the venue's owner. On
+// rejection no earnings data is returned. GET-only, reads only.
+router.get('/:id/earnings', requireAuth(), /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        const earnings = await earningsService.getVenueEarnings(req.params.id, req.user._id);
+        res.json(earnings);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
     }
 });
 
@@ -161,15 +176,11 @@ router.put('/:id/availability', venueOwnerAuth, /** @param {AuthenticatedRequest
     }
 });
 
-// PUT /api/venues/:id/status - Update venue status (admin only - keep for future)
-router.put('/:id/status', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
-    try {
-        const venue = await venueService.updateStatus(req.params.id, req.body.status);
-        res.json(venue);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
+// Venue status changes are admin-only and live at PUT /api/admin/venues/:id/status
+// (guarded by adminAuth + a status enum check). The previously-here public
+// PUT /api/venues/:id/status had NO auth middleware, so anyone could approve,
+// reject or suspend any venue - a broken-access-control hole. Removed rather
+// than guarded because the admin route already owns this operation.
 
 // POST /api/venues/:id/cancel - Delete venue (venue owner only)
 router.post('/:id/cancel', venueOwnerAuth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {

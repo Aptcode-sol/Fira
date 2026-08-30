@@ -12,7 +12,6 @@ interface VenueAnalytics {
     _id: string;
     name: string;
     images?: string[];
-    rating?: { average: number; count: number };
     status: string;
     bookingsCount: number;
     revenue: number;
@@ -29,11 +28,13 @@ export default function VenuePortalAnalyticsPage() {
     const { user, isAuthenticated, isLoading } = useAuth();
     const [loading, setLoading] = useState(true);
     
+    // Rating is gone from this page: it is a guest-facing signal, it moves on
+    // its own schedule and it told an owner nothing actionable next to bookings
+    // and revenue.
     const [stats, setStats] = useState({
         totalViews: 0,
         totalBookings: 0,
         totalRevenue: 0,
-        avgRating: '0.0'
     });
 
     const [monthlyStats, setMonthlyStats] = useState<MonthlyStat[]>([]);
@@ -76,8 +77,6 @@ export default function VenuePortalAnalyticsPage() {
 
             let totalBookings = 0;
             let totalRevenue = 0;
-            let ratingSum = 0;
-            let ratedCount = 0;
             const analyzedVenues: VenueAnalytics[] = [];
 
             // 3. Query bookings per venue
@@ -111,16 +110,10 @@ export default function VenuePortalAnalyticsPage() {
                     console.error(`Failed to fetch bookings for venue ${venue._id}:`, bookingErr);
                 }
 
-                if (venue.rating?.average > 0) {
-                    ratingSum += venue.rating.average;
-                    ratedCount++;
-                }
-
                 analyzedVenues.push({
                     _id: venue._id,
                     name: venue.name,
                     images: venue.images,
-                    rating: venue.rating,
                     status: venue.status,
                     bookingsCount: venueBookings,
                     revenue: venueRevenue
@@ -134,14 +127,16 @@ export default function VenuePortalAnalyticsPage() {
                 revenue: tempMonthly[m.month]?.revenue || 0
             }));
 
-            // Sort venues by bookings count descending
-            analyzedVenues.sort((a, b) => b.bookingsCount - a.bookingsCount);
+            // "Top performing" means top earning. Sorting by booking count put a
+            // venue with many cheap bookings above one earning several times more,
+            // which is the opposite of the ranking the heading promises. Bookings
+            // break ties so the order is stable when revenue is equal (or zero).
+            analyzedVenues.sort((a, b) => b.revenue - a.revenue || b.bookingsCount - a.bookingsCount);
 
             setStats({
                 totalViews: totalBookings * 12 + 27, // Mocked realistic view stats
                 totalBookings,
                 totalRevenue,
-                avgRating: ratedCount > 0 ? (ratingSum / ratedCount).toFixed(1) : '0.0'
             });
 
             setMonthlyStats(finalMonthly);
@@ -191,12 +186,11 @@ export default function VenuePortalAnalyticsPage() {
 
                 {/* Stats Grid */}
                 <FadeIn delay={0.1}>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
                         {[
                             { label: 'Total Views', value: loading ? '...' : stats.totalViews.toLocaleString(), color: 'violet' },
                             { label: 'Bookings', value: loading ? '...' : stats.totalBookings.toLocaleString(), color: 'green' },
                             { label: 'Revenue', value: loading ? '...' : `₹${stats.totalRevenue.toLocaleString()}`, color: 'blue' },
-                            { label: 'Avg Rating', value: loading ? '...' : `${stats.avgRating} ★`, color: 'yellow' },
                         ].map((stat, i) => (
                             <div key={i} className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-4 sm:p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer">
                                 <div className="text-xl sm:text-2xl font-bold text-white mb-1">{stat.value}</div>
@@ -297,9 +291,8 @@ export default function VenuePortalAnalyticsPage() {
                                     <thead>
                                         <tr className="border-b border-white/10 text-xs sm:text-sm text-gray-300">
                                             <th className="pb-3 font-semibold">Venue</th>
-                                            <th className="pb-3 font-semibold text-center">Bookings</th>
-                                            <th className="pb-3 font-semibold text-center font-mono">Rating</th>
                                             <th className="pb-3 font-semibold text-right">Revenue</th>
+                                            <th className="pb-3 font-semibold text-center">Bookings</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -320,13 +313,12 @@ export default function VenuePortalAnalyticsPage() {
                                                         <div className="text-[10px] text-gray-300 capitalize">{v.status}</div>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 text-center font-medium">{v.bookingsCount}</td>
-                                                <td className="py-4 text-center text-yellow-400 font-medium">
-                                                    {v.rating?.average ? `${v.rating.average.toFixed(1)} ★` : '—'}
-                                                </td>
+                                                {/* Revenue leads now, because it is
+                                                    what the rows are ranked by. */}
                                                 <td className="py-4 text-right font-semibold text-white">
                                                     ₹{v.revenue.toLocaleString()}
                                                 </td>
+                                                <td className="py-4 text-center font-medium">{v.bookingsCount}</td>
                                             </tr>
                                         ))}
                                     </tbody>

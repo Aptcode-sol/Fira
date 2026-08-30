@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
-import { Button, Modal } from '@/components/ui';
+import { BackButton, Button, Modal } from '@/components/ui';
 import { venuesApi, bookingsApi } from '@/lib/api';
+import { venueDayRate, venueBookingTotal, billableDays, bookingAdvance } from '@/lib/venuePricing';
 import { Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
@@ -17,6 +18,25 @@ import InquiryForm from '@/components/InquiryForm';
  * nobody thinks the page has hung.
  */
 const SUCCESS_REDIRECT_DELAY_MS = 3000;
+
+/**
+ * Blank booking form. Declared once because the initial state and the post-success
+ * reset both need it, and they previously carried separate literals.
+ *
+ * Times start at 00:00 rather than empty. An empty time input renders as "--:--"
+ * and Android's picker opens on the current clock, so the value you got depended on
+ * when you happened to open the form. Pricing is per-day, so the times do not affect
+ * what is charged - and prefilling them means the cost summary, which only shows
+ * once both are set, is visible immediately instead of after two extra taps.
+ */
+const EMPTY_BOOKING = {
+    date: '',
+    endDate: '',
+    startTime: '00:00',
+    endTime: '00:00',
+    guests: 50,
+    purpose: '',
+};
 
 export default function VenueDetailPage() {
     const params = useParams();
@@ -43,14 +63,7 @@ export default function VenueDetailPage() {
         const [year, month, day] = dateStr.split('-');
         return `${day}/${month}/${year}`;
     };
-    const [bookingData, setBookingData] = useState({
-        date: '',
-        endDate: '',
-        startTime: '',
-        endTime: '',
-        guests: 50,
-        purpose: '',
-    });
+    const [bookingData, setBookingData] = useState(EMPTY_BOOKING);
     const [hoveredDate, setHoveredDate] = useState<string | null>(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -271,11 +284,9 @@ export default function VenueDetailPage() {
         try {
             setIsSubmitting(true);
             // Calculate total price
-            const startHour = parseInt(bookingData.startTime.split(':')[0]);
-            const endHour = parseInt(bookingData.endTime.split(':')[0]);
-            const hours = endHour - startHour;
-            const hourlyRate = venue.pricing.pricePerHour || 0;
-            const totalAmount = venue.pricing.basePrice + (hours * hourlyRate);
+            // Day rate x days covered. Was basePrice + hours x hourlyRate, which
+            // billed a multi-day booking as if it were one long day.
+            const totalAmount = venueBookingTotal(venue, finalStartDate || '', bookingData.endDate);
 
             // 1. Create pending booking
             const bookingResult = await bookingsApi.create({
@@ -327,7 +338,7 @@ export default function VenueDetailPage() {
                         if (verifyResult.success) {
                             showToast('Booking confirmed successfully!', 'success');
                             setIsBookingModalOpen(false);
-                            setBookingData({ date: '', endDate: '', startTime: '', endTime: '', guests: 50, purpose: '' });
+                            setBookingData(EMPTY_BOOKING);
                             fetchVenue(venue._id); // Refresh availability
                             // Give the success toast time to be read before
                             // navigating - an instant redirect made it look like
@@ -594,6 +605,10 @@ export default function VenueDetailPage() {
 
             <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
                 <div className="max-w-6xl mx-auto">
+                    {/* The only way off this page was the browser's own back gesture.
+                        Falls back to the venues list when opened from a shared link. */}
+                    <BackButton fallbackHref="/venues" label="Back to Venues" className="mb-4" />
+
                     {/* Image Gallery */}
                     <div className="mb-8">
                         <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-4">
@@ -642,17 +657,22 @@ export default function VenueDetailPage() {
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 text-gray-300 mb-4">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="flex items-start gap-2 text-gray-300 mb-4">
+                                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     </svg>
                                     <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
+                                    {/* Desktop keeps the chip inline - there is room for it
+                                        beside the address, and the booking panel is already
+                                        visible in the sidebar. On mobile it squeezed the
+                                        address into two cramped lines, so it moves into the
+                                        action row below instead. */}
                                     {venue.locationLink && (
                                         <a
                                             href={venue.locationLink}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="ml-3 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30"
+                                            className="ml-3 hidden lg:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30 flex-shrink-0"
                                         >
                                             Open in Maps
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -660,6 +680,33 @@ export default function VenueDetailPage() {
                                             </svg>
                                         </a>
                                     )}
+                                </div>
+
+                                {/* Mobile action row. The booking panel is a sidebar on
+                                    desktop but stacks to the very bottom of the page on
+                                    mobile, so "Book Now" was several screens of scrolling
+                                    away from the venue you just looked at. This puts it
+                                    right under the address, with Maps alongside it. The
+                                    bottom button stays for anyone who reads the whole page
+                                    first. */}
+                                <div className="flex gap-3 mb-4 lg:hidden">
+                                    {venue.locationLink && (
+                                        <a
+                                            href={venue.locationLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-400 text-sm font-medium hover:bg-violet-500/30 transition-colors"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                            Open in Maps
+                                        </a>
+                                    )}
+                                    <Button className="flex-1" onClick={handleBooking}>
+                                        Book Now
+                                    </Button>
                                 </div>
 
                                 {/* Owner Info */}
@@ -837,21 +884,22 @@ export default function VenueDetailPage() {
                                 {/* Price */}
                                 <div className="mb-6">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
-                                        <span className="text-gray-300">base price</span>
+                                        <span className="text-3xl font-bold text-white">{formatPrice(venueDayRate(venue))}</span>
+                                        <span className="text-gray-300">per day</span>
                                     </div>
-                                    {venue.pricing.pricePerHour && (
-                                        <p className="text-sm text-gray-300 mt-1">
-                                            + {formatPrice(venue.pricing.pricePerHour)} per hour
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Quick Info */}
                                 <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-gray-300">Capacity</span>
-                                        <span className="text-white">{venue.capacity.min} - {venue.capacity.max} guests</span>
+                                        {/* Only show a range when the owner set a real
+                                            minimum; "1 - 500 guests" is noise. */}
+                                        <span className="text-white">
+                                            {venue.capacity.min > 1
+                                                ? `${venue.capacity.min} - ${venue.capacity.max} guests`
+                                                : `Up to ${venue.capacity.max} guests`}
+                                        </span>
                                     </div>
                                     {venue.rating.count > 0 && (
                                         <div className="flex items-center justify-between text-sm">
@@ -965,7 +1013,7 @@ export default function VenueDetailPage() {
                                     setSelectedDate(e.target.value);
                                 }}
                                 min={new Date().toISOString().split('T')[0]}
-                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.date ? 'border-red-500/50' : 'border-white/10'}`}
+                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.date ? 'border-red-500' : 'border-white/10'}`}
                             />
                             {bookingErrors.date && <p role="alert" className="mt-2 text-sm text-red-400">{bookingErrors.date}</p>}
                         </div>
@@ -987,7 +1035,7 @@ export default function VenueDetailPage() {
                                 type="time"
                                 value={bookingData.startTime}
                                 onChange={(e) => setBookingData({ ...bookingData, startTime: e.target.value })}
-                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.startTime ? 'border-red-500/50' : 'border-white/10'}`}
+                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.startTime ? 'border-red-500' : 'border-white/10'}`}
                             />
                             {bookingErrors.startTime && <p role="alert" className="mt-2 text-sm text-red-400">{bookingErrors.startTime}</p>}
                         </div>
@@ -997,7 +1045,7 @@ export default function VenueDetailPage() {
                                 type="time"
                                 value={bookingData.endTime}
                                 onChange={(e) => setBookingData({ ...bookingData, endTime: e.target.value })}
-                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.endTime ? 'border-red-500/50' : 'border-white/10'}`}
+                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.endTime ? 'border-red-500' : 'border-white/10'}`}
                             />
                             {bookingErrors.endTime && <p role="alert" className="mt-2 text-sm text-red-400">{bookingErrors.endTime}</p>}
                         </div>
@@ -1010,9 +1058,13 @@ export default function VenueDetailPage() {
                             max={venue?.capacity.max}
                             value={Number.isNaN(bookingData.guests) ? '' : bookingData.guests}
                             onChange={(e) => setBookingData({ ...bookingData, guests: parseInt(e.target.value) })}
-                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${bookingErrors.guests ? 'border-red-500/50' : 'border-white/10'}`}
+                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${bookingErrors.guests ? 'border-red-500' : 'border-white/10'}`}
                         />
-                        <p className="mt-1 text-xs text-gray-500">This venue accepts {venue?.capacity.min}–{venue?.capacity.max} guests.</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                            {(venue?.capacity.min ?? 1) > 1
+                                ? `This venue accepts ${venue?.capacity.min}–${venue?.capacity.max} guests.`
+                                : `This venue holds up to ${venue?.capacity.max} guests.`}
+                        </p>
                         {bookingErrors.guests && <p role="alert" className="mt-2 text-sm text-red-400">{bookingErrors.guests}</p>}
                     </div>
                     <div>
@@ -1022,7 +1074,7 @@ export default function VenueDetailPage() {
                             onChange={(e) => setBookingData({ ...bookingData, purpose: e.target.value })}
                             placeholder="Describe your event..."
                             rows={3}
-                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${bookingErrors.purpose ? 'border-red-500/50' : 'border-white/10'}`}
+                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${bookingErrors.purpose ? 'border-red-500' : 'border-white/10'}`}
                         />
                         {bookingErrors.purpose && <p role="alert" className="mt-2 text-sm text-red-400">{bookingErrors.purpose}</p>}
                     </div>
@@ -1032,35 +1084,55 @@ export default function VenueDetailPage() {
                         <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-4 mt-2">
                             <h4 className="text-violet-300 font-medium mb-3">Booking Cost Summary</h4>
                             {(() => {
-                                const startHour = parseInt(bookingData.startTime.split(':')[0]);
-                                const endHour = parseInt(bookingData.endTime.split(':')[0]);
-                                const hours = endHour > startHour ? endHour - startHour : 0;
-                                const hourlyRate = venue.pricing.pricePerHour || 0;
-                                const totalAmount = venue.pricing.basePrice + (hours * hourlyRate);
-                                const advanceAmount = totalAmount * 0.10;
+                                const startDate = bookingData.date || selectedDate || '';
+                                const dayRate = venueDayRate(venue);
+                                const days = billableDays(startDate, bookingData.endDate);
+                                const totalAmount = dayRate * days;
+                                // Itemised the same way the server bills it. This used to
+                                // show a bare `totalAmount * 0.10` and stop there, while
+                                // the server put that advance through calculateBilling and
+                                // added a platform fee plus GST - so a ₹166 booking said
+                                // ₹17 here and Razorpay asked for ₹18. The gateway was the
+                                // first place the guest saw the real figure.
+                                const bill = bookingAdvance(
+                                    totalAmount,
+                                    (venue as { platformFeePercentage?: number }).platformFeePercentage
+                                );
 
                                 return (
                                     <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between text-gray-300">
-                                            <span>Base Price</span>
-                                            <span>{formatPrice(venue.pricing.basePrice)}</span>
+                                        <div className="flex justify-between gap-3 text-gray-300">
+                                            <span>Day rate</span>
+                                            <span className="whitespace-nowrap">{formatPrice(dayRate)}</span>
                                         </div>
-                                        {hours > 0 && hourlyRate > 0 && (
-                                            <div className="flex justify-between text-gray-300">
-                                                <span>Hourly Rate ({hours} hours)</span>
-                                                <span>{formatPrice(hours * hourlyRate)}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between text-white font-medium pt-2 border-t border-white/10">
+                                        <div className="flex justify-between gap-3 text-gray-300">
+                                            <span>{days} {days === 1 ? 'day' : 'days'}</span>
+                                            <span className="whitespace-nowrap">&times; {days}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 text-white font-medium pt-2 border-t border-white/10">
                                             <span>Total Price</span>
-                                            <span>{formatPrice(totalAmount)}</span>
+                                            <span className="whitespace-nowrap">{formatPrice(totalAmount)}</span>
                                         </div>
-                                        <div className="flex justify-between text-violet-400 font-bold pt-2">
-                                            <span>Required 10% Advance</span>
-                                            <span>{formatPrice(advanceAmount)}</span>
+
+                                        <div className="flex justify-between gap-3 text-gray-300 pt-2 border-t border-white/10">
+                                            <span>10% advance</span>
+                                            <span className="whitespace-nowrap">{formatPrice(bill.advance)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 text-gray-300">
+                                            <span>Platform fee ({bill.platformFeePercentage}%)</span>
+                                            <span className="whitespace-nowrap">{formatPrice(bill.platformFee)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 text-gray-300">
+                                            <span>GST (18% on platform fee)</span>
+                                            <span className="whitespace-nowrap">{formatPrice(bill.gstAmount)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 text-violet-400 font-bold pt-2 border-t border-white/10">
+                                            <span>Payable now</span>
+                                            <span className="whitespace-nowrap">{formatPrice(bill.payableNow)}</span>
                                         </div>
                                         <p className="text-xs text-gray-300 mt-2 block">
-                                            * You are only paying the 10% non-refundable advance today to secure this booking. The remainder will be settled with the venue owner directly.
+                                            * Only the non-refundable advance and its fees are charged today to secure this booking.
+                                            The remaining {formatPrice(bill.remaining)} is settled with the venue owner directly.
                                         </p>
                                     </div>
                                 );
@@ -1068,12 +1140,26 @@ export default function VenueDetailPage() {
                         </div>
                     )}
 
-                    <div className="flex gap-3 pt-4">
-                        <Button variant="secondary" className="flex-1" onClick={() => { setIsBookingModalOpen(false); setBookingErrors({}); }} disabled={isSubmitting}>
+                    {/* Stacked on a phone, side by side from `sm` up.
+                        Buttons are whitespace-nowrap, so "Proceed to Payment (10%)" at
+                        flex-1 could not shrink to its half of a narrow row and spilled
+                        past the modal edge - visible on Android, where the default font
+                        renders wider than iOS. Full-width rows cannot overflow. */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                        <Button
+                            variant="secondary"
+                            className="w-full sm:flex-1 justify-center"
+                            onClick={() => { setIsBookingModalOpen(false); setBookingErrors({}); }}
+                            disabled={isSubmitting}
+                        >
                             Cancel
                         </Button>
-                        <Button className="flex-1" onClick={submitBooking} disabled={isSubmitting}>
-                            {isSubmitting ? 'Processing...' : 'Proceed to Payment (10%)'}
+                        <Button
+                            className="w-full sm:flex-1 justify-center"
+                            onClick={submitBooking}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? 'Processing...' : 'Proceed to Payment'}
                         </Button>
                     </div>
                 </div>

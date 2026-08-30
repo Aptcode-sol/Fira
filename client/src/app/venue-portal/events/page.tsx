@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isVenueOwner } from '@/lib/types';
 import { eventsApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { Button } from '@/components/ui';
+import { Button, DataTable } from '@/components/ui';
+import type { Column } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -136,6 +137,56 @@ export default function VenuePortalEventsPage() {
         return null;
     }
 
+    const columns: Column<EventRequest>[] = [
+        {
+            key: 'name',
+            header: 'Event',
+            primary: true,
+            cell: (e) => <span className="font-medium text-white">{e.name}</span>,
+        },
+        {
+            key: 'venue',
+            header: 'Venue',
+            cell: (e) => <span className="text-gray-300">{e.venue?.name || '—'}</span>,
+        },
+        {
+            key: 'organizer',
+            header: 'Organizer',
+            cell: (e) => <span className="text-gray-200">{e.organizer?.name || '—'}</span>,
+        },
+        {
+            key: 'from',
+            header: 'From',
+            cell: (e) => <span className="whitespace-nowrap">{formatDateTime(e.startDateTime)}</span>,
+        },
+        {
+            key: 'to',
+            header: 'To',
+            cell: (e) => <span className="whitespace-nowrap text-gray-300">{formatDateTime(e.endDateTime)}</span>,
+        },
+        {
+            key: 'capacity',
+            header: 'Capacity',
+            align: 'right',
+            cell: (e) => <span>{e.maxAttendees ?? '—'}</span>,
+        },
+        {
+            key: 'requested',
+            header: 'Requested',
+            cell: (e) => <span className="whitespace-nowrap text-gray-300">{formatDate(e.createdAt)}</span>,
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            align: 'center',
+            cell: (e) => (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize border ${getStatusColor(e.venueApproval?.status || 'pending')}`}>
+                    {e.venueApproval?.status || 'pending'}
+                </span>
+            ),
+        },
+    ];
+
     return (
         <VenueDashboardLayout>
             <div className="p-4 sm:p-6 lg:p-8">
@@ -165,114 +216,61 @@ export default function VenuePortalEventsPage() {
                     </div>
                 </FadeIn>
 
-                {/* Requests List */}
+                {/* Requests table. Organizer contact and the full request move to
+                    /venue-portal/events/[id], which the row opens; Approve and
+                    Reject stay here because triaging is what this list is for. */}
                 <FadeIn delay={0.2}>
-                    {loading ? (
-                        <div className="space-y-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-5">
-                                    <div className="flex gap-4">
-                                        <div className="w-16 h-16 bg-white/5 rounded-xl animate-pulse" />
-                                        <div className="flex-1">
-                                            <div className="w-1/3 h-5 bg-white/5 rounded animate-pulse mb-2" />
-                                            <div className="w-1/2 h-4 bg-white/5 rounded animate-pulse" />
-                                        </div>
-                                    </div>
+                    <DataTable
+                        rows={filteredRequests}
+                        columns={columns}
+                        rowKey={(e) => e._id}
+                        onRowClick={(e) => router.push(`/venue-portal/events/${e._id}`)}
+                        loading={loading}
+                        pageSize={10}
+                        label={(n) => `${n} request${n === 1 ? '' : 's'}`}
+                        empty={
+                            <>
+                                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-violet-500/20 flex items-center justify-center">
+                                    <svg className="w-10 h-10 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
                                 </div>
-                            ))}
-                        </div>
-                    ) : filteredRequests.length > 0 ? (
-                        <div className="space-y-4">
-                            {filteredRequests.map((event) => (
-                                <div key={event._id} className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-6">
-                                    <div className="flex flex-col md:flex-row gap-4">
-                                        {/* Event Image */}
-                                        <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden bg-gradient-to-br from-violet-500/20 to-pink-500/20 flex-shrink-0">
-                                            {event.venue?.images?.[0] ? (
-                                                <img src={event.venue.images[0]} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                    </svg>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Event Details */}
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(event.venueApproval?.status || 'pending')}`}>
-                                                    {event.venueApproval?.status || 'pending'}
-                                                </span>
-                                                <span className="text-gray-300 text-sm">{formatDate(event.createdAt)}</span>
-                                            </div>
-
-                                            <h3 className="text-lg font-semibold text-white mb-1">{event.name}</h3>
-
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
-                                                <div>
-                                                    <span className="text-gray-300">Venue:</span>
-                                                    <span className="text-white ml-2">{event.venue?.name}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-gray-300">From:</span>
-                                                    <span className="text-white ml-2">{formatDateTime(event.startDateTime)}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-gray-300">To:</span>
-                                                    <span className="text-white ml-2">{formatDateTime(event.endDateTime)}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-gray-300">Capacity:</span>
-                                                    <span className="text-white ml-2">{event.maxAttendees}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="pt-3 border-t border-white/10">
-                                                <span className="text-gray-300 text-sm">Organizer: </span>
-                                                <span className="text-white text-sm">{event.organizer?.name}</span>
-                                                <span className="text-gray-300 text-sm ml-3">{event.organizer?.email}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Actions */}
-                                        {(event.venueApproval?.status === 'pending' || !event.venueApproval?.status) && (
-                                            <div className="flex gap-2 items-start md:self-center">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleReject(event._id)}
-                                                    disabled={processingId === event._id}
-                                                >
-                                                    Reject
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => handleEventApproval(event._id, 'approved')}
-                                                    disabled={processingId === event._id}
-                                                >
-                                                    {processingId === event._id ? 'Processing...' : 'Approve'}
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-16">
-                            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-violet-500/20 flex items-center justify-center">
-                                <svg className="w-10 h-10 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                            </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">No event requests</h3>
-                            <p className="text-gray-300">
-                                Event organizers who want to host events at your venues will appear here.
-                            </p>
-                        </div>
-                    )}
+                                <h3 className="text-xl font-semibold text-white mb-2">No event requests</h3>
+                                <p className="text-gray-300">
+                                    Event organizers who want to host events at your venues will appear here.
+                                </p>
+                            </>
+                        }
+                        actions={(event) =>
+                            (event.venueApproval?.status ?? 'pending') === 'pending' ? (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleReject(event._id)}
+                                        disabled={processingId === event._id}
+                                    >
+                                        Reject
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleEventApproval(event._id, 'approved')}
+                                        disabled={processingId === event._id}
+                                    >
+                                        {processingId === event._id ? '...' : 'Approve'}
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => router.push(`/venue-portal/events/${event._id}`)}
+                                >
+                                    View
+                                </Button>
+                            )
+                        }
+                    />
                 </FadeIn>
             </div>
         </VenueDashboardLayout>

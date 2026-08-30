@@ -1,7 +1,14 @@
 'use client';
 
-import { motion, Variants } from 'framer-motion';
+import { motion, useReducedMotion, Variants } from 'framer-motion';
 import { ReactNode } from 'react';
+import {
+    ENTRANCE_DURATION,
+    ENTRANCE_EASE,
+    ENTRANCE_OFFSET,
+    STAGGER_DELAY,
+    VIEWPORT_AMOUNT,
+} from './motionConfig';
 
 interface StaggerContainerProps {
     children: ReactNode;
@@ -12,18 +19,22 @@ interface StaggerContainerProps {
 
 export default function StaggerContainer({
     children,
-    staggerDelay = 0.1,
+    staggerDelay = STAGGER_DELAY,
     className = '',
     once = true,
 }: StaggerContainerProps) {
+    // See FadeIn: the global CSS reduced-motion rule cannot reach framer-motion.
+    const reduceMotion = useReducedMotion();
+
     const containerVariants: Variants = {
-        hidden: { opacity: 0 },
+        hidden: { opacity: reduceMotion ? 1 : 0 },
         visible: {
             opacity: 1,
-            transition: {
-                staggerChildren: staggerDelay,
-                delayChildren: 0.1,
-            },
+            // No delayChildren. It was 0.1s, which pushed the first item back before
+            // the per-item stagger had even started - a fixed tax on every list.
+            transition: reduceMotion
+                ? { duration: 0 }
+                : { staggerChildren: staggerDelay },
         },
     };
 
@@ -31,7 +42,7 @@ export default function StaggerContainer({
         <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once, amount: 0.1 }}
+            viewport={{ once, amount: VIEWPORT_AMOUNT }}
             variants={containerVariants}
             className={className}
         >
@@ -48,18 +59,16 @@ export function StaggerItem({
     children: ReactNode;
     className?: string;
 }) {
+    const reduceMotion = useReducedMotion();
+
     const itemVariants: Variants = {
-        hidden: {
-            opacity: 0,
-            y: 30,
-        },
+        hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, y: ENTRANCE_OFFSET },
         visible: {
             opacity: 1,
             y: 0,
-            transition: {
-                duration: 0.5,
-                ease: [0.25, 0.1, 0.25, 1],
-            },
+            transition: reduceMotion
+                ? { duration: 0 }
+                : { duration: ENTRANCE_DURATION, ease: ENTRANCE_EASE },
         },
     };
 

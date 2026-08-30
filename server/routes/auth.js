@@ -63,6 +63,42 @@ router.post('/register-venue-owner', registerLimiter, /** @param {AuthenticatedR
     }
 });
 
+// POST /api/auth/become-venue-owner - Upgrade a signed-in user to also be a
+// venue owner (Option A "become a host" flow). Requires an authenticated
+// account; adds the venue_owner role and stores owner onboarding details.
+router.post('/become-venue-owner', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        const {
+            businessName,
+            businessPhone,
+            govIdType,
+            govIdNumber,
+            govIdDocument,
+            bankAccountName,
+            bankAccountNumber,
+            bankIfscCode,
+            bankName
+        } = req.body;
+        const result = await authService.becomeVenueOwner({
+            userId: req.user._id,
+            businessName,
+            businessPhone,
+            govIdType,
+            govIdNumber,
+            govIdDocument,
+            bankDetails: {
+                accountName: bankAccountName,
+                accountNumber: bankAccountNumber,
+                ifscCode: bankIfscCode,
+                bankName: bankName
+            }
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 // POST /api/auth/verify-otp - Verify OTP and activate account
 router.post('/verify-otp', otpLimiter, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {

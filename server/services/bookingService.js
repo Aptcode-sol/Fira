@@ -71,6 +71,16 @@ const bookingService = {
         console.log('🏢 Venue found:', venue ? venue.name : 'NOT FOUND');
         console.log('👤 Venue owner:', venue?.owner ? `${venue.owner.name} (${venue.owner.email})` : 'NOT FOUND/POPULATED');
 
+        // Function scope, not inside the `if (venue)` block below.
+        //
+        // This was declared inside that block while the owner-notification block after
+        // it also reads `booker.name` - so every booking with a venue owner threw
+        // "ReferenceError: booker is not defined". It threw *after* Booking.create, so
+        // the booking was saved and the caller still got a 500: the user saw an error
+        // for a booking that had actually gone through.
+        const booker = await User.findById(data.user).select('name email phone');
+        console.log('🎫 Booker:', booker ? `${booker.name} (${booker.email})` : 'NOT FOUND');
+
         if (venue) {
             // Check if venue has auto-approve enabled
             if (venue.autoApproveBookings) {
@@ -81,10 +91,6 @@ const bookingService = {
                 );
                 booking.status = 'accepted';
             }
-
-            // Get booker info
-            const booker = await User.findById(data.user).select('name email phone');
-            console.log('🎫 Booker:', booker ? `${booker.name} (${booker.email})` : 'NOT FOUND');
 
             // Send WhatsApp confirmation to booker if phone is available
             if (booker?.phone) {

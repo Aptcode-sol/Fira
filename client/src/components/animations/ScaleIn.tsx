@@ -1,7 +1,13 @@
 'use client';
 
-import { motion, Variants } from 'framer-motion';
+import { motion, useReducedMotion, Variants } from 'framer-motion';
 import { ReactNode } from 'react';
+import {
+    ENTRANCE_DURATION,
+    ENTRANCE_EASE,
+    VIEWPORT_AMOUNT,
+    scaledDelay,
+} from './motionConfig';
 
 interface ScaleInProps {
     children: ReactNode;
@@ -14,23 +20,23 @@ interface ScaleInProps {
 export default function ScaleIn({
     children,
     delay = 0,
-    duration = 0.5,
+    duration = ENTRANCE_DURATION,
     className = '',
     once = true,
 }: ScaleInProps) {
+    // See FadeIn: the global CSS reduced-motion rule cannot reach framer-motion.
+    const reduceMotion = useReducedMotion();
+
     const variants: Variants = {
-        hidden: {
-            opacity: 0,
-            scale: 0.9,
-        },
+        // 0.97 rather than 0.9: a 10% scale-up is a large visual change that also
+        // forces a repaint of everything inside the element.
+        hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.97 },
         visible: {
             opacity: 1,
             scale: 1,
-            transition: {
-                duration,
-                delay,
-                ease: [0.25, 0.1, 0.25, 1],
-            },
+            transition: reduceMotion
+                ? { duration: 0 }
+                : { duration, delay: scaledDelay(delay), ease: ENTRANCE_EASE },
         },
     };
 
@@ -38,7 +44,7 @@ export default function ScaleIn({
         <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once, amount: 0.2 }}
+            viewport={{ once, amount: VIEWPORT_AMOUNT }}
             variants={variants}
             className={className}
         >

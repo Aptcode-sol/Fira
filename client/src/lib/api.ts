@@ -16,6 +16,23 @@ class ApiError extends Error {
 const globalRequestCache = new Map<string, { promise: Promise<any>; timestamp: number }>();
 const CACHE_TTL = 15000; // 15-second deduplication window for navigation between dashboard pages
 
+/**
+ * Drop cached GETs so the next read hits the server.
+ *
+ * Without this, saving something and then refetching it inside the 15s window
+ * returns the pre-save response - the write succeeds but the UI shows the old
+ * values. Call it after a mutation with the endpoint prefix it affects.
+ */
+export function clearRequestCache(prefix?: string) {
+    if (!prefix) {
+        globalRequestCache.clear();
+        return;
+    }
+    for (const key of globalRequestCache.keys()) {
+        if (key.startsWith(prefix)) globalRequestCache.delete(key);
+    }
+}
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { token, ...fetchOptions } = options;
     const isGet = !fetchOptions.method || fetchOptions.method.toUpperCase() === 'GET';
@@ -170,7 +187,36 @@ export const authApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    // Option A "become a host": upgrade the signed-in account to also hold the
+    // venue_owner role. Token is attached automatically by `request`.
+    becomeVenueOwner: (data: {
+        businessName: string;
+        businessPhone: string;
+        govIdType?: string;
+        govIdNumber?: string;
+        govIdDocument?: string;
+        bankAccountName?: string;
+        bankAccountNumber?: string;
+        bankIfscCode?: string;
+        bankName?: string;
+    }) =>
+        request<{ user: unknown; token: string; message: string }>('/auth/become-venue-owner', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 };
+
+/** A saved payout account. Exactly one in the list carries isDefault. */
+export interface BankAccount {
+    _id: string;
+    accountName: string;
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+    isDefault: boolean;
+    createdAt?: string;
+}
 
 // Users API
 export const usersApi = {
@@ -201,6 +247,11 @@ export const usersApi = {
             }[];
             count: number;
         }>(`/users/${userId}/following-brands`),
+    /**
+     * Legacy single-account write. Kept for the registration and
+     * become-a-venue-owner flows that still submit one account inline; settings
+     * uses the bank-accounts endpoints below.
+     */
     updateBankDetails: (data: {
         accountName: string;
         accountNumber: string;
@@ -211,6 +262,29 @@ export const usersApi = {
             '/users/me/bank-details',
             { method: 'PATCH', body: JSON.stringify(data) }
         ),
+    /* Payout accounts. `bankDetails` above still exists and always mirrors
+       whichever of these is the default, so payout-facing reads are unchanged. */
+    listBankAccounts: () =>
+        request<{ accounts: BankAccount[] }>('/users/me/bank-accounts'),
+    addBankAccount: (data: {
+        accountName: string;
+        accountNumber: string;
+        ifscCode: string;
+        bankName: string;
+        makeDefault?: boolean;
+    }) =>
+        request<{ accounts: BankAccount[] }>('/users/me/bank-accounts', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    setDefaultBankAccount: (accountId: string) =>
+        request<{ accounts: BankAccount[] }>(`/users/me/bank-accounts/${accountId}/default`, {
+            method: 'PATCH',
+        }),
+    deleteBankAccount: (accountId: string) =>
+        request<{ accounts: BankAccount[] }>(`/users/me/bank-accounts/${accountId}`, {
+            method: 'DELETE',
+        }),
     // Delete the authenticated user's own account + associated data.
     // Server endpoint (DELETE /api/users/me) already exists; this just wires it.
     deleteAccount: () => request('/users/me', { method: 'DELETE' }),
@@ -318,6 +392,38 @@ export const brandsApi = {
     getEvents: (id: string) => request(`/brands/${id}/events`),
 };
 
+/** One city suggestion, already normalised and de-duplicated server-side. */
+export interface CitySuggestion {
+    /** Spelling to store and display. */
+    city: string;
+    /** Canonical slug - the value filters and city URLs match on. */
+    slug: string;
+    state: string;
+    lat: number | null;
+    lng: number | null;
+}
+
+/** A city that currently holds listings, with how many of each. */
+export interface ListedCity extends Pick<CitySuggestion, 'city' | 'slug' | 'state'> {
+    venues: number;
+    events: number;
+}
+
+/**
+ * Locations API — city lookup for the address forms and the city filter.
+ *
+ * The geocoder itself is called server-side, so the provider key never reaches
+ * the browser and one cache serves every user.
+ */
+export const locationsApi = {
+    searchCities: (q: string) =>
+        request<{ results: CitySuggestion[]; source: string; minLength: number }>(
+            `/locations/cities?q=${encodeURIComponent(q)}`
+        ),
+    /** Cities with at least one live listing. Drives the filters and city pages. */
+    listed: () => request<{ cities: ListedCity[] }>('/locations/listed'),
+};
+
 // Venues API
 export const venuesApi = {
     getAll: (params?: Record<string, string>) => {
@@ -357,11 +463,9 @@ export const venuesApi = {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
-    updateStatus: (id: string, status: string) =>
-        request(`/venues/${id}/status`, {
-            method: 'PUT',
-            body: JSON.stringify({ status }),
-        }),
+    // Venue status is admin-controlled via the admin API (adminApi), which hits
+    // the guarded /admin/venues/:id/status route. No owner-facing status setter
+    // exists by design - a venue owner must not be able to approve their own venue.
     cancel: (id: string, reason?: string) =>
         request<{ venue: any; message: string }>(`/venues/${id}/cancel`, {
             method: 'POST',
@@ -375,6 +479,21 @@ export const venuesApi = {
     checkReviewEligibility: (id: string) =>
         request<{ eligible: boolean }>(`/bookings?venue=${id}&status=completed`),
 };
+
+/**
+ * A door scanner link.
+ *
+ * `ticketTier` empty means the link admits every tier for the event; a tier name
+ * means it admits only that tier and rejects the rest.
+ */
+export interface ScanningCode {
+    _id: string;
+    code: string;
+    label: string;
+    ticketTier: string;
+    isActive: boolean;
+    createdAt: string;
+}
 
 // Events API
 export const eventsApi = {
@@ -487,12 +606,8 @@ export const eventsApi = {
 
     // Scanning Codes
     getScanningCodes: (eventId: string) =>
-        request<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>(`/events/${eventId}/scanning-codes`),
-    createScanningCodes: (eventId: string, labels: string[]) =>
-        request<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>(`/events/${eventId}/scanning-codes`, {
-            method: 'POST',
-            body: JSON.stringify({ labels }),
-        }),
+        request<ScanningCode[]>(`/events/${eventId}/scanning-codes`),
+
     deactivateScanningCode: (eventId: string, codeId: string) =>
         request(`/events/${eventId}/scanning-codes/${codeId}/deactivate`, {
             method: 'PATCH',
@@ -918,6 +1033,21 @@ export interface Conversation {
         type: string;
         user?: string;
     };
+    /** Set when this thread came from an event/venue enquiry. */
+    inquiry?: string | null;
+    /**
+     * Denormalized enquiry header: who asked, how to reach them, and which
+     * listing it is about. Written once when the thread is created.
+     */
+    inquiryContext?: {
+        referenceType?: 'event' | 'venue' | null;
+        referenceId?: string | null;
+        referenceName?: string | null;
+        referenceImage?: string | null;
+        senderName?: string | null;
+        senderEmail?: string | null;
+        senderPhone?: string | null;
+    } | null;
     lastMessage: {
         content: string;
         sender: string;
@@ -940,20 +1070,48 @@ export interface Message {
     messageType: 'text' | 'image' | 'system';
     imageUrl?: string;
     isRead: boolean;
+    readAt?: string | null;
     createdAt: string;
+    /**
+     * Client-only delivery state for optimistic bubbles. Absent on anything that
+     * came back from the server, which is by definition already sent.
+     */
+    pending?: boolean;
+    failed?: boolean;
 }
 
 export const messagesApi = {
-    getConversations: () =>
-        request<{ success: boolean; conversations: Conversation[] }>('/messages/conversations'),
+    /**
+     * A page of conversations, newest activity first. Page-based because the inbox
+     * shows a "page X of Y" control, which needs a total count.
+     */
+    getConversations: (opts: { page?: number; limit?: number } = {}) => {
+        const params = new URLSearchParams({
+            page: String(opts.page ?? 1),
+            limit: String(opts.limit ?? 20),
+        });
+        return request<{
+            success: boolean;
+            conversations: Conversation[];
+            pagination: { page: number; limit: number; total: number; totalPages: number };
+        }>(`/messages/conversations?${params.toString()}`);
+    },
 
-    getMessages: (conversationId: string, page = 1, limit = 50) =>
-        request<{
+    /**
+     * Newest page of a thread, or the page immediately older than `before`.
+     * `before` is the createdAt of the oldest message already held - a cursor
+     * rather than an offset, so pages stay stable while new messages arrive.
+     */
+    getMessages: (conversationId: string, opts: { before?: string; limit?: number } = {}) => {
+        const params = new URLSearchParams({ limit: String(opts.limit ?? 30) });
+        if (opts.before) params.set('before', opts.before);
+        return request<{
             success: boolean;
             conversation: Conversation;
             messages: Message[];
-            pagination: { page: number; limit: number };
-        }>(`/messages/conversations/${conversationId}?page=${page}&limit=${limit}`),
+            pagination: { limit: number; hasMore: boolean; nextBefore: string | null };
+        }>(`/messages/conversations/${conversationId}?${params.toString()}`);
+    },
 
     sendMessage: (data: {
         conversationId?: string;
@@ -975,11 +1133,14 @@ export const messagesApi = {
         }),
 
     // Find-or-create a conversation between the inquiry sender and the reference
-    // (event/venue) owner, bound to the inquiry reference. Server handler added
-    // in task 13.2.
+    // (event/venue) owner, bound to the inquiry.
+    // Takes the inquiry's own id: the server resolves referenceType/referenceId
+    // (and from those the owner) off the stored Inquiry, so the caller cannot
+    // point a conversation at a reference it never actually enquired about.
+    // This previously sent { referenceType, referenceId } and every call failed
+    // its 400 guard, which is why submitting an enquiry never opened a chat.
     startInquiryConversation: (data: {
-        referenceType: 'event' | 'venue';
-        referenceId: string;
+        inquiryId: string;
         message?: string;
     }) =>
         request<{ success: boolean; conversation: Conversation }>('/messages/start-inquiry-conversation', {
@@ -998,18 +1159,59 @@ export const messagesApi = {
 
 // Inquiries API
 export const inquiriesApi = {
+    // Sender identity is derived from the authenticated account server-side, so
+    // there is nothing to send but the reference and the question. The old
+    // senderName/senderEmail/senderPhone fields were discarded by the server.
     submit: (data: {
         referenceType: 'event' | 'venue';
         referenceId: string;
-        senderName: string;
-        senderEmail: string;
-        senderPhone?: string;
         message: string;
     }) =>
         request<{ _id: string; referenceType: string; referenceId: string; status: string }>('/inquiries', {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+};
+
+// Earnings API
+// Read-only per-event / per-venue earnings breakdowns. Both routes are behind
+// requireAuth() and enforce ownership server-side (organizer / venue owner),
+// returning the DTO verbatim. All monetary values are integer rupees.
+export type EarningsPayoutStatus =
+    | 'pending'
+    | 'processing'
+    | 'completed'
+    | 'failed'
+    | 'not yet initiated';
+
+export interface EventEarningsDTO {
+    grossTicketSales: number;
+    platformCommissionDeducted: number;
+    gst: number;
+    netEarnings: number;
+    payoutStatus: EarningsPayoutStatus;
+}
+
+export interface VenueEarningsBooking {
+    bookingId: string;
+    grossBookingAmount: number;
+    advancePaid: number;
+    commissionDeducted: number;
+    netPayable: number;
+    balanceOutstanding: boolean;
+    payoutStatus: EarningsPayoutStatus;
+}
+
+export interface VenueEarningsDTO {
+    venueId: string;
+    bookings: VenueEarningsBooking[];
+}
+
+export const earningsApi = {
+    getEventEarnings: (eventId: string) =>
+        request<EventEarningsDTO>(`/events/${eventId}/earnings`),
+    getVenueEarnings: (venueId: string) =>
+        request<VenueEarningsDTO>(`/venues/${venueId}/earnings`),
 };
 
 export { ApiError };

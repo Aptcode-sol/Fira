@@ -41,15 +41,29 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                         id={inputId}
                         aria-invalid={error ? true : undefined}
                         aria-describedby={describedBy}
+                        /*
+                         * Border and ring colours are emitted for exactly one state,
+                         * never both.
+                         *
+                         * This previously always included `border-white/10` and then
+                         * appended `border-red-500/50` when errored. Both have the same
+                         * CSS specificity, so which one wins is decided by their order in
+                         * the generated stylesheet - not by their order in this string.
+                         * The result was that some inputs showed a red border and others
+                         * did not, for the same error state. Picking one branch removes
+                         * the conflict entirely.
+                         */
                         className={`
               w-full px-4 py-3 rounded-xl
-              bg-white/5 border border-white/10
+              bg-white/5 border
               text-white placeholder-gray-500
-              focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50
+              focus:outline-none focus:ring-2
               transition-all duration-200
               ${leftIcon ? 'pl-10' : ''}
               ${rightIcon ? 'pr-10' : ''}
-              ${error ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500/50' : ''}
+              ${error
+                                ? 'border-red-500 focus:ring-red-500/50 focus:border-red-500'
+                                : 'border-white/10 focus:ring-violet-500/50 focus:border-violet-500/50'}
               ${className}
             `}
                         {...props}

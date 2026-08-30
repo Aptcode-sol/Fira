@@ -351,7 +351,9 @@ const adminService = {
         // Get events hosted by this brand's user
         const events = await Event.find({ organizer: brand.user._id })
             .populate('venue', 'name')
-            .sort({ date: -1 })
+            // startDateTime, not `date`: no such path on the schema, so this sort did
+            // nothing and "latest events" was arbitrary.
+            .sort({ startDateTime: -1 })
             .limit(10);
 
         // Get revenue from events

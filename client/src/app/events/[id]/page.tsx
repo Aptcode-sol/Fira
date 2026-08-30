@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
-import { Button, Modal, Input } from '@/components/ui';
+import { BackButton, Button, Modal, Input } from '@/components/ui';
 import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
 import { formatSingleDateTime } from '@/lib/dateUtils';
 import { Event, User, Venue } from '@/lib/types';
@@ -130,6 +130,22 @@ export default function EventDetailPage() {
     const purchaseTickets = async () => {
         if (!user?._id || !event?._id) return;
 
+        /*
+         * Which tier the buyer picked, by name.
+         *
+         * This used to be hardcoded to 'general' no matter what the tier picker above
+         * showed, so every ticket was issued as general admission at the event's base
+         * price - the tiers were decorative, and a VIP buyer was charged the cheapest
+         * tier's price. The name is what the ticket records and what a tier-scoped
+         * door scanner matches against, so it has to be the real selection.
+         */
+        const tiers = event.ticketTiers ?? [];
+        if (tiers.length > 0 && selectedTierIndex === null) {
+            showToast('Please select a ticket tier', 'error');
+            return;
+        }
+        const ticketType = tiers.length > 0 ? tiers[selectedTierIndex!].name : 'general';
+
         // Start purchase flow
         setIsPurchasing(true);
         try {
@@ -138,7 +154,7 @@ export default function EventDetailPage() {
                 userId: user._id,
                 eventId: event._id,
                 quantity: ticketQuantity,
-                ticketType: 'general'
+                ticketType
             });
 
             // 2. Handle Payment Flow (keeping for future when payments are enabled)
@@ -178,8 +194,11 @@ export default function EventDetailPage() {
                                 const finalTicketResult = await ticketsApi.purchase({
                                     userId: user._id,
                                     eventId: event._id!,
+                                    // Same tier as the payment was priced for. Sending
+                                    // 'general' here would have issued a general ticket
+                                    // against a VIP charge.
+                                    ticketType,
                                     quantity: ticketQuantity,
-                                    ticketType: 'general',
                                     paymentId: result.paymentData.payment._id
                                 });
 
@@ -373,6 +392,21 @@ export default function EventDetailPage() {
         : false;
     const isSoldOut = isTiersSoldOut || spotsLeft <= 0;
 
+    /**
+     * Nothing left to buy: cancelled, marked completed, or already started.
+     *
+     * Derived once because both the mobile action row and the sidebar panel render a
+     * ticket CTA - inlining the condition twice is how the two end up disagreeing
+     * about whether an event is still open.
+     */
+    const hasEnded =
+        event.status === 'completed' ||
+        event.status === 'cancelled' ||
+        new Date(event.startDateTime) < new Date();
+
+    /** The CTA label, shared by both placements. */
+    const ticketCtaLabel = event.ticketPrice === 0 ? 'Register for Free' : 'Get Tickets';
+
     return (
         <>
             <PartyBackground />
@@ -380,6 +414,10 @@ export default function EventDetailPage() {
 
             <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
                 <div className="max-w-6xl mx-auto">
+                    {/* The only way off this page was the browser's own back gesture.
+                        Falls back to the events list when opened from a shared link. */}
+                    <BackButton fallbackHref="/events" label="Back to Events" className="mb-4" />
+
                     {/* Hero Image */}
                     <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-8">
                         {event.images && event.images.length > 0 ? (
@@ -444,6 +482,37 @@ export default function EventDetailPage() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Mobile action row, mirroring the venue page.
+                                    The ticket panel is a sidebar on desktop but stacks to
+                                    the very bottom on mobile, so the only way to buy was
+                                    to scroll past the description, venue, tabs and
+                                    gallery first. This puts the CTA directly under the
+                                    event title with the price beside it; the bottom panel
+                                    stays for anyone who reads the whole page. */}
+                                <div className="flex items-center gap-3 mt-4 lg:hidden">
+                                    <div className="flex-shrink-0">
+                                        <span className={`text-xl font-bold ${event.ticketPrice === 0 ? 'text-green-400' : 'text-white'}`}>
+                                            {formatPrice(event.ticketPrice)}
+                                        </span>
+                                        {event.ticketPrice > 0 && (
+                                            <span className="text-gray-300 text-xs ml-1">/ ticket</span>
+                                        )}
+                                    </div>
+                                    {hasEnded ? (
+                                        <Button className="flex-1" disabled>
+                                            Event {event.status === 'cancelled' ? 'Cancelled' : 'Ended'}
+                                        </Button>
+                                    ) : isSoldOut ? (
+                                        <Button className="flex-1" disabled>
+                                            Sold Out
+                                        </Button>
+                                    ) : (
+                                        <Button className="flex-1" onClick={handleGetTickets}>
+                                            {ticketCtaLabel}
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Tabs */}
@@ -697,15 +766,15 @@ export default function EventDetailPage() {
                                         <span className="text-gray-300">To</span>
                                         <span className="text-white text-right">{formatSingleDateTime(event.endDateTime)}</span>
                                     </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-300">Spots Left</span>
-                                        <span className={`font-medium ${spotsLeft < 20 ? 'text-red-400' : 'text-white'}`}>
-                                            {spotsLeft} / {event.maxAttendees}
-                                        </span>
-                                    </div>
+                                    {/* No "Spots Left" row. Publishing the remaining
+                                        count also publishes how many have sold, and on a
+                                        new listing "480 / 500" reads as nobody is going.
+                                        spotsLeft still gates the Sold Out state and the
+                                        per-purchase cap below - it is enforced, just not
+                                        advertised. */}
                                 </div>
 
-                                {event.status === 'completed' || event.status === 'cancelled' || new Date(event.startDateTime) < new Date() ? (
+                                {hasEnded ? (
                                     <Button className="w-full" size="lg" disabled>
                                         Event {event.status === 'cancelled' ? 'Cancelled' : 'Ended'}
                                     </Button>
@@ -720,7 +789,7 @@ export default function EventDetailPage() {
                                     </>
                                 ) : (
                                     <Button className="w-full" size="lg" onClick={handleGetTickets}>
-                                        {event.ticketPrice === 0 ? 'Register for Free' : 'Get Tickets'}
+                                        {ticketCtaLabel}
                                     </Button>
                                 )}
 
@@ -830,9 +899,14 @@ export default function EventDetailPage() {
                                                 {tier.description && (
                                                     <div className="text-xs text-gray-400 mt-0.5">{tier.description}</div>
                                                 )}
-                                                <div className="text-xs text-gray-400 mt-0.5">
-                                                    {soldOut ? 'Sold out' : `${remaining} left`}
-                                                </div>
+                                                {/* Sold out is a state you must see - the
+                                                    tier is unselectable. The remaining
+                                                    count is not: it leaked how many of
+                                                    each tier had sold. `remaining` still
+                                                    caps the quantity stepper below. */}
+                                                {soldOut && (
+                                                    <div className="text-xs text-gray-400 mt-0.5">Sold out</div>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-white font-semibold whitespace-nowrap">{formatPrice(tier.price)}</span>
@@ -891,18 +965,21 @@ export default function EventDetailPage() {
                         )}
                     </div>
 
+                    {/* Billing runs off activePrice, the selected tier's price - not
+                        event.ticketPrice, which is only the base figure. Quoting the base
+                        price for a VIP tier showed a total the server would not charge. */}
                     <div className="border-t border-white/10 pt-4 space-y-4">
-                        {event.ticketPrice > 0 && (
+                        {activePrice > 0 && (
                             <>
                                 <DiscountCodeInput
                                     eventId={event._id!}
-                                    subtotal={event.ticketPrice * ticketQuantity}
+                                    subtotal={activePrice * ticketQuantity}
                                     onApplied={(discount) => setAppliedDiscount(discount)}
                                     onRemoved={() => setAppliedDiscount(null)}
                                     appliedCode={appliedDiscount?.code ?? null}
                                 />
                                 <BillingCard
-                                    ticketPrice={event.ticketPrice}
+                                    ticketPrice={activePrice}
                                     quantity={ticketQuantity}
                                     platformFeePercentage={(event as any).platformFeePercentage ?? 5}
                                     discountAmount={appliedDiscount?.amount ?? 0}
@@ -910,14 +987,23 @@ export default function EventDetailPage() {
                                 />
                             </>
                         )}
-                        {event.ticketPrice === 0 && (
+                        {activePrice === 0 && (
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-gray-300">Total</span>
                                 <span className="text-2xl font-bold text-white">Free</span>
                             </div>
                         )}
-                        <Button className="w-full" size="lg" onClick={purchaseTickets} disabled={isPurchasing}>
-                            {isPurchasing ? 'Processing...' : event.ticketPrice === 0 ? 'Confirm Registration' : 'Get Tickets'}
+                        <Button
+                            className="w-full"
+                            size="lg"
+                            onClick={purchaseTickets}
+                            disabled={isPurchasing || (hasTiers && selectedTierIndex === null)}
+                        >
+                            {isPurchasing
+                                ? 'Processing...'
+                                : hasTiers && selectedTierIndex === null
+                                    ? 'Select a tier'
+                                    : activePrice === 0 ? 'Confirm Registration' : 'Get Tickets'}
                         </Button>
                     </div>
                 </div>

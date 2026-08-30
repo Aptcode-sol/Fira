@@ -122,19 +122,25 @@ export default function Hero() {
             </div>
 
             {/* Scroll cue — placed outside the z-10 content container so it never
-                overlaps the CTA buttons during staggered entrance animations. */}
-            <FadeIn delay={1.2} duration={0.8}>
-                <button
-                    onClick={() => scrollToSection('what-we-do')}
-                    aria-label="Scroll to find out more"
-                    className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-[1] flex-col items-center gap-1 text-gray-400 hover:text-gray-300 transition-colors group"
-                >
-                    <span className="text-[10px] uppercase tracking-[0.2em]">More</span>
-                    <span className="w-5 h-8 rounded-full border border-white/15 flex justify-center pt-1.5 group-hover:border-white/30 transition-colors">
-                        <span className="w-1 h-1.5 rounded-full bg-white/40 animate-bounce" />
-                    </span>
-                </button>
-            </FadeIn>
+                overlaps the CTA buttons during staggered entrance animations.
+                The absolute positioning lives on this plain wrapper, not inside
+                FadeIn: framer-motion's fade-up transform would otherwise turn the
+                FadeIn div into the containing block, snapping the cue to the wrong
+                spot on the right until the animation settled. */}
+            <div className="hidden sm:block absolute bottom-6 left-1/2 -translate-x-1/2 z-[1]">
+                <FadeIn delay={1.2} duration={0.8}>
+                    <button
+                        onClick={() => scrollToSection('what-we-do')}
+                        aria-label="Scroll to find out more"
+                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-300 transition-colors group"
+                    >
+                        <span className="text-[10px] uppercase tracking-[0.2em]">More</span>
+                        <span className="w-5 h-8 rounded-full border border-white/15 flex justify-center pt-1.5 group-hover:border-white/30 transition-colors">
+                            <span className="w-1 h-1.5 rounded-full bg-white/40 animate-bounce" />
+                        </span>
+                    </button>
+                </FadeIn>
+            </div>
         </section>
     );
 }

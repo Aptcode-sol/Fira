@@ -98,6 +98,8 @@ const eventSchema = new mongoose.Schema({
         description: String,
         address: String,
         city: String,
+        /** Canonical slug of `city`. Derived by the hook below - see Venue.address.citySlug. */
+        citySlug: String,
         state: String,
         pincode: String,
         capacity: Number,
@@ -134,6 +136,15 @@ const eventSchema = new mongoose.Schema({
         respondedAt: Date,
         respondedBy: String,
         rejectionReason: String
+    },
+    /**
+     * Which of the organizer's saved bankAccounts ticket revenue goes to.
+     * An id into `User.bankAccounts`; null falls back to the mirrored default in
+     * `User.bankDetails`, which is what the payout path reads today.
+     */
+    payoutAccount: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null
     },
     isActive: {
         type: Boolean,
@@ -195,9 +206,13 @@ eventSchema.index({ venue: 1 });
 eventSchema.index({ startDateTime: 1 });
 eventSchema.index({ status: 1 });
 eventSchema.index({ eventType: 1 });
+// Derives customVenue.citySlug from customVenue.city on every write path.
+require('../utils/citySlugHook').attachCitySlug(eventSchema, 'customVenue');
+
 // Compound indexes for common query patterns
 eventSchema.index({ organizer: 1, status: 1, isDeleted: 1 }); // Dashboard queries
 eventSchema.index({ status: 1, isActive: 1, startDateTime: 1 }); // Public listing
+eventSchema.index({ 'customVenue.citySlug': 1, status: 1 }); // City filter / city pages
 eventSchema.index({ venue: 1, status: 1, startDateTime: 1, endDateTime: 1 }); // Conflict checks
 
 module.exports = mongoose.model('Event', eventSchema);

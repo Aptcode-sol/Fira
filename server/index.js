@@ -72,6 +72,7 @@ const scanRoutes = require('./routes/scan');
 const discountRoutes = require('./routes/discount');
 const inquiryRoutes = require('./routes/inquiry');
 const messageRoutes = require('./routes/message');
+const locationRoutes = require('./routes/location');
 
 // ponytail: mount on both /api/v1 (canonical) and /api (backward compat alias).
 // When v2 lands, /api/v1 stays frozen and /api can be re-pointed.
@@ -94,6 +95,7 @@ const routeTable = [
     ['discounts', discountRoutes],
     ['inquiries', inquiryRoutes],
     ['messages', messageRoutes],
+    ['locations', locationRoutes],
 ];
 
 for (const [path, router] of routeTable) {

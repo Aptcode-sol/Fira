@@ -4,32 +4,11 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { isVenueOwner } from '@/lib/types';
 import Navbar from '@/components/Navbar';
 import DashboardSwitcher from '@/components/dashboard/DashboardSwitcher';
-
-const navItems = [
-    { href: '/dashboard', icon: 'home', label: 'Overview' },
-    // "My Events" lives in the Events Management section below (see
-    // eventOrganizerItems) - having it here too rendered it twice.
-    { href: '/dashboard/bookings', icon: 'building', label: 'My Bookings' },
-    { href: '/dashboard/tickets', icon: 'ticket', label: 'My Tickets' },
-    { href: '/dashboard/payments', icon: 'credit-card', label: 'Payments' },
-    // 5.8: notifications is now a top-level route (/notifications); the exact-match
-    // highlight below (pathname === item.href) lights up this item when on it.
-    { href: '/notifications', icon: 'bell', label: 'Notifications' },
-    { href: '/dashboard/policies', icon: 'document', label: 'Policies' },
-    { href: '/dashboard/settings', icon: 'cog', label: 'Settings' },
-];
-
-const venueOwnerItems = [
-    { href: '/dashboard/venues', icon: 'building-office', label: 'My Venues' },
-    { href: '/dashboard/requests', icon: 'inbox', label: 'Requests' },
-];
-
-const eventOrganizerItems = [
-    { href: '/dashboard/events', icon: 'calendar', label: 'My Events' },
-];
+import SidebarFooter from '@/components/dashboard/SidebarFooter';
+import { userNavItems } from '@/components/dashboard/navModel.mjs';
+import { SIDEBAR_LABEL, SIDEBAR_SLOT, sidebarRowClass } from '@/components/dashboard/sidebarChrome';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -76,13 +55,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         }
     };
 
-    // Derive sidebar visibility from user context — no API calls needed
+    // Derive sidebar visibility from user context — no API calls needed.
+    // This is the only remaining conditional section: a brand profile is a real
+    // separate destination, not a duplicate of something already in the list.
     const hasBrand = !!(user?.verificationBadge && ['brand', 'band', 'organizer'].includes(user.verificationBadge));
-    // Events Management is now the ONLY place "My Events" appears, so it has to
-    // be visible to everyone. This was gated on hasBrand before, but any user
-    // can create an event via /create/event - keeping the gate would have left
-    // regular users with no way to reach /dashboard/events at all.
-    const hasEvents = true;
 
     // Persist sidebar state
     useEffect(() => {
@@ -96,10 +72,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         window.addEventListener('toggle-dashboard-sidebar', handleToggle);
         return () => window.removeEventListener('toggle-dashboard-sidebar', handleToggle);
     }, []);
-
-    // roles[] is the source of truth (Flow 7); legacy role honored via the
-    // shared helper. Admin also keeps venue management for backward compat.
-    const showVenueManagement = isVenueOwner(user) || user?.role === 'admin';
 
     const getIcon = (name: string) => {
         const icons: Record<string, React.ReactNode> = {
@@ -128,25 +100,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
             ),
-            'bell': (
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-            ),
-            'building-office': (
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2 21h20M2 21V3h8v18m0-18h12v18m-12 0V8m0 0h12" />
-                </svg>
-            ),
             'sparkles': (
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-            ),
-            'cog': (
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             ),
             'document': (
@@ -154,14 +110,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
             ),
-            'inbox': (
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H8a2 2 0 01-2-2m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4a2 2 0 00-2 2v1a2 2 0 01-2 2H8a2 2 0 01-2-2v-1a2 2 0 00-2-2H4" />
-                </svg>
-            ),
         };
         return icons[name] || null;
     };
+
+    // Row geometry comes from sidebarChrome so this list, the venue portal's list
+    // and the footer are the same size. Labels render only when open rather than
+    // fading at opacity 0 - an invisible label still reserved its width, which is
+    // what made the collapsed rail feel wider than the icons in it.
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] flex relative">
@@ -195,7 +151,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Mobile Overlay */}
             {isExpanded && (
-                <div 
+                <div
                     className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
                     onClick={() => setIsExpanded(false)}
                 />
@@ -210,127 +166,91 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 // which mobile browsers resize as the URL bar hides on scroll -
                 // that made the pinned bottom section drift up and settle back.
                 // Anchoring both edges makes it stretch instead of being sized once.
-                className={`fixed left-0 inset-y-0 bg-[#0a0a0a] lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
-                    isOpen ? 'w-64' : 'w-0 lg:w-20 overflow-hidden border-none'
-                }`}
+                className={`fixed left-0 inset-y-0 bg-[#0a0a0a] lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] lg:z-50 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-0 lg:w-20 overflow-hidden border-none'
+                    }`}
             >
-                {/* Logo and Mobile Toggle */}
-                <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-16 lg:h-20 relative">
-                    {/* Desktop Toggle Button — only visible when sidebar is expanded,
-                        otherwise the logo alone serves as the visual anchor and
-                        hover-to-peek opens the sidebar. */}
-                    {isOpen && (
-                        <button 
-                            onClick={() => setIsExpanded(!isExpanded)}
-                            className="absolute left-4 hidden lg:flex text-gray-400 hover:text-white z-10"
-                            title="Collapse Sidebar"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
-                    )}
-                    
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center justify-center w-full">
+                {/* Header: logo hard left, one collapse control hard right.
+                    It used to centre the logo and absolutely position a hamburger at
+                    the left edge plus a separate close button at the right, so the
+                    header read as two competing controls around a floating logo, and
+                    the logo did not line up with the nav items underneath it. One
+                    justify-between row fixes both. */}
+                <div
+                    className={`px-3 border-b border-white/[0.08] flex items-center gap-3 h-16 lg:h-20 ${isOpen ? '' : 'justify-center'
+                        }`}
+                >
+                    <Link href="/" className="flex items-center flex-shrink-0" aria-label="Fira home">
                         <img
                             src="/logo white.png"
                             alt="FIRA"
-                            className="w-8 h-8 lg:w-10 lg:h-10 object-contain flex-shrink-0"
+                            className="w-8 h-8 lg:w-10 lg:h-10 object-contain"
                         />
                     </Link>
 
-                    {/* Close Button for Mobile - visible when expanded */}
-                    {isExpanded && (
-                        <button 
-                            onClick={(e) => { e.preventDefault(); setIsExpanded(false); }}
-                            className="absolute right-3 lg:hidden text-gray-400 hover:text-white"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                    {isOpen && (
+                        <>
+                            {/* Switcher beside the logo: both answer "which product am
+                                I in", so they belong together rather than the switcher
+                                sitting on top of the nav list as a pseudo-item. */}
+                            <DashboardSwitcher current="user" variant="header" />
+
+                            {/* One control for both breakpoints: clearing the pinned flag
+                                collapses to the icon rail on desktop and closes the drawer
+                                on mobile, because the width classes already differ per
+                                breakpoint. */}
+                            <button
+                                onClick={() => setIsExpanded(false)}
+                                className="text-gray-400 hover:text-white flex-shrink-0 ml-auto"
+                                aria-label="Collapse sidebar"
+                            >
+                                <svg className="w-6 h-6 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                </svg>
+                            </button>
+                        </>
                     )}
                 </div>
 
-                {/* Navigation - two zones.
-                    The main links scroll if they outgrow the sidebar, while
-                    Brand Profile, Events Management and Logout stay pinned to
-                    the bottom so they sit in the same place on every screen. */}
+                {/* Navigation - two zones. The main links scroll if they outgrow the
+                    sidebar, while Brand Profile, Settings and Logout stay pinned to the
+                    bottom so they sit in the same place on every screen. */}
                 <nav className="flex-1 flex flex-col p-3 min-h-0">
-                    {/* Dashboard switcher (owners only) — move to the "Fira Venue"
-                        owner dashboard. Self-gates on roles/role. */}
-                    <DashboardSwitcher current="user" isOpen={isOpen} />
-
-                    {/* Scrolling zone */}
-                    <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={handleLinkClick}
-                                className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
-                                    ? 'bg-white text-black shadow-lg shadow-white/10'
-                                    : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                    }`}
-                                title={!isOpen ? item.label : undefined}
-                            >
-                                <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                                    {getIcon(item.icon)}
-                                </span>
-                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
-                                    }`}>
-                                    {item.label}
-                                </span>
-                            </Link>
-                        );
-                    })}
-
-                    {/* Venue Owner Section */}
-                    {showVenueManagement && (
-                        <>
-                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
-                                <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
-                                    Venue Management
-                                </div>
-                            </div>
-                            {venueOwnerItems.map((item) => {
-                                const isActive = pathname.startsWith(item.href);
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={handleLinkClick}
-                                        className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
-                                            ? 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 text-violet-300 border border-violet-500/30 shadow-lg shadow-violet-500/10'
-                                            : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                            }`}
-                                        title={!isOpen ? item.label : undefined}
-                                    >
-                                        <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                                            {getIcon(item.icon)}
-                                        </span>
-                                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
-                                            }`}>
-                                            {item.label}
-                                        </span>
-                                    </Link>
-                                );
-                            })}
-                        </>
+                    {/* Collapsed, there is no room beside the logo, so the switcher
+                        becomes an icon at the top of the rail. */}
+                    {!isOpen && (
+                        <div className="flex justify-center pb-1">
+                            <DashboardSwitcher current="user" variant="rail" />
+                        </div>
                     )}
 
+                    {/* Scrolling zone.
+                        No grouped sections left. "Events Management" wrapped a single
+                        link behind a header and a divider, and "Venue Management"
+                        pointed at second copies of screens the venue portal owns - so
+                        this list is now identical for every signed-in account. */}
+                    <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+                        {userNavItems.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href!}
+                                    onClick={handleLinkClick}
+                                    className={sidebarRowClass({ isOpen, isActive })}
+                                    title={!isOpen ? item.label : undefined}
+                                >
+                                    <span className={SIDEBAR_SLOT}>{getIcon(item.icon)}</span>
+                                    {isOpen && <span className={SIDEBAR_LABEL}>{item.label}</span>}
+                                </Link>
+                            );
+                        })}
                     </div>
 
-                    {/* Pinned zone - always at the bottom of the sidebar */}
-                    <div className="shrink-0 space-y-1 pt-3 mt-2 border-t border-white/[0.06]">
-
-                    {/* Brand Section */}
+                    {/* Brand Profile, pinned above the shared footer. Gated as a whole
+                        so accounts without a brand do not get a stray divider. */}
                     {hasBrand && (
-                        <>
-                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
+                        <div className="shrink-0 space-y-1 pt-3 mt-2 border-t border-white/[0.06]">
+                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
                                 <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
                                     Brand Profile
                                 </div>
@@ -338,82 +258,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             <Link
                                 href="/dashboard/brand"
                                 onClick={handleLinkClick}
-                                className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 overflow-hidden ${pathname.startsWith('/dashboard/brand')
-                                    ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30 shadow-lg shadow-cyan-500/10'
-                                    : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                    }`}
+                                className={sidebarRowClass({
+                                    isOpen,
+                                    isActive: pathname.startsWith('/dashboard/brand'),
+                                    tone: 'brand',
+                                })}
                                 title={!isOpen ? 'My Brand' : undefined}
                             >
-                                <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                                    {getIcon('sparkles')}
-                                </span>
-                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
-                                    }`}>
-                                    My Brand
-                                </span>
+                                <span className={SIDEBAR_SLOT}>{getIcon('sparkles')}</span>
+                                {isOpen && <span className={SIDEBAR_LABEL}>My Brand</span>}
                             </Link>
-                        </>
+                        </div>
                     )}
-
-                    {/* Events Management Section */}
-                    {hasEvents && (
-                        <>
-                            <div className={`transition-all duration-200 overflow-hidden ${isOpen ? 'pt-4 pb-2 opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
-                                <div className="px-3 text-xs font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">
-                                    Events Management
-                                </div>
-                            </div>
-                            {eventOrganizerItems.map((item) => {
-                                const isActive = pathname.startsWith(item.href);
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={handleLinkClick}
-                                        className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
-                                            ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-300 border border-orange-500/30 shadow-lg shadow-orange-500/10'
-                                            : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                            }`}
-                                        title={!isOpen ? item.label : undefined}
-                                    >
-                                        <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                                            {getIcon(item.icon)}
-                                        </span>
-                                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
-                                            }`}>
-                                            {item.label}
-                                        </span>
-                                    </Link>
-                                );
-                            })}
-                        </>
-                    )}
-
-                    {/* Logout Button */}
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('fira_token');
-                            localStorage.removeItem('fira_user');
-                            window.location.href = '/signin';
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 overflow-hidden text-red-400 hover:bg-red-500/10 hover:text-red-300`}
-                        title={!isOpen ? 'Logout' : undefined}
-                    >
-                        <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                        </span>
-                        <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
-                            }`}>
-                            Logout
-                        </span>
-                    </button>
-                    </div>
                 </nav>
 
+                {/* Settings, then the signed-in account with Log out opposite it.
+                    Shared with the venue portal so both shells end identically. */}
+                <SidebarFooter
+                    portal="user"
+                    isOpen={isOpen}
+                    currentPath={pathname}
+                    onNavigate={handleLinkClick}
+                />
+
                 {/* Legal Links - Desktop */}
-                <div className={`mt-auto px-3 py-2 border-t border-white/[0.08] transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                <div className={`px-3 py-2 border-t border-white/[0.08] transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
                     <div className="flex flex-wrap gap-2 text-xs text-gray-300">
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
                         <span>•</span>
@@ -425,10 +294,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </aside>
 
             {/* Main Content.
-                17.5: lg:pl-6 adds a gap between the sidebar's right edge and the
-                content. The ml-* offset equals the sidebar width exactly, so
-                without this the content sat flush against the sidebar on desktop.
-                Mobile (ml-0, no lg padding) is unchanged. */}
+                lg:pl-6 adds a gap between the sidebar's right edge and the content.
+                The ml-* offset equals the sidebar width exactly, so without this the
+                content sat flush against the sidebar on desktop. Mobile (ml-0, no lg
+                padding) is unchanged. */}
             <main className={`flex-1 min-h-screen relative z-10 pt-20 pb-20 lg:pb-0 lg:pt-24 lg:pl-6 transition-all duration-300 ml-0 lg:ml-20 ${isExpanded ? 'lg:ml-64' : 'lg:ml-20'
                 }`}>
                 {children}

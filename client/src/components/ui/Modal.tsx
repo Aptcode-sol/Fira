@@ -63,24 +63,42 @@ export function Modal({
         [onClose]
     );
 
+    /**
+     * Auto-focus the first focusable element - once per open, and only then.
+     *
+     * This used to share one effect with the keydown listener, so it also depended
+     * on `handleKeyDown`. That handler is rebuilt whenever `onClose` changes
+     * identity, and callers pass an inline arrow (`onClose={() => setOpen(false)}`),
+     * which is a new function on every parent render. So the effect re-ran on every
+     * render and re-focused the first field - meaning every keystroke in a modal
+     * form threw focus back to the top. Splitting the concerns fixes it for every
+     * modal in the app, not just the create forms.
+     */
     useEffect(() => {
-        if (isOpen) {
-            document.addEventListener('keydown', handleKeyDown);
-            document.body.style.overflow = 'hidden';
+        if (!isOpen) return;
+        const frame = requestAnimationFrame(() => {
+            const first = modalRef.current?.querySelector(FOCUSABLE_SELECTOR) as HTMLElement | null;
+            first?.focus();
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [isOpen]);
 
-            // Auto-focus first focusable element inside modal
-            requestAnimationFrame(() => {
-                if (modalRef.current) {
-                    const first = modalRef.current.querySelector(FOCUSABLE_SELECTOR) as HTMLElement | null;
-                    first?.focus();
-                }
-            });
-        }
-
+    // Scroll lock: tied to open/close only, so a re-render cannot leave the body
+    // locked or unlock it early.
+    useEffect(() => {
+        if (!isOpen) return;
+        document.body.style.overflow = 'hidden';
         return () => {
-            document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'unset';
         };
+    }, [isOpen]);
+
+    // The key listener is the one thing that legitimately re-binds when the
+    // handler changes; rebinding a listener has no visible side effect.
+    useEffect(() => {
+        if (!isOpen) return;
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, handleKeyDown]);
 
     // Return focus to trigger on close (Requirement 30.3)

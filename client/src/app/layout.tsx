@@ -108,6 +108,11 @@ export const viewport: Viewport = {
   colorScheme: 'dark',
   width: 'device-width',
   initialScale: 1,
+  // Shrink the layout viewport when the on-screen keyboard opens instead of
+  // letting it overlay the page. Without this a fixed bottom composer sits
+  // underneath the keyboard. Honoured by Chrome Android; iOS Safari ignores it,
+  // which is why useMobileViewport also measures window.visualViewport.
+  interactiveWidget: 'resizes-content',
 };
 
 // Site-wide entity graph: who we are (Organization) and what this site is

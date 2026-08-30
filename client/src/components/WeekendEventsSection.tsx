@@ -65,7 +65,7 @@ export default function WeekendEventsSection({ cityFilter }: WeekendEventsSectio
                         ))}
                     </div>
                 ) : (
-                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 scroll-pl-4">
                         {events.map((event, index) => (
                             <div key={event._id} className="flex-shrink-0 w-[280px] md:w-[300px] snap-start">
                                 <EventCard event={event} index={index} />

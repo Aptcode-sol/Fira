@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Select } from './Select';
+import { openPickerOnClick } from '@/lib/dateInput';
 
 export interface FilterOption {
     value: string;
@@ -52,8 +55,14 @@ interface FilterPanelProps {
  */
 export default function FilterPanel({ groups, onReset, onApply, className = '' }: FilterPanelProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const [queries, setQueries] = useState<Record<string, string>>({});
     const wrapperRef = useRef<HTMLDivElement>(null);
+    // The mobile dialog is portalled out of the wrapper, so the click-outside
+    // check needs its own ref - otherwise every click inside it counts as
+    // "outside" and closes the panel on the first option tap.
+    const mobilePanelRef = useRef<HTMLDivElement>(null);
+    // Portals need a DOM target, which does not exist during SSR.
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => setIsMounted(true), []);
 
     // "Show results" both commits the host's draft (single API call, 8.1) and
     // closes the panel. onApply is optional so callers without draft state keep
@@ -70,7 +79,17 @@ export default function FilterPanel({ groups, onReset, onApply, className = '' }
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            const insideTrigger = wrapperRef.current?.contains(target);
+            const insideMobilePanel = mobilePanelRef.current?.contains(target);
+            // A dropdown opened from inside this panel renders in a body-level
+            // portal (so it cannot be clipped by the panel's own scroll area), which
+            // puts it outside both refs above. Without this check, picking an option
+            // would count as a click outside and close the whole filter panel.
+            const insideFloatingLayer = Boolean(
+                (event.target as Element)?.closest?.('[data-floating]')
+            );
+            if (!insideTrigger && !insideMobilePanel && !insideFloatingLayer) {
                 setIsOpen(false);
             }
         };
@@ -95,12 +114,22 @@ export default function FilterPanel({ groups, onReset, onApply, className = '' }
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                     </div>
+                    {/* Native date input on purpose: it gives the OS picker on a
+                        phone (wheels on iOS, Material on Android), keyboard entry,
+                        and locale formatting for free.
+                        The popup itself is browser chrome and cannot be styled with
+                        CSS - color-scheme:dark makes the browser render its dark
+                        variant, and accentColor recolours the selected day from the
+                        default blue to our violet. That is the full extent of the
+                        control available without shipping a bespoke calendar. */}
                     <input
                         type="date"
                         value={group.value}
                         min={group.minDate}
                         onChange={(e) => group.onChange(e.target.value)}
-                        className="w-full h-[42px] pl-9 pr-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-violet-500/50 cursor-pointer [color-scheme:dark]"
+                        {...openPickerOnClick}
+                        style={{ accentColor: '#8b5cf6' }}
+                        className="w-full h-[42px] pl-9 pr-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm hover:border-violet-500/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all cursor-pointer [color-scheme:dark]"
                     />
                 </div>
             );
@@ -110,67 +139,59 @@ export default function FilterPanel({ groups, onReset, onApply, className = '' }
 
         if (group.type === 'pills') {
             return (
-                <div className="flex flex-wrap gap-2">
-                    {options.map(option => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => group.onChange(option.value)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${group.value === option.value
-                                ? 'bg-violet-500 border-violet-500 text-white'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
-                                }`}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
+                <>
+                    {/* Mobile: a dropdown. Wrapped pill rows cost three or four
+                        lines of vertical space per group, which pushed the panel
+                        past the viewport on a phone; a dropdown collapses each
+                        group to one row. This is the app's shared Select, so the
+                        open list carries the same dark panel, violet active state
+                        and check mark as every other dropdown in the product - a
+                        native <select> would have handed the list to the OS and
+                        looked nothing like the rest of the UI.
+                        ponytail: reuse the existing component, no new styling. */}
+                    <Select
+                        className="md:hidden"
+                        value={group.value}
+                        onChange={group.onChange}
+                        options={options}
+                    />
+
+                    {/* Desktop keeps the pills - the popover has the width for
+                        them and one tap beats two on a pointer device. */}
+                    <div className="hidden md:flex flex-wrap gap-2">
+                        {options.map(option => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => group.onChange(option.value)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${group.value === option.value
+                                    ? 'bg-violet-500 border-violet-500 text-white'
+                                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
+                                    }`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </>
             );
         }
 
-        // type === 'list'
-        const query = queries[group.key] || '';
-        const filtered = query.trim()
-            ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
-            : options;
-
+        // type === 'list' - venue type, event category and similar long option sets.
+        //
+        // Also a dropdown now, on both breakpoints. It used to be an always-open
+        // scrolling box with its own search input, which took ~200px of the panel
+        // per group and meant the panel itself scrolled inside a nested scroller.
+        // The shared Select collapses it to one row and brings its own search, so
+        // the bespoke filtering, the `queries` state and the empty state all go.
         return (
-            <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden">
-                {group.searchable && (
-                    <div className="p-2 border-b border-white/10">
-                        <input
-                            type="text"
-                            value={query}
-                            onChange={(e) => setQueries(prev => ({ ...prev, [group.key]: e.target.value }))}
-                            placeholder={`Search ${group.label.toLowerCase()}...`}
-                            className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 placeholder-gray-500 outline-none focus:border-violet-500/50"
-                        />
-                    </div>
-                )}
-                <div className="max-h-44 overflow-y-auto">
-                    {filtered.length === 0 && (
-                        <p className="text-gray-300 text-sm text-center py-4">No matches</p>
-                    )}
-                    {filtered.map(option => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => group.onChange(option.value)}
-                            className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between ${group.value === option.value
-                                ? 'text-violet-400 bg-violet-500/10'
-                                : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            <span>{option.label}</span>
-                            {group.value === option.value && (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            <Select
+                value={group.value}
+                onChange={group.onChange}
+                options={options}
+                searchable={group.searchable}
+                searchPlaceholder={`Search ${group.label.toLowerCase()}...`}
+            />
         );
     };
 
@@ -202,11 +223,18 @@ export default function FilterPanel({ groups, onReset, onApply, className = '' }
             </div>
 
             {/* Only this region scrolls; header and footer stay put. flex-1 +
-                min-h-0 lets it size to whatever space the capped panel leaves. */}
-            <div className="px-5 py-4 space-y-5 overflow-y-auto flex-1 min-h-0">
+                min-h-0 lets it size to whatever space the capped panel leaves.
+
+                Two columns on mobile: now that every control is a single-row
+                dropdown they pair up cleanly, which halves the panel's height and
+                usually removes the need to scroll it at all. The desktop popover is
+                only 360px wide, so it stays one column. */}
+            <div className="px-5 py-4 grid grid-cols-2 gap-x-3 gap-y-4 md:grid-cols-1 md:gap-y-5 overflow-y-auto flex-1 min-h-0">
                 {groups.map(group => (
-                    <div key={group.key}>
-                        <p className="text-xs uppercase tracking-wide text-gray-300 mb-2">{group.label}</p>
+                    // A date field needs the full row - a half-width native date
+                    // input truncates its own placeholder.
+                    <div key={group.key} className={group.type === 'date' ? 'col-span-2 md:col-span-1' : 'min-w-0'}>
+                        <p className="text-xs uppercase tracking-wide text-gray-300 mb-2 truncate">{group.label}</p>
                         {renderGroup(group)}
                     </div>
                 ))}
@@ -252,30 +280,34 @@ export default function FilterPanel({ groups, onReset, onApply, className = '' }
 
             {isOpen && (
                 <>
-                    {/* Mobile: centred dialog.
-                        Was a bottom sheet, but it sat underneath the fixed
-                        bottom nav bar and ran off the screen. Centring it in the
-                        viewport keeps the whole panel reachable regardless of
-                        how tall the filter list is, and the dvh cap means the
-                        body scrolls rather than the panel overflowing.
-                        z-[80] paints the overlay above the fixed bottom nav
-                        (z-50); the extra bottom padding + shrunk max-height
-                        reserve the nav's band (~4rem tab bar) plus the iPhone
-                        home-indicator inset so the "Show results" footer never
-                        lands under the nav (32.1). ponytail: nav-height is the
-                        assumed 4rem tab bar; if the mobile nav height changes,
-                        bump the 4rem here and in the max-h calc together. */}
-                    <div
-                        className="md:hidden fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pb-[calc(4rem+env(safe-area-inset-bottom))]"
-                        onClick={() => setIsOpen(false)}
-                    >
+                    {/* Mobile: centred dialog, portalled to <body>.
+                        The portal is what keeps it above the fixed bottom nav.
+                        Every listing page wraps its content in
+                        `<main className="relative z-20">`, which opens a
+                        stacking context - so a z-index set inside it only ranks
+                        against its siblings, and the nav (z-50, outside main)
+                        always won no matter how high this went. Rendering
+                        outside main puts both on the same footing again.
+                        The bottom padding + shrunk max-height still reserve the
+                        nav's band (~4rem tab bar) plus the iPhone home-indicator
+                        inset, so "Show results" never lands under the nav (32.1).
+                        ponytail: nav height is the assumed 4rem tab bar; if the
+                        mobile nav height changes, bump the 4rem in both places. */}
+                    {isMounted && createPortal(
                         <div
-                            className="w-full max-w-sm max-h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom))] flex flex-col bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
+                            ref={mobilePanelRef}
+                            className="md:hidden fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pb-[calc(4rem+env(safe-area-inset-bottom))]"
+                            onClick={() => setIsOpen(false)}
                         >
-                            {panelBody}
-                        </div>
-                    </div>
+                            <div
+                                className="w-full max-w-sm max-h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom))] flex flex-col bg-[#0d0d0d] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {panelBody}
+                            </div>
+                        </div>,
+                        document.body
+                    )}
 
                     {/* Desktop: popover.
                         Anchored to the RIGHT edge of the trigger, because this

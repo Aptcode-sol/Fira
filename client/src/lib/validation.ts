@@ -17,3 +17,31 @@ export function isValidLocationLink(value: string): boolean {
         return false;
     }
 }
+
+/**
+ * Indian PIN code: exactly six digits, and the first digit is 1-9 (no PIN starts
+ * with 0). Anchored so "560001x" and " 560001" are rejected rather than partially
+ * matched.
+ */
+export function isValidPincode(value: string): boolean {
+    return /^[1-9][0-9]{5}$/.test(value.trim());
+}
+
+/** A required text field, trimmed - whitespace is not an answer. */
+export function isFilled(value: string | null | undefined): boolean {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Validate a whole step and return a field -> message map.
+ *
+ * Returning a map rather than the first failure is deliberate: a toast can only
+ * say one thing at a time, so a form with three empty fields took three attempts
+ * to get past. Marking every offending field at once is one pass.
+ */
+export type FieldErrors = Record<string, string>;
+
+/** True when the map has no entries, i.e. the step is valid. */
+export function isClean(errors: FieldErrors): boolean {
+    return Object.keys(errors).length === 0;
+}

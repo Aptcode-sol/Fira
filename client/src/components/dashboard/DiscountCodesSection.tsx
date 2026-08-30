@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { discountsApi } from '@/lib/api';
-import { Button, Modal } from '@/components/ui';
+import { Button, Input, Modal, Select } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
+import { openPickerOnClick } from '@/lib/dateInput';
+
+const DISCOUNT_TYPES = [
+    { value: 'percentage', label: 'Percentage (%)' },
+    { value: 'flat', label: 'Flat (₹)' },
+];
 
 interface DiscountCode {
     _id: string;
@@ -317,82 +323,77 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
 
             {/* Add Code Modal */}
             <Modal isOpen={showAddModal} onClose={resetAddForm} title="Add Discount Code" size="md">
+                {/* Every field is the shared <Input>/<Select>.
+                    These were hand-rolled inputs with their own geometry - a `mb-1`
+                    label and a `px-4 py-2 rounded-lg` control - while <Select> uses
+                    `mb-2` and `px-4 py-3 rounded-xl`. Put side by side in a 2-column
+                    grid, the two controls had different heights and their labels sat on
+                    different baselines. Sharing the primitives is what keeps a row
+                    aligned; matching the numbers by hand only holds until one changes. */}
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm text-gray-300 mb-1">Code (3-20 alphanumeric characters)</label>
-                        <input
-                            type="text"
-                            value={addForm.code}
-                            onChange={(e) => setAddForm({ ...addForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
-                            maxLength={20}
-                            placeholder="e.g. SAVE20"
-                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                        />
-                    </div>
+                    <Input
+                        label="Code (3-20 alphanumeric characters)"
+                        type="text"
+                        value={addForm.code}
+                        onChange={(e) => setAddForm({ ...addForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
+                        maxLength={20}
+                        placeholder="e.g. SAVE20"
+                    />
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">Discount Type</label>
-                            <select
-                                value={addForm.discountType}
-                                onChange={(e) => setAddForm({ ...addForm, discountType: e.target.value as 'percentage' | 'flat' })}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                            >
-                                <option value="percentage">Percentage (%)</option>
-                                <option value="flat">Flat (₹)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">
-                                Value {addForm.discountType === 'percentage' ? '(1-99)' : '(₹)'}
-                            </label>
-                            <input
-                                type="number"
-                                value={addForm.discountValue}
-                                onChange={(e) => setAddForm({ ...addForm, discountValue: e.target.value })}
-                                min={1}
-                                max={addForm.discountType === 'percentage' ? 99 : 99999}
-                                placeholder={addForm.discountType === 'percentage' ? '10' : '500'}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm text-gray-300 mb-1">Max Uses (leave empty for unlimited)</label>
-                        <input
+                        {/* The native <select> rendered its option list with the
+                            platform's own colours - white background, blue highlight -
+                            which ignored every dark style on the control above it. The
+                            shared Select draws the list itself, so it matches. */}
+                        <Select
+                            label="Discount Type"
+                            value={addForm.discountType}
+                            onChange={(next) => setAddForm({ ...addForm, discountType: next as 'percentage' | 'flat' })}
+                            options={DISCOUNT_TYPES}
+                        />
+                        <Input
+                            label={`Value ${addForm.discountType === 'percentage' ? '(1-99)' : '(₹)'}`}
                             type="number"
-                            value={addForm.maxUses}
-                            onChange={(e) => setAddForm({ ...addForm, maxUses: e.target.value })}
+                            value={addForm.discountValue}
+                            onChange={(e) => setAddForm({ ...addForm, discountValue: e.target.value })}
                             min={1}
-                            placeholder="Unlimited"
-                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                            max={addForm.discountType === 'percentage' ? 99 : 99999}
+                            placeholder={addForm.discountType === 'percentage' ? '10' : '500'}
+                            onWheel={(e) => e.currentTarget.blur()}
                         />
                     </div>
 
+                    <Input
+                        label="Max Uses (leave empty for unlimited)"
+                        type="number"
+                        value={addForm.maxUses}
+                        onChange={(e) => setAddForm({ ...addForm, maxUses: e.target.value })}
+                        min={1}
+                        placeholder="Unlimited"
+                        onWheel={(e) => e.currentTarget.blur()}
+                    />
+
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">Valid From</label>
-                            <input
-                                type="date"
-                                value={addForm.validFrom}
-                                min={eventStart ? eventStart.slice(0, 10) : undefined}
-                                max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                                onChange={(e) => { setAddForm({ ...addForm, validFrom: e.target.value }); setAddDateError(null); }}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">Valid Until</label>
-                            <input
-                                type="date"
-                                value={addForm.validUntil}
-                                min={eventStart ? eventStart.slice(0, 10) : undefined}
-                                max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                                onChange={(e) => { setAddForm({ ...addForm, validUntil: e.target.value }); setAddDateError(null); }}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                            />
-                        </div>
+                        <Input
+                            label="Valid From"
+                            type="date"
+                            value={addForm.validFrom}
+                            min={eventStart ? eventStart.slice(0, 10) : undefined}
+                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
+                            onChange={(e) => { setAddForm({ ...addForm, validFrom: e.target.value }); setAddDateError(null); }}
+                            className="[color-scheme:dark]"
+                            {...openPickerOnClick}
+                        />
+                        <Input
+                            label="Valid Until"
+                            type="date"
+                            value={addForm.validUntil}
+                            min={eventStart ? eventStart.slice(0, 10) : undefined}
+                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
+                            onChange={(e) => { setAddForm({ ...addForm, validUntil: e.target.value }); setAddDateError(null); }}
+                            className="[color-scheme:dark]"
+                            {...openPickerOnClick}
+                        />
                     </div>
 
                     {(eventStart || eventEnd) && (
@@ -425,67 +426,54 @@ export default function DiscountCodesSection({ eventId, eventStart, eventEnd }: 
                     )}
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">Discount Type</label>
-                            <select
-                                value={editForm.discountType}
-                                onChange={(e) => setEditForm({ ...editForm, discountType: e.target.value as 'percentage' | 'flat' })}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                            >
-                                <option value="percentage">Percentage (%)</option>
-                                <option value="flat">Flat (₹)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">
-                                Value {editForm.discountType === 'percentage' ? '(1-99)' : '(₹)'}
-                            </label>
-                            <input
-                                type="number"
-                                value={editForm.discountValue}
-                                onChange={(e) => setEditForm({ ...editForm, discountValue: e.target.value })}
-                                min={1}
-                                max={editForm.discountType === 'percentage' ? 99 : 99999}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm text-gray-300 mb-1">Max Uses (leave empty for unlimited)</label>
-                        <input
+                        <Select
+                            label="Discount Type"
+                            value={editForm.discountType}
+                            onChange={(next) => setEditForm({ ...editForm, discountType: next as 'percentage' | 'flat' })}
+                            options={DISCOUNT_TYPES}
+                        />
+                        <Input
+                            label={`Value ${editForm.discountType === 'percentage' ? '(1-99)' : '(₹)'}`}
                             type="number"
-                            value={editForm.maxUses}
-                            onChange={(e) => setEditForm({ ...editForm, maxUses: e.target.value })}
+                            value={editForm.discountValue}
+                            onChange={(e) => setEditForm({ ...editForm, discountValue: e.target.value })}
                             min={1}
-                            placeholder="Unlimited"
-                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                            max={editForm.discountType === 'percentage' ? 99 : 99999}
+                            onWheel={(e) => e.currentTarget.blur()}
                         />
                     </div>
 
+                    <Input
+                        label="Max Uses (leave empty for unlimited)"
+                        type="number"
+                        value={editForm.maxUses}
+                        onChange={(e) => setEditForm({ ...editForm, maxUses: e.target.value })}
+                        min={1}
+                        placeholder="Unlimited"
+                        onWheel={(e) => e.currentTarget.blur()}
+                    />
+
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">Valid From</label>
-                            <input
-                                type="date"
-                                value={editForm.validFrom}
-                                min={eventStart ? eventStart.slice(0, 10) : undefined}
-                                max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                                onChange={(e) => { setEditForm({ ...editForm, validFrom: e.target.value }); setEditDateError(null); }}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-300 mb-1">Valid Until</label>
-                            <input
-                                type="date"
-                                value={editForm.validUntil}
-                                min={eventStart ? eventStart.slice(0, 10) : undefined}
-                                max={eventEnd ? eventEnd.slice(0, 10) : undefined}
-                                onChange={(e) => { setEditForm({ ...editForm, validUntil: e.target.value }); setEditDateError(null); }}
-                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                            />
-                        </div>
+                        <Input
+                            label="Valid From"
+                            type="date"
+                            value={editForm.validFrom}
+                            min={eventStart ? eventStart.slice(0, 10) : undefined}
+                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
+                            onChange={(e) => { setEditForm({ ...editForm, validFrom: e.target.value }); setEditDateError(null); }}
+                            className="[color-scheme:dark]"
+                            {...openPickerOnClick}
+                        />
+                        <Input
+                            label="Valid Until"
+                            type="date"
+                            value={editForm.validUntil}
+                            min={eventStart ? eventStart.slice(0, 10) : undefined}
+                            max={eventEnd ? eventEnd.slice(0, 10) : undefined}
+                            onChange={(e) => { setEditForm({ ...editForm, validUntil: e.target.value }); setEditDateError(null); }}
+                            className="[color-scheme:dark]"
+                            {...openPickerOnClick}
+                        />
                     </div>
 
                     {(eventStart || eventEnd) && (

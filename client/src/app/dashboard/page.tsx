@@ -9,6 +9,8 @@ import { Button } from '@/components/ui';
 import { dashboardApi, DashboardOverview, usersApi } from '@/lib/api';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { Pagination } from '@/components/ui';
+import { usePaged } from '@/hooks/usePaged';
 import { X, Users } from 'lucide-react';
 
 interface FollowingBrand {
@@ -77,6 +79,12 @@ export default function DashboardPage() {
         }
     }, [isAuthenticated, user?._id]);
 
+    // Both panels page in fours. Declared above the early returns because hooks
+    // cannot sit behind a conditional, and the footers render at "1 of 1" even
+    // with nothing in the list so an empty panel still reads as finished.
+    const organizedPage = usePaged(dashboardData?.organizedEvents ?? [], 4);
+    const activityPage = usePaged(dashboardData?.recentActivity ?? [], 4);
+
     if (isLoading) {
         return (
             <DashboardLayout>
@@ -93,15 +101,10 @@ export default function DashboardPage() {
 
     const stats = dashboardData?.stats;
 
+    // Attending first, Organizing second - the two swapped places, and the grid
+    // stays at two columns on every breakpoint so they sit at opposite ends of
+    // the row instead of bunching up on the left at `lg`.
     const quickStats = [
-        {
-            label: 'Events Organizing',
-            value: stats?.upcomingEventsOrganizing ?? 0,
-            subValue: stats?.eventsOrganizing ? `${stats.eventsOrganizing} total` : null,
-            icon: 'calendar',
-            color: 'violet',
-            href: '/dashboard/events'
-        },
         {
             label: 'Events Attending',
             value: stats?.eventsAttending ?? 0,
@@ -109,6 +112,14 @@ export default function DashboardPage() {
             icon: 'ticket',
             color: 'green',
             href: '/dashboard/tickets'
+        },
+        {
+            label: 'Events Organizing',
+            value: stats?.upcomingEventsOrganizing ?? 0,
+            subValue: stats?.eventsOrganizing ? `${stats.eventsOrganizing} total` : null,
+            icon: 'calendar',
+            color: 'violet',
+            href: '/dashboard/events'
         }
     ];
 
@@ -188,28 +199,6 @@ export default function DashboardPage() {
     return (
         <DashboardLayout>
             <div className="p-4 sm:p-6 lg:p-8 overflow-x-hidden">
-                {/* Header */}
-                <SlideUp>
-                    <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-white mb-2">
-                                Welcome back, {user?.name?.split(' ')[0]}! 👋
-                            </h1>
-                            <p className="text-gray-300">Here&apos;s what&apos;s happening with your account.</p>
-                        </div>
-                        <button
-                            onClick={() => setShowFollowingModal(true)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl transition-all duration-200 group"
-                        >
-                            <Users className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
-                            <span className="text-white font-medium">Following</span>
-                            <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-sm font-semibold">
-                                {followingCount}
-                            </span>
-                        </button>
-                    </div>
-                </SlideUp>
-
                 {/* Error State */}
                 {error && (
                     <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400">
@@ -217,32 +206,65 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* Quick Stats */}
-                <FadeIn delay={0.1}>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-                        {quickStats.map((stat) => (
-                            <Link key={stat.label} href={stat.href}>
-                                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer h-full">
-                                    <div className={`w-12 h-12 rounded-xl ${colorClasses[stat.color]} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
-                                        {getIcon(stat.icon)}
+                {/* Quick Stats + follow shortcut.
+                    The "Welcome back" heading and its "here's what's happening"
+                    subtitle are gone: they repeated what the rest of the page
+                    already shows and pushed the numbers below the fold on a
+                    phone. One flex column holds both blocks so `order` alone can
+                    put the follow shortcut above the stats on desktop and below
+                    them on mobile, without rendering the button twice. */}
+                <div className="mb-8 flex flex-col gap-4">
+                    <SlideUp className="order-2 sm:order-1">
+                        {/* Title on the left, follow shortcut on the right. The page had
+                            no heading at all, so on a phone it opened straight into
+                            numbers with nothing naming what you were looking at. */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-white">Overview</h1>
+                            <button
+                                onClick={() => setShowFollowingModal(true)}
+                                // justify-between with the count last pushes it to the
+                                // right edge of the button instead of sitting against the
+                                // label. On desktop the button is only as wide as its
+                                // content, so the two read as one balanced row.
+                                className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl transition-all duration-200 group"
+                            >
+                                <span className="flex items-center gap-2 min-w-0">
+                                    <Users className="w-5 h-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform" />
+                                    <span className="text-white font-medium truncate">Creators You Follow</span>
+                                </span>
+                                <span className="flex-shrink-0 px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-sm font-semibold">
+                                    {followingCount}
+                                </span>
+                            </button>
+                        </div>
+                    </SlideUp>
+
+                    <FadeIn delay={0.1} className="order-1 sm:order-2">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                            {quickStats.map((stat) => (
+                                <Link key={stat.label} href={stat.href}>
+                                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer h-full">
+                                        <div className={`w-12 h-12 rounded-xl ${colorClasses[stat.color]} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
+                                            {getIcon(stat.icon)}
+                                        </div>
+                                        <div className="text-2xl font-bold text-white mb-1">
+                                            {loading ? (
+                                                <div className="w-12 h-7 bg-white/10 rounded animate-pulse" />
+                                            ) : (
+                                                stat.value.toLocaleString()
+                                            )}
+                                        </div>
+                                        <div className="text-sm text-gray-300">{stat.label}</div>
+                                        {/* Always render this row to maintain consistent height */}
+                                        <div className="text-xs text-gray-300 mt-1 min-h-[1rem]">
+                                            {!loading && stat.subValue ? stat.subValue : '\u00A0'}
+                                        </div>
                                     </div>
-                                    <div className="text-2xl font-bold text-white mb-1">
-                                        {loading ? (
-                                            <div className="w-12 h-7 bg-white/10 rounded animate-pulse" />
-                                        ) : (
-                                            stat.value.toLocaleString()
-                                        )}
-                                    </div>
-                                    <div className="text-sm text-gray-300">{stat.label}</div>
-                                    {/* Always render this row to maintain consistent height */}
-                                    <div className="text-xs text-gray-300 mt-1 min-h-[1rem]">
-                                        {!loading && stat.subValue ? stat.subValue : '\u00A0'}
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                </FadeIn>
+                                </Link>
+                            ))}
+                        </div>
+                    </FadeIn>
+                </div>
 
                 {/* Quick Actions */}
                 <FadeIn delay={0.2}>
@@ -329,9 +351,9 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Your Organized Events */}
                     <FadeIn delay={0.1}>
-                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 h-full flex flex-col">
-                            <h2 className="text-lg font-semibold text-white mb-4">Your Organized Events</h2>
-                            <div className="space-y-4 flex-1">
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl h-full flex flex-col overflow-hidden">
+                            <h2 className="text-lg font-semibold text-white px-6 pt-6 mb-4">Your Events</h2>
+                            <div className="space-y-4 flex-1 px-6 pb-6">
                                 {loading ? (
                                     [...Array(3)].map((_, i) => (
                                         <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
@@ -342,8 +364,8 @@ export default function DashboardPage() {
                                             </div>
                                         </div>
                                     ))
-                                ) : dashboardData?.organizedEvents && dashboardData.organizedEvents.length > 0 ? (
-                                    dashboardData.organizedEvents.map((event) => {
+                                ) : organizedPage.total > 0 ? (
+                                    organizedPage.pageRows.map((event) => {
                                         const { month, day } = formatEventDate(event.date);
                                         const attendeePercent = Math.round((event.currentAttendees / event.maxAttendees) * 100);
                                         return (
@@ -387,20 +409,26 @@ export default function DashboardPage() {
                                         </Link>
                                     </div>
                                 )}
+                                {organizedPage.total > 0 && (
+                                    <Link href="/dashboard/events" className="block pt-2 text-sm text-violet-400 hover:text-violet-300">
+                                        View all events →
+                                    </Link>
+                                )}
                             </div>
-                            {dashboardData?.organizedEvents && dashboardData.organizedEvents.length > 0 && (
-                                <Link href="/dashboard/events" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
-                                    View all events →
-                                </Link>
-                            )}
+                            <Pagination
+                                page={organizedPage.page}
+                                totalPages={organizedPage.totalPages}
+                                onChange={organizedPage.setPage}
+                                disabled={loading}
+                            />
                         </div>
                     </FadeIn>
 
                     {/* Recent Activity */}
                     <FadeIn delay={0.2}>
-                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 h-full flex flex-col">
-                            <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
-                            <div className="space-y-4 flex-1">
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl h-full flex flex-col overflow-hidden">
+                            <h2 className="text-lg font-semibold text-white px-6 pt-6 mb-4">Recent Activity</h2>
+                            <div className="space-y-4 flex-1 px-6 pb-6">
                                 {loading ? (
                                     [...Array(3)].map((_, i) => (
                                         <div key={i} className="flex items-start gap-4">
@@ -411,8 +439,8 @@ export default function DashboardPage() {
                                             </div>
                                         </div>
                                     ))
-                                ) : dashboardData?.recentActivity && dashboardData.recentActivity.length > 0 ? (
-                                    dashboardData.recentActivity.map((activity) => (
+                                ) : activityPage.total > 0 ? (
+                                    activityPage.pageRows.map((activity) => (
                                         <div key={activity._id} className="flex items-start gap-4">
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${getActivityColor(activity.category)}`}>
                                                 {getActivityIcon(activity.category)}
@@ -432,10 +460,16 @@ export default function DashboardPage() {
                                 ) : (
                                     <p className="text-sm text-gray-300 text-center py-4">No recent activity</p>
                                 )}
+                                <Link href="/notifications" className="block pt-2 text-sm text-violet-400 hover:text-violet-300">
+                                    View all activity →
+                                </Link>
                             </div>
-                            <Link href="/notifications" className="block mt-4 text-sm text-violet-400 hover:text-violet-300">
-                                View all activity →
-                            </Link>
+                            <Pagination
+                                page={activityPage.page}
+                                totalPages={activityPage.totalPages}
+                                onChange={activityPage.setPage}
+                                disabled={loading}
+                            />
                         </div>
                     </FadeIn>
                 </div>

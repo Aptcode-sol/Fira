@@ -39,6 +39,59 @@ router.patch('/me/bank-details', auth, async (req, res) => {
     }
 });
 
+/* ------------------------------------------------------------------ *
+ * Payout accounts. All declared before '/:id' so the literal segments are not
+ * captured as an id param.
+ * ------------------------------------------------------------------ */
+
+// GET /api/users/me/bank-accounts - list saved payout accounts
+router.get('/me/bank-accounts', auth, async (req, res) => {
+    try {
+        const accounts = await userService.listBankAccounts(req.user._id);
+        res.json({ accounts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/users/me/bank-accounts - add one
+router.post('/me/bank-accounts', auth, async (req, res) => {
+    try {
+        const { accountName, accountNumber, ifscCode, bankName, makeDefault } = req.body;
+        const result = await userService.addBankAccount(req.user._id, {
+            accountName, accountNumber, ifscCode, bankName, makeDefault,
+        });
+        // Field-level error so the client can mark the offending input rather than
+        // showing a detached toast.
+        if (result.error) return res.status(400).json(result);
+        res.status(201).json({ accounts: result.accounts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PATCH /api/users/me/bank-accounts/:accountId/default - promote to default
+router.patch('/me/bank-accounts/:accountId/default', auth, async (req, res) => {
+    try {
+        const result = await userService.setDefaultBankAccount(req.user._id, req.params.accountId);
+        if (result.error) return res.status(404).json(result);
+        res.json({ accounts: result.accounts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// DELETE /api/users/me/bank-accounts/:accountId
+router.delete('/me/bank-accounts/:accountId', auth, async (req, res) => {
+    try {
+        const result = await userService.deleteBankAccount(req.user._id, req.params.accountId);
+        if (result.error) return res.status(404).json(result);
+        res.json({ accounts: result.accounts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // DELETE /api/users/me - Delete the authenticated user's own account + associated data
 // Declared before '/:id' so "me" is not captured as an id param.
 router.delete('/me', auth, async (req, res) => {

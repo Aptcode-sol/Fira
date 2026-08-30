@@ -60,6 +60,13 @@ export default function DiscountCodeInput({
     <div className="space-y-2">
       <label className="text-sm text-gray-300">Discount Code</label>
       <div className="flex gap-2">
+        {/* min-w-0 is what stops this row overflowing its container.
+            A bare `flex-1` sets flex-basis to 0 but leaves `min-width: auto`, and an
+            <input>'s automatic minimum is its intrinsic size (~20 characters). So the
+            field refused to shrink below roughly 170px, and field + gap + button
+            exceeded the modal width - the Apply button hung past the right edge. It
+            looked fine on iOS and broke on Android only because the wider default font
+            pushed the button over the line first. */}
         <input
           type="text"
           value={code}
@@ -69,13 +76,13 @@ export default function DiscountCodeInput({
           }}
           placeholder="Enter code"
           disabled={!!appliedCode || isApplying}
-          className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:opacity-50"
+          className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:opacity-50"
         />
         {appliedCode ? (
           <button
             type="button"
             onClick={handleRemove}
-            className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/30 transition-colors"
+            className="flex-shrink-0 px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium whitespace-nowrap hover:bg-red-500/30 transition-colors"
           >
             Remove
           </button>
@@ -84,7 +91,7 @@ export default function DiscountCodeInput({
             type="button"
             onClick={handleApply}
             disabled={!code.trim() || isApplying}
-            className="px-4 py-2 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-sm font-medium hover:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-shrink-0 px-4 py-2 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-sm font-medium whitespace-nowrap hover:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isApplying ? 'Applying...' : 'Apply'}
           </button>

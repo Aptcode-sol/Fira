@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CITIES } from '@/lib/cities';
-
 interface CitySelectorProps {
     value: string;
     onChange: (city: string) => void;
@@ -22,12 +20,11 @@ export default function CitySelector({ value, onChange, available = [], classNam
     const [query, setQuery] = useState('');
     const ref = useRef<HTMLDivElement>(null);
 
-    // Prefer cities we actually have listings for; fall back to the canonical
-    // list so the control is never empty on a cold API.
-    const cities = useMemo(() => {
-        const names = available.length > 0 ? available : CITIES.map(c => c.name);
-        return Array.from(new Set(names)).sort();
-    }, [available]);
+    // Only cities we have listings for. There is no static list to fall back on
+    // any more, and there should not be: offering a city with nothing in it sends
+    // the visitor to an empty result set, which reads as a broken filter rather
+    // than an empty city. "All Cities" stays available regardless.
+    const cities = useMemo(() => Array.from(new Set(available)).sort(), [available]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

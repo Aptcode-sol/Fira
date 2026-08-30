@@ -76,7 +76,11 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
         // protected route (owner-workspace included) sends the visitor to the
         // Unified_Sign_In.
         if (!isAuthenticated) {
-            router.replace('/signin');
+            // Carry the intended path so signing in returns them to it. Without this
+            // the destination was lost and sign-in fell through to its default, which
+            // is now home - so a visitor who clicked a protected link would sign in
+            // successfully and land somewhere they had not asked for.
+            router.replace(`/signin?redirect=${encodeURIComponent(pathname)}`);
             setAuthorized(false);
             return;
         }

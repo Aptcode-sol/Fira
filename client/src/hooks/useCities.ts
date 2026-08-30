@@ -1,46 +1,44 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { eventsApi, venuesApi } from '@/lib/api';
+import { locationsApi, type ListedCity } from '@/lib/api';
 
 /**
- * Distinct list of cities that currently have events or venues.
- * Used to populate the "City" option inside the unified filter panel.
+ * Cities that currently have events or venues. Populates the "City" option in
+ * the unified filter panel.
+ *
+ * This used to fetch the first 100 events and the first 100 venues and collect
+ * their distinct city strings. Two problems with that: it moved a megabyte of
+ * listing payload to compute a list of names, and the 100-record cap meant that
+ * past the first page of listings, whole cities silently vanished from the
+ * filter - the bug only appears once there is real traffic. The server does the
+ * distinct query now, over every listing, and caches it.
  */
 export function useCities() {
     const [cities, setCities] = useState<string[]>([]);
 
     useEffect(() => {
-        const load = async () => {
-            const [evRes, venRes] = await Promise.allSettled([
-                eventsApi.getAll({ limit: '100' }) as Promise<{ events: { venue?: { address?: { city?: string } } }[] }>,
-                venuesApi.getAll({ limit: '100', status: 'approved' }) as Promise<{ venues: { address?: { city?: string } }[] } | { address?: { city?: string } }[]>,
-            ]);
+        locationsApi.listed()
+            .then(data => setCities((data.cities || []).map(c => c.city)))
+            .catch(() => {
+                // Non-fatal: the City filter just stays empty.
+            });
+    }, []);
 
-            const citySet = new Set<string>();
+    return cities;
+}
 
-            if (evRes.status === 'fulfilled') {
-                for (const ev of evRes.value.events || []) {
-                    const c = ev.venue?.address?.city?.trim();
-                    if (c) citySet.add(c);
-                }
-            }
-            if (venRes.status === 'fulfilled') {
-                const venues = Array.isArray(venRes.value)
-                    ? venRes.value
-                    : (venRes.value as { venues?: { address?: { city?: string } }[] }).venues || [];
-                for (const v of venues) {
-                    const c = v.address?.city?.trim();
-                    if (c) citySet.add(c);
-                }
-            }
+/**
+ * The same list with slugs, states and counts. For callers that need to link to
+ * /events/in/<slug> or show how much is in each city.
+ */
+export function useListedCities() {
+    const [cities, setCities] = useState<ListedCity[]>([]);
 
-            setCities(Array.from(citySet).sort());
-        };
-
-        load().catch(() => {
-            // Non-fatal: the City filter just stays empty.
-        });
+    useEffect(() => {
+        locationsApi.listed()
+            .then(data => setCities(data.cities || []))
+            .catch(() => { });
     }, []);
 
     return cities;

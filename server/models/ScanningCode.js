@@ -16,6 +16,22 @@ const scanningCodeSchema = new mongoose.Schema({
         maxlength: 50,
         default: ''
     },
+    /**
+     * Which ticket tier this scanner admits, by tier name.
+     *
+     * Empty = admits every tier for the event, which is what all existing codes
+     * were, so no migration is needed - absent reads as ''.
+     *
+     * Matched against Ticket.ticketType, which stores the tier name chosen at
+     * purchase. Held as a name rather than a subdocument id because a tier is an
+     * inline array entry on Event with no stable id of its own, and the name is
+     * what the buyer's ticket already records.
+     */
+    ticketTier: {
+        type: String,
+        maxlength: 50,
+        default: ''
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -31,8 +47,8 @@ const scanningCodeSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
+// Indexes. `code` is already unique-indexed by its field definition above, so
+// re-declaring it here only produced a duplicate-index warning on every boot.
 scanningCodeSchema.index({ event: 1 });
-scanningCodeSchema.index({ code: 1 }, { unique: true });
 
 module.exports = mongoose.model('ScanningCode', scanningCodeSchema);

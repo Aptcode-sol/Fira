@@ -7,8 +7,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isVenueOwner } from '@/lib/types';
 import { venuesApi } from '@/lib/api';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
-import { Button } from '@/components/ui';
+import { Button, DataTable } from '@/components/ui';
+import type { Column } from '@/components/ui';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { openCreateVenue, openEditVenue } from '@/components/modals/CreateVenueLauncher';
+import { VENUE_SAVED } from '@/components/modals/CreateVenueModal';
+import { venueDayRate } from '@/lib/venuePricing';
 
 interface Venue {
     _id: string;
@@ -20,7 +24,9 @@ interface Venue {
         state: string;
     };
     pricing: {
-        basePrice: number;
+        pricePerDay?: number | null;
+        /** Legacy flat fee, still mirrored server-side. venueDayRate falls back to it. */
+        basePrice?: number | null;
     };
     capacity: {
         min: number;
@@ -71,6 +77,9 @@ export default function VenuePortalVenuesPage() {
         if (isAuthenticated && isVenueOwner(user)) {
             fetchVenues();
         }
+        // Creating and editing both happen in a modal over this list.
+        window.addEventListener(VENUE_SAVED, fetchVenues);
+        return () => window.removeEventListener(VENUE_SAVED, fetchVenues);
     }, [isAuthenticated, user]);
 
     const filteredVenues = venues.filter(v => {
@@ -92,24 +101,94 @@ export default function VenuePortalVenuesPage() {
         return null;
     }
 
+    const columns: Column<Venue>[] = [
+        {
+            key: 'name',
+            header: 'Venue',
+            primary: true,
+            cell: (v) => (
+                <div className="flex items-center gap-3">
+                    <div className="hidden md:block w-9 h-9 rounded-lg overflow-hidden bg-white/5 shrink-0">
+                        {v.images?.[0] ? (
+                            <img src={v.images[0]} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-violet-500/10 text-violet-400 text-xs font-bold">
+                                {v.name.charAt(0)}
+                            </div>
+                        )}
+                    </div>
+                    <span className="font-medium text-white">{v.name}</span>
+                </div>
+            ),
+        },
+        {
+            key: 'location',
+            header: 'Location',
+            cell: (v) => (
+                <span className="text-gray-300">
+                    {[v.address?.city, v.address?.state].filter(Boolean).join(', ') || '—'}
+                </span>
+            ),
+        },
+        {
+            key: 'rate',
+            header: 'Day rate',
+            align: 'right',
+            cell: (v) => <span className="whitespace-nowrap">₹{venueDayRate(v).toLocaleString()}</span>,
+        },
+        {
+            key: 'capacity',
+            header: 'Capacity',
+            align: 'right',
+            // "1-100 guests" was the usual reading, since a minimum headcount is
+            // no longer collected and defaults to 1.
+            cell: (v) => (
+                <span className="whitespace-nowrap text-gray-300">
+                    {(v.capacity?.min ?? 1) > 1
+                        ? `${v.capacity?.min}-${v.capacity?.max}`
+                        : `Up to ${v.capacity?.max}`}
+                </span>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            align: 'center',
+            cell: (v) => (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${v.status === 'approved'
+                    ? 'bg-green-500/20 text-green-400'
+                    : v.status === 'pending'
+                        ? 'bg-yellow-500/20 text-yellow-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                    {v.status}
+                </span>
+            ),
+        },
+    ];
+
     return (
         <VenueDashboardLayout>
             <div className="p-4 sm:p-6 lg:p-8">
-                {/* Header */}
+                {/* Header. Title and Add New Venue sit at opposite ends of the
+                    same row on every width, mobile included - the button used to
+                    drop to its own full-width line below the subtitle, which put
+                    the primary action furthest from the heading it belongs to. */}
                 <SlideUp>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 sm:mb-8 gap-4">
-                        <div>
+                    <div className="flex flex-row items-start justify-between gap-3 mb-6 sm:mb-8">
+                        <div className="min-w-0">
                             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">My Venues</h1>
                             <p className="text-sm sm:text-base text-gray-300">Manage all your listed venues</p>
                         </div>
-                        <Link href="/venue-portal/venues/create">
-                            <Button variant="violet" className="shadow-lg shadow-violet-500/25 w-full sm:w-auto">
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add New Venue
-                            </Button>
-                        </Link>
+                        <Button variant="violet" onClick={openCreateVenue} className="shadow-lg shadow-violet-500/25 shrink-0">
+                            <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            {/* On a narrow screen the plus alone carries it, and the
+                                accessible name comes from the sr-only text. */}
+                            <span className="hidden sm:inline">Add New Venue</span>
+                            <span className="sr-only sm:hidden">Add New Venue</span>
+                        </Button>
                     </div>
                 </SlideUp>
 
@@ -161,88 +240,54 @@ export default function VenuePortalVenuesPage() {
                     </div>
                 </FadeIn>
 
-                {/* Venues Grid */}
+                {/* Venues table. Clicking a row opens that venue's manage screen
+                    - the one place photo ordering, date blocking, activate and
+                    delete live - so this list never grows a second copy of them. */}
                 <FadeIn delay={0.2}>
-                    {loading ? (
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
-                                    <div className="h-40 bg-white/5 animate-pulse" />
-                                    <div className="p-4">
-                                        <div className="w-3/4 h-5 bg-white/5 rounded animate-pulse mb-2" />
-                                        <div className="w-1/2 h-4 bg-white/5 rounded animate-pulse" />
-                                    </div>
+                    <DataTable
+                        rows={filteredVenues}
+                        columns={columns}
+                        rowKey={(v) => v._id}
+                        onRowClick={(v) => router.push(`/dashboard/venues/${v._id}`)}
+                        loading={loading}
+                        pageSize={10}
+                        label={(n) => `${n} venue${n === 1 ? '' : 's'}`}
+                        empty={
+                            <>
+                                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-violet-500/20 flex items-center justify-center">
+                                    <svg className="w-10 h-10 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
+                                    </svg>
                                 </div>
-                            ))}
-                        </div>
-                    ) : filteredVenues.length > 0 ? (
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredVenues.map((venue) => (
-                                <div key={venue._id} className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden group hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300">
-                                    <div className="h-40 bg-gradient-to-br from-violet-500/20 to-blue-500/20 relative">
-                                        {venue.images?.[0] && (
-                                            <img
-                                                src={venue.images[0]}
-                                                alt={venue.name}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        )}
-                                        <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${venue.status === 'approved'
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : venue.status === 'pending'
-                                                ? 'bg-yellow-500/20 text-yellow-400'
-                                                : 'bg-red-500/20 text-red-400'
-                                            }`}>
-                                            {venue.status}
-                                        </span>
-                                    </div>
-                                    <div className="p-4">
-                                        <h3 className="font-semibold text-white truncate mb-1">{venue.name}</h3>
-                                        <p className="text-sm text-gray-300 mb-3">
-                                            {venue.address?.city}, {venue.address?.state}
-                                        </p>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-300">
-                                                ₹{venue.pricing?.basePrice?.toLocaleString()}
-                                            </span>
-                                            <span className="text-gray-300">
-                                                {venue.capacity?.min}-{venue.capacity?.max} guests
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-2 mt-4">
-                                            <Link href={`/venue-portal/venues/${venue._id}/preview`} className="flex-1">
-                                                <Button variant="secondary" size="sm" className="w-full">View</Button>
-                                            </Link>
-                                            <Link href={`/venue-portal/venues/${venue._id}/edit`} className="flex-1">
-                                                <Button variant="violet" size="sm" className="w-full shadow-lg shadow-violet-500/25">Edit</Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-16">
-                            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-violet-500/20 flex items-center justify-center">
-                                <svg className="w-10 h-10 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
-                                </svg>
-                            </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">No venues found</h3>
-                            <p className="text-gray-300 mb-6">
-                                {filter === 'all'
-                                    ? "You haven't listed any venues yet. Start by adding your first venue."
-                                    : `No ${filter} venues found.`}
-                            </p>
-                            {filter === 'all' && (
-                                <Link href="/venue-portal/venues/create">
-                                    <Button variant="violet">
+                                <h3 className="text-xl font-semibold text-white mb-2">No venues found</h3>
+                                <p className="text-gray-300 mb-6">
+                                    {filter === 'all'
+                                        ? "You haven't listed any venues yet. Start by adding your first venue."
+                                        : `No ${filter} venues found.`}
+                                </p>
+                                {filter === 'all' && (
+                                    <Button variant="violet" onClick={openCreateVenue}>
                                         Add Your First Venue
                                     </Button>
+                                )}
+                            </>
+                        }
+                        actions={(venue) => (
+                            <>
+                                <Link href={`/venue-portal/venues/${venue._id}/preview`}>
+                                    <Button variant="secondary" size="sm">Preview</Button>
                                 </Link>
-                            )}
-                        </div>
-                    )}
+                                <Button
+                                    variant="violet"
+                                    size="sm"
+                                    className="shadow-lg shadow-violet-500/25"
+                                    onClick={() => openEditVenue(venue._id)}
+                                >
+                                    Edit
+                                </Button>
+                            </>
+                        )}
+                    />
                 </FadeIn>
             </div>
         </VenueDashboardLayout>

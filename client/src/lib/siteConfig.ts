@@ -83,7 +83,20 @@ export const SITE_LOCALE = 'en_IN';
 
 export const SITE_COUNTRY = 'IN';
 
-export const SITE_LOGO = `${SITE_URL}/logo%20white.png`;
+/**
+ * The logo Google may show beside the brand (knowledge panel, rich results).
+ *
+ * The BLACK mark, not the white one this used to point at. Google composites this
+ * onto a white surface, so a white logo on transparency was invisible there - the
+ * same defect that made the favicon render as an empty disc. The site UI keeps using
+ * the white mark on its dark chrome; only the crawler-facing copy differs.
+ *
+ * `logo-black.png`, not `logo%20black.png`. The original filename contains a space,
+ * which is legal once encoded but is a standing hazard in a URL handed to crawlers,
+ * CDNs and social scrapers - any one of them that mishandles the escape fetches
+ * nothing, and a logo that 404s is treated as no logo at all.
+ */
+export const SITE_LOGO = `${SITE_URL}/logo-black.png`;
 
 /**
  * Profiles the brand controls. `sameAs` is how Google confirms that the

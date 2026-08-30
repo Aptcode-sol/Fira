@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminService = require('../services/adminService');
+const earningsService = require('../services/earningsService');
 const adminAuth = require('../middleware/adminAuth');
 const roleGuard = require('../middleware/roleGuard');
 const User = require('../models/User');
@@ -209,6 +210,57 @@ router.patch('/users/:id/role', roleGuard(['super_admin']), async (req, res) => 
         res.json(user);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ================== EARNINGS & PAYOUTS (read-only) ==================
+// Read-only reporting surfaces delegating to earningsService (the single
+// aggregator). GET-only: no route here creates, edits, or deletes any record
+// (Requirement 11.6). The whole router already sits behind adminAuth
+// (router.use above); roleGuard(['super_admin','admin']) additionally rejects a
+// moderator (Requirement 11.2). On any service failure the request maps to the
+// status the error carries (e.g. a fail-closed compute error) or 500 with an
+// { error } body, matching the existing admin route error style — never a
+// partial or stale total.
+
+// Aggregate overview: six headline figures + reconciliation block, optionally
+// scoped to an inclusive createdAt range applied identically to every figure.
+router.get('/earnings/overview', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const overview = await earningsService.getAdminOverview({ from: req.query.from, to: req.query.to });
+        res.json(overview);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
+    }
+});
+
+// Per-recipient payable breakdown, partitioned by Payout type, same optional range.
+router.get('/earnings/recipients', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const breakdown = await earningsService.getRecipientBreakdown({ from: req.query.from, to: req.query.to });
+        res.json(breakdown);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
+    }
+});
+
+// Payout lifecycle list, optionally filtered by status. `status` may be repeated
+// (?status=pending&status=failed) or comma-separated (?status=pending,failed);
+// absent → undefined so getPayoutList applies no filter.
+router.get('/earnings/payouts', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        let statuses;
+        const raw = req.query.status;
+        if (raw != null) {
+            const list = (Array.isArray(raw) ? raw : String(raw).split(','))
+                .map((s) => String(s).trim())
+                .filter(Boolean);
+            if (list.length) statuses = list;
+        }
+        const payouts = await earningsService.getPayoutList({ statuses });
+        res.json(payouts);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
     }
 });
 

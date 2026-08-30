@@ -2,7 +2,28 @@ const Event = require('../models/Event');
 const PrivateEventAccess = require('../models/PrivateEventAccess');
 const ScanningCode = require('../models/ScanningCode');
 const Ticket = require('../models/Ticket');
+const { PURCHASE_FALLBACK_TIER } = require('./ticketTiers');
+const { citySlug } = require('../utils/citySlug');
 const crypto = require('crypto');
+
+/**
+ * Escape a user-supplied string before it is used inside a RegExp.
+ *
+ * Search terms and city names come straight off the query string. Unescaped, a
+ * value like "a(" throws and 500s the listing, and a pathological pattern can be
+ * made to burn CPU on every request.
+ */
+function escapeRegex(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Statuses a public listing will show. `approved` is what the approval flow
+ * actually sets, but `upcoming` and `ongoing` are valid values in the schema
+ * enum - matching only `approved` meant anything moved to one of those was
+ * silently invisible with no indication why.
+ */
+const PUBLICLY_VISIBLE_STATUSES = ['approved', 'upcoming', 'ongoing'];
 
 const eventService = {
     // Get all events
@@ -12,11 +33,29 @@ const eventService = {
         if (eventType) filter.eventType = eventType;
         if (category && category !== 'All') filter.category = category;
 
+        // Conditions that each need their own $or are collected here and combined
+        // with $and at the end. Assigning filter.$or directly (as city and search
+        // both used to) means whichever runs second silently discards the first.
+        const andConditions = [];
+
         if (city && city !== 'All') {
             const Venue = require('../models/Venue');
-            const cityRegex = new RegExp(`^${city}$`, 'i');
-            const venuesInCity = await Venue.find({ 'address.city': cityRegex }).select('_id');
-            filter.venue = { $in: venuesInCity.map(v => v._id) };
+            // Slug match, so "Bengaluru" and "Bangalore" find the same events and
+            // the caller's string never reaches a regex engine.
+            const slug = citySlug(city);
+            const venuesInCity = await Venue.find({ 'address.citySlug': slug }).select('_id');
+            // An event is in a city either because its listed venue is there, or
+            // because it carries its own custom venue with the city on the event.
+            // Matching on venue id alone dropped every custom-venue event (they
+            // have venue: null) whenever a city was applied - and a city is applied
+            // automatically on first load, so those events were never visible at
+            // all.
+            andConditions.push({
+                $or: [
+                    { venue: { $in: venuesInCity.map(v => v._id) } },
+                    { 'customVenue.citySlug': slug }
+                ]
+            });
         }
 
         // Ticket type filter (free/paid)
@@ -40,7 +79,7 @@ const eventService = {
             // Gate on endDateTime (not startDateTime) so an event that has started
             // but already finished isn't listed, and exclude completed events
             // explicitly (approved is required, completed is never listed).
-            filter.status = 'approved';
+            filter.status = { $in: PUBLICLY_VISIBLE_STATUSES };
             filter.isActive = { $ne: false };
             filter.endDateTime = { $gte: new Date() }; // Not yet ended (upcoming or ongoing)
         }
@@ -103,16 +142,24 @@ const eventService = {
         }
 
         if (search) {
-            filter.$or = [
-                { name: new RegExp(search, 'i') },
-                { description: new RegExp(search, 'i') }
-            ];
+            const searchRegex = new RegExp(escapeRegex(search), 'i');
+            andConditions.push({
+                $or: [
+                    { name: searchRegex },
+                    { description: searchRegex }
+                ]
+            });
         }
+
+        if (andConditions.length > 0) filter.$and = andConditions;
 
         // Sorting options
         let sortOption = { startDateTime: 1 }; // default: upcoming (earliest first)
         if (sort === 'upcoming') sortOption = { startDateTime: 1 };
-        else if (sort === 'top') sortOption = { 'stats.attendees': -1, 'stats.interested': -1 };
+        // `top` sorted on stats.attendees / stats.interested, neither of which
+        // exists on the Event schema - so "Popular" silently fell back to Mongo's
+        // natural order. currentAttendees is the real counter.
+        else if (sort === 'top') sortOption = { currentAttendees: -1, createdAt: -1 };
         else if (sort === 'latest') sortOption = { createdAt: -1 };
 
         const events = await Event.find(filter)
@@ -138,7 +185,9 @@ const eventService = {
         const { limit = 10, category } = query;
         const filter = {
             startDateTime: { $gte: new Date() },
-            status: 'approved', // Only show fully approved events
+            // Same visibility rule as getAllEvents - kept on the shared constant so
+            // the two listings cannot disagree about what counts as live.
+            status: { $in: PUBLICLY_VISIBLE_STATUSES },
             eventType: 'public',
             isActive: { $ne: false },
             isDeleted: { $ne: true }
@@ -262,6 +311,12 @@ const eventService = {
         }
         // ----------------------------------------------
 
+        // Trust boundary: payoutAccount arrives from the client, so verify it is one
+        // of this organizer's own saved accounts. Anything else becomes null, which
+        // the payout path reads as "use my default".
+        const { sanitizePayoutAccount } = require('../utils/payoutAccount');
+        data.payoutAccount = await sanitizePayoutAccount(data.organizer, data.payoutAccount);
+
         const event = await Event.create(data);
 
         // If fully approved, update venue availability
@@ -346,6 +401,17 @@ const eventService = {
                     throw new Error('Cannot change event date or time after tickets have been sold. Please contact support.');
                 }
             }
+        }
+
+        // Same trust boundary as createEvent: the id arrives through a
+        // .passthrough() schema, so an update can carry a payout account belonging to
+        // someone else. Checked against this organizer's own saved accounts.
+        if ('payoutAccount' in updateData) {
+            const { sanitizePayoutAccount } = require('../utils/payoutAccount');
+            updateData = {
+                ...updateData,
+                payoutAccount: await sanitizePayoutAccount(event.organizer, updateData.payoutAccount),
+            };
         }
 
         const updatedEvent = await Event.findByIdAndUpdate(
@@ -441,7 +507,9 @@ const eventService = {
     async getEventsByOrganizer(userId, limit = 10) {
         const events = await Event.find({ organizer: userId, status: { $ne: 'cancelled' } })
             .populate('venue', 'name address images')
-            .sort({ date: 1 })
+            // startDateTime, not `date`: the schema has no `date` path, so this sort
+            // was a no-op and the list came back in Mongo's natural order.
+            .sort({ startDateTime: 1 })
             .limit(parseInt(limit))
             .lean();
         return events;
@@ -827,8 +895,16 @@ const eventService = {
         return code;
     },
 
-    // Create scanning codes for an event (max 20 total per event)
-    async createScanningCodes(eventId, labels = [], organizerId) {
+    /**
+     * Create scanning codes for an event (max 20 total per event).
+     *
+     * `entries` accepts either plain label strings (the original shape) or
+     * `{ label, ticketTier }` objects. A ticketTier scopes the resulting scanner to
+     * one tier, so a door handed the VIP link cannot admit a general ticket - which
+     * is the only thing that made separate links mean anything. An empty tier keeps
+     * the old behaviour: admits every tier for this event.
+     */
+    async createScanningCodes(eventId, entries = [], organizerId) {
         const event = await Event.findById(eventId);
         if (!event) {
             throw new Error('Event not found');
@@ -837,15 +913,30 @@ const eventService = {
             throw new Error('Only the event organizer can create scanning codes');
         }
 
-        const existingCount = await ScanningCode.countDocuments({ event: eventId });
-        const requestedCount = labels.length || 1;
+        // Normalise both accepted shapes into one.
+        const requested = (entries.length ? entries : ['']).map(entry =>
+            typeof entry === 'string'
+                ? { label: entry, ticketTier: '' }
+                : { label: entry?.label || '', ticketTier: entry?.ticketTier || '' }
+        );
 
-        if (existingCount + requestedCount > 20) {
-            throw new Error(`Cannot exceed 20 scanning codes per event. Currently ${existingCount} exist, requested ${requestedCount}.`);
+        // A tier that does not exist on the event would produce a scanner that
+        // rejects every ticket - a door that silently admits nobody is worse than
+        // an error at creation time.
+        const tierNames = (event.ticketTiers || []).map(t => t.name);
+        for (const { ticketTier } of requested) {
+            if (ticketTier && !tierNames.includes(ticketTier)) {
+                throw new Error(`"${ticketTier}" is not a ticket tier on this event`);
+            }
+        }
+
+        const existingCount = await ScanningCode.countDocuments({ event: eventId });
+        if (existingCount + requested.length > 20) {
+            throw new Error(`Cannot exceed 20 scanning codes per event. Currently ${existingCount} exist, requested ${requested.length}.`);
         }
 
         const codes = [];
-        for (const label of (labels.length ? labels : [''])) {
+        for (const { label, ticketTier } of requested) {
             let code;
             let attempts = 0;
             // Ensure uniqueness — retry if collision (extremely unlikely with 12 chars)
@@ -862,7 +953,9 @@ const eventService = {
             const scanningCode = await ScanningCode.create({
                 event: eventId,
                 code,
-                label: label || '',
+                // Default the label to the tier so a per-tier link is never unnamed.
+                label: label || ticketTier || '',
+                ticketTier,
                 createdBy: organizerId
             });
             codes.push(scanningCode);
@@ -871,8 +964,100 @@ const eventService = {
         return codes;
     },
 
+    /**
+     * Pull the human ticket reference out of whatever the scanner sent.
+     *
+     * A ticket QR encodes a JSON payload, so the raw decoded text is the whole
+     * object, not an id. Manual entry at the door sends the bare `TKT-...` string.
+     * Both are accepted; anything else returns null.
+     *
+     * Only `ticketId` is taken from the payload. The tier and event it also carries
+     * are the buyer's own printable copy and are never trusted here - a QR is
+     * client-supplied data, so it could claim any tier. Everything the gate decides
+     * on is re-read from the ticket record below.
+     */
+    parseScannedTicket(scanned) {
+        if (typeof scanned !== 'string') return null;
+        const raw = scanned.trim();
+        if (!raw) return null;
+        if (raw.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(raw);
+                return typeof parsed?.ticketId === 'string' ? parsed.ticketId.trim() : null;
+            } catch {
+                return null;
+            }
+        }
+        return raw;
+    },
+
+    /**
+     * Make sure every ticket tier on this event has a live scanner link, then return
+     * all of the event's codes.
+     *
+     * Provisioned on read rather than behind a "Generate" button: a tier always needs
+     * a door, so making the organiser ask for one was a step with no decision in it.
+     * Tiers added by a later edit get their link the next time this is read, and
+     * events with no tiers get a single all-tiers link.
+     *
+     * Idempotent - a tier with an active code is left alone. A tier whose only code
+     * was deactivated is re-provisioned, which is what revoking a leaked link should
+     * do: the old one stays dead and on the record, a fresh one takes its place.
+     */
+    async listScanningCodes(eventId, organizerId) {
+        const event = await Event.findById(eventId);
+        if (!event) {
+            throw new Error('Event not found');
+        }
+        if (event.organizer.toString() !== organizerId.toString()) {
+            throw new Error('Only the event organizer can view scanning codes');
+        }
+
+        const tierNames = (event.ticketTiers || []).map(t => t.name).filter(Boolean);
+
+        /*
+         * Retire every link that is not scoped to a tier.
+         *
+         * An unscoped link admits any tier, so one left live alongside the per-tier
+         * links is a way round all of them - whoever holds it can wave anyone in. They
+         * exist only because links generated before tier scoping carried no tier.
+         *
+         * `$in: ['', null]` rather than `''`: on documents written before the field
+         * existed it is absent, and a null match covers a missing field too.
+         */
+        await ScanningCode.updateMany(
+            { event: eventId, isActive: true, ticketTier: { $in: ['', null] } },
+            { $set: { isActive: false } }
+        );
+
+        const existing = await ScanningCode.find({ event: eventId });
+        const activeTiers = new Set(existing.filter(c => c.isActive).map(c => c.ticketTier));
+
+        /*
+         * Every event gets tier-scoped links and nothing else.
+         *
+         * A tier is compulsory at creation now - an event with no tiers named one
+         * 'General' - so there is no such thing as a link that admits everything. Older
+         * events created before that carry no tiers at all, and PURCHASE_FALLBACK_TIER
+         * is the name their tickets were issued under, so scoping their link to it
+         * matches what is actually on those tickets.
+         */
+        const wanted = tierNames.length > 0 ? tierNames : [PURCHASE_FALLBACK_TIER];
+        const missing = wanted.filter(name => !activeTiers.has(name));
+
+        if (missing.length > 0 && existing.length + missing.length <= 20) {
+            await this.createScanningCodes(
+                eventId,
+                missing.map(name => ({ label: name, ticketTier: name })),
+                organizerId
+            );
+        }
+
+        return ScanningCode.find({ event: eventId }).sort({ createdAt: -1 });
+    },
+
     // Validate an access code and check in a ticket
-    async validateScanAndCheckIn(accessCode, ticketId) {
+    async validateScanAndCheckIn(accessCode, scannedValue) {
         const scanningCode = await ScanningCode.findOne({ code: accessCode });
         if (!scanningCode) {
             throw new Error('Access code is invalid');
@@ -881,15 +1066,47 @@ const eventService = {
             throw new Error('Access code has been deactivated');
         }
 
-        const ticket = await Ticket.findById(ticketId);
+        const ticketRef = this.parseScannedTicket(scannedValue);
+        if (!ticketRef) {
+            throw new Error('Unreadable ticket code');
+        }
+
+        // findOne on the ticketId field, not findById. The scanner sends the
+        // 'TKT-...' reference printed on the ticket, which is not the document _id -
+        // findById could only ever throw a cast error on it, so no real ticket QR
+        // could be checked in at all.
+        const ticket = await Ticket.findOne({ ticketId: ticketRef }).populate('user', 'name email');
         if (!ticket) {
             throw new Error('Ticket not found');
         }
         if (ticket.event.toString() !== scanningCode.event.toString()) {
             throw new Error('Ticket belongs to a different event');
         }
+        // A tier-scoped scanner admits only its own tier. Named in the message so the
+        // person on the door knows where to send the guest instead of just "no".
+        if (scanningCode.ticketTier && ticket.ticketType !== scanningCode.ticketTier) {
+            throw new Error(`This scanner only admits "${scanningCode.ticketTier}" tickets. This one is "${ticket.ticketType}".`);
+        }
+        /*
+         * An unscoped link on an event that has tiers is refused outright.
+         *
+         * Retiring these when the organiser views the list is not enough on its own:
+         * a link already sitting in someone's browser would keep working until then,
+         * and it bypasses every per-tier restriction. Checked against the event as it
+         * is now, so an event that gains its first tier closes the hole immediately.
+         */
+        if (!scanningCode.ticketTier) {
+            const event = await Event.findById(scanningCode.event).select('ticketTiers');
+            if ((event?.ticketTiers || []).length > 0) {
+                throw new Error('This scanner link is out of date. Ask the organiser for the link for this tier.');
+            }
+        }
+        if (ticket.status === 'cancelled') {
+            throw new Error('This ticket has been cancelled');
+        }
         if (ticket.isUsed) {
-            throw new Error('Ticket has already been used');
+            const when = ticket.usedAt ? new Date(ticket.usedAt).toLocaleString('en-IN') : 'earlier';
+            throw new Error(`Ticket has already been used (${when})`);
         }
 
         ticket.isUsed = true;

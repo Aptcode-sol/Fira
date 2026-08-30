@@ -11,6 +11,9 @@ import CreatePostModal from '@/components/modals/CreatePostModal';
 import EventCard from '@/components/EventCard';
 import { Loader2, AlertCircle, Instagram, Globe, Facebook, Linkedin, Twitter, Youtube, Link as LinkIcon } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import PartyBackground from '@/components/PartyBackground';
+import InquiryForm from '@/components/InquiryForm';
+import { BackButton, Modal } from '@/components/ui';
 // Footer removed as it is in layout
 
 export default function CreatorProfilePage() {
@@ -27,8 +30,8 @@ export default function CreatorProfilePage() {
     const [activeTab, setActiveTab] = useState('about');
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
-    const [enquiryLoading, setEnquiryLoading] = useState(false);
     const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+    const [isEnquiryOpen, setIsEnquiryOpen] = useState(false);
 
     // Does the signed-in user own this profile? `brand.user` comes back either
     // as a raw id or as a populated object depending on the endpoint, so check
@@ -159,40 +162,29 @@ export default function CreatorProfilePage() {
         }
     };
 
-    // Start an in-app enquiry conversation bound to this creator.
-    const handleEnquiry = async () => {
-        // If not logged in, redirect to signin
-        if (!user?._id) {
-            window.location.href = '/signin?redirect=' + encodeURIComponent(`/creators/${id}`);
-            return;
-        }
-
-        setEnquiryLoading(true);
-        try {
-            const response = await messagesApi.startBrandEnquiry({ brandId: id });
-            router.push(`/messages?conversation=${response.conversation._id}`);
-        } catch (error) {
-            console.error('Error starting enquiry:', error);
-            const message = error instanceof Error ? error.message : 'Failed to start conversation';
-            showToast(message, 'error');
-        } finally {
-            setEnquiryLoading(false);
-        }
-    };
+    // Enquiring opens the same form events and venues use, so a thread is only
+    // created once there is an actual question in it. Pressing this used to start
+    // an empty conversation that then sat in both inboxes reading "No messages
+    // yet"; the sign-in gate lives inside the form.
+    const handleEnquiry = () => setIsEnquiryOpen(true);
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <Loader2 className="animate-spin text-violet-500" size={40} />
-            </div>
+            <>
+                <PartyBackground />
+                <main className="relative z-20 min-h-screen flex items-center justify-center">
+                    <Loader2 className="animate-spin text-violet-500" size={40} />
+                </main>
+            </>
         );
     }
 
     if (!brand) {
         return (
-            <div className="min-h-screen bg-black">
+            <>
+                <PartyBackground />
                 <Navbar />
-                <div className="flex flex-col items-center justify-center min-h-[70vh] text-white px-4">
+                <div className="relative z-20 flex flex-col items-center justify-center min-h-[70vh] text-white px-4">
                     <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
                     <h1 className="text-2xl font-bold mb-2">Creator not found</h1>
                     <p className="text-gray-300 mb-6 text-center">The creator you&apos;re looking for doesn&apos;t exist or has been removed.</p>
@@ -203,13 +195,25 @@ export default function CreatorProfilePage() {
                         Browse All Creators
                     </button>
                 </div>
-            </div>
+            </>
         );
     }
 
     return (
-        <div className="min-h-screen bg-black font-sans text-white">
+        <>
+            {/* Same backdrop as the event and venue detail pages - the light rays
+                sit behind a z-20 content layer. */}
+            <PartyBackground />
             <Navbar />
+
+            <div className="relative z-20 min-h-screen font-sans text-white">
+
+            {/* Above the banner rather than inside the content column: BrandHeader is a
+                full-bleed hero, so a control placed after it would sit below the fold on
+                a phone. Falls back to the creators list when opened from a shared link. */}
+            <div className="max-w-7xl mx-auto px-4 md:px-8 pt-24">
+                <BackButton fallbackHref="/creators" label="Back to Creators" />
+            </div>
 
             {/* Header Section */}
             <BrandHeader brand={brand} onFollow={handleFollow} isFollowing={isFollowing} isOwnProfile={!!(user && (brand.user === user._id || brand.user?._id === user._id))} />
@@ -350,12 +354,24 @@ export default function CreatorProfilePage() {
 
                     </div>
 
-                    {/* Right Column (Suggestions / Info) */}
-                    <div className="w-full lg:w-80 space-y-6">
-                        {/* Stats & Socials - Sticky on desktop only. 14.3: sticky on the
-                            stacked mobile column made this card float and overlap the
-                            content below it while scrolling; scope sticky to lg. */}
-                        <div className="bg-white/5 rounded-xl p-6 border border-white/5 lg:sticky lg:top-24 space-y-6">
+                    {/* Right Column (Suggestions / Info)
+
+                        Sticky lives on the column, not on the first card inside
+                        it. A stuck element keeps its original flow space but is
+                        painted lower down, so sticking the Stats/Socials card on
+                        its own slid it over the Members card sitting below it in
+                        the same column - the overlap in 14.3, which was only ever
+                        scoped away on mobile and still happened from lg up.
+                        Sticking the column moves both cards as one unit, so they
+                        cannot overlap each other.
+
+                        self-start is required: a stretched flex item is as tall as
+                        the row, and a sticky element that fills its containing
+                        block has nowhere to move, which silently kills the effect.
+                        The height cap plus overflow keeps the bottom of a long
+                        sidebar reachable while it is pinned. */}
+                    <div className="w-full lg:w-80 space-y-6 lg:self-start lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+                        <div className="bg-white/5 rounded-xl p-6 border border-white/5 space-y-6">
                             <div>
                                 <h4 className="font-bold mb-4 text-gray-200">Stats</h4>
                                 <div className="space-y-4">
@@ -389,17 +405,12 @@ export default function CreatorProfilePage() {
                             ) : (
                                 <button
                                     onClick={handleEnquiry}
-                                    disabled={enquiryLoading}
-                                    className="w-full px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                                    className="w-full px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                                 >
-                                    {enquiryLoading ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                        </svg>
-                                    )}
-                                    {enquiryLoading ? 'Starting...' : 'Send Enquiry'}
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    Send Enquiry
                                 </button>
                             )}
 
@@ -485,8 +496,23 @@ export default function CreatorProfilePage() {
                     brandId={id}
                 />
             )}
-        </div>
 
-
+            {/* Same enquiry form as events and venues - one question box, one
+                behaviour, and no thread until there is something in it. */}
+            <Modal
+                isOpen={isEnquiryOpen}
+                onClose={() => setIsEnquiryOpen(false)}
+                title={`Ask ${brand.name}`}
+                size="md"
+            >
+                <InquiryForm
+                    referenceType="creator"
+                    referenceId={id}
+                    referenceName={brand.name}
+                    onClose={() => setIsEnquiryOpen(false)}
+                />
+            </Modal>
+            </div>
+        </>
     );
 }

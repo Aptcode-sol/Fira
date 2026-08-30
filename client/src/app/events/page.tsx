@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
@@ -12,9 +12,8 @@ import { eventsApi } from '@/lib/api';
 import { Event } from '@/lib/types';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
-import { useCities } from '@/hooks/useCities';
+import { useListedCities } from '@/hooks/useCities';
 import { useUserCity } from '@/hooks/useUserCity';
-import { CITIES, getCityByName } from '@/lib/cities';
 
 interface EventsResponse {
     events: Event[];
@@ -101,7 +100,10 @@ export default function EventsPage() {
     const [selectedTicketType, setSelectedTicketType] = useState('all');
     const [selectedDateFilter, setSelectedDateFilter] = useState('all');
 
-    const cities = useCities();
+    // One request serves both: the filter needs the names, the city links below
+    // need the slugs.
+    const listedCities = useListedCities();
+    const cities = useMemo(() => listedCities.map(c => c.city), [listedCities]);
 
     // CITY-FIRST: the city is a *scope* on the whole catalogue, not one filter
     // among many. It seeds from ?city=, then the visitor's saved choice, then
@@ -119,10 +121,11 @@ export default function EventsPage() {
         // makes Next prerender only the fallback spinner - so crawlers get an
         // empty page for /events. This runs in an effect anyway, where
         // window.location is always available.
+        // Used as given. The API slugifies whatever arrives, so ?city=bengaluru,
+        // ?city=Bangalore and ?city=bangalore all resolve to one set of events -
+        // no client-side spelling table needed.
         const fromUrl = new URLSearchParams(window.location.search).get('city');
-        const resolved = fromUrl
-            ? getCityByName(fromUrl)?.name || fromUrl
-            : preferredCity;
+        const resolved = fromUrl || preferredCity;
 
         if (resolved) setSelectedCity(resolved);
         setCityApplied(true);
@@ -402,7 +405,7 @@ export default function EventsPage() {
                         )}
                     </div>
                     {/* Horizontal scroll container */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 scroll-pl-4">
                         {data.map((event, index) => (
                             <div key={event._id} className="flex-shrink-0 w-[280px] md:w-[300px] snap-start">
                                 <EventCard event={event} index={index} />
@@ -533,7 +536,7 @@ export default function EventsPage() {
                                                 Past Events
                                             </h2>
                                         </div>
-                                        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                                        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 scroll-pl-4">
                                             {sections.completed.map((event, index) => (
                                                 <div key={event._id} className="flex-shrink-0 w-[280px] md:w-[300px] snap-start opacity-60 relative">
                                                     <div className="absolute top-3 right-3 z-10 px-2 py-1 rounded-full bg-gray-700/80 backdrop-blur-sm border border-gray-500/30 text-gray-200 text-xs font-medium">
@@ -640,7 +643,7 @@ export default function EventsPage() {
                                         No events found{selectedCity ? ` in ${selectedCity}` : ''}
                                     </p>
                                     <div className="flex flex-wrap gap-3 justify-center">
-                                        <Button variant="ghost" className="text-violet-400" onClick={resetFilters}>Reset Filters</Button>
+                                        <Button variant="ghost" className="text-violet-400" onClick={resetFilters}>Reset</Button>
                                         {selectedCity && (
                                             <Button variant="ghost" className="text-violet-400" onClick={() => changeCity('')}>
                                                 Search all cities
@@ -661,16 +664,16 @@ export default function EventsPage() {
                     {/* Crawlable links into the city cluster. These give search
                         engines a path to every city landing page from the main
                         listing, and let visitors jump straight to a city. */}
-                    <nav aria-label="Events by city" className="mt-20 pt-10 border-t border-white/5">
+                    <nav aria-label="Events by city" hidden={listedCities.length === 0} className="mt-20 pt-10 border-t border-white/5">
                         <h2 className="text-sm font-semibold text-gray-300 mb-4">Browse events by city</h2>
                         <div className="flex flex-wrap gap-2">
-                            {CITIES.map(city => (
+                            {listedCities.map(city => (
                                 <Link
                                     key={city.slug}
                                     href={`/events/in/${city.slug}`}
                                     className="px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:text-white hover:border-white/20 transition-all"
                                 >
-                                    Events in {city.name}
+                                    Events in {city.city}
                                 </Link>
                             ))}
                         </div>

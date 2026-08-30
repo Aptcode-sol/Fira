@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Venue } from '@/lib/types';
 import { motion } from 'framer-motion';
+import { venueDayRate } from '@/lib/venuePricing';
 
 interface VenueCardProps {
     venue: Venue;
@@ -85,35 +86,36 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                         <h3 className="text-lg font-semibold text-white group-hover:text-violet-300 transition-colors line-clamp-1">
                             {venue.name}
                         </h3>
-                        <span className="text-violet-400 font-semibold text-sm">
-                            {formatPrice(venue.pricing.basePrice)}
+                        <span className="text-violet-400 font-semibold text-sm whitespace-nowrap">
+                            {formatPrice(venueDayRate(venue))}<span className="text-gray-400 font-normal">/day</span>
                         </span>
                     </div>
 
-                    {/* Location */}
-                    <div className="flex items-center gap-2 text-gray-300 text-sm mb-3">
-                        <div className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span className="line-clamp-1">{venue.address.city}, {venue.address.state}</span>
-                        </div>
-                        {venue.locationLink && (
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    window.open(venue.locationLink, '_blank', 'noopener,noreferrer');
-                                }}
-                                className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs hover:bg-violet-500/30"
+                    {/* Location. The place name is itself the link to the map, in
+                        violet, rather than sitting next to a separate "Open in Maps"
+                        button - that button ate a third of the row, wrapped onto two
+                        lines on narrow cards, and pushed the address into an ellipsis
+                        while duplicating what the address already says.
+                        The whole card is a link to the venue, so this stops
+                        propagation and opens the map instead. */}
+                    <div className="flex items-center gap-1 text-gray-300 text-sm mb-3">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {venue.locationLink ? (
+                            <a
+                                href={venue.locationLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title={`Open ${venue.address.city}, ${venue.address.state} in Maps`}
+                                className="line-clamp-1 text-violet-400 hover:text-violet-300 hover:underline underline-offset-2 transition-colors"
                             >
-                                Open in Maps
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
-                                </svg>
-                            </button>
+                                {venue.address.city}, {venue.address.state}
+                            </a>
+                        ) : (
+                            <span className="line-clamp-1">{venue.address.city}, {venue.address.state}</span>
                         )}
                     </div>
 

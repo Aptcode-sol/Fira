@@ -1,14 +1,17 @@
 import React from 'react';
 import Image from 'next/image';
 import { MapPin, Users, Calendar } from 'lucide-react';
+import { formatCount } from '@/lib/formatCount';
 
 interface BrandHeaderProps {
     brand: {
         _id: string;
         name: string;
         bio: string;
-        coverPhoto: string;
-        profilePhoto: string;
+        // Both are optional in practice - a creator can exist without either.
+        // Typing them as required string hid the missing-photo case.
+        coverPhoto?: string | null;
+        profilePhoto?: string | null;
         stats: {
             followers: number;
             events: number;
@@ -39,13 +42,24 @@ export default function BrandHeader({ brand, onFollow, isFollowing, isOwnProfile
                 <div className="flex flex-col md:flex-row items-start md:items-end gap-6">
                     {/* Profile Photo */}
                     <div className="relative">
-                        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black overflow-hidden bg-zinc-900 shadow-2xl">
-                            <Image
-                                src={brand.profilePhoto || '/default-avatar.png'}
-                                alt={brand.name}
-                                fill
-                                className="object-cover"
-                            />
+                        {/* Falls back to the initial, exactly as the creator card does.
+                            This previously pointed <Image> at '/default-avatar.png',
+                            which does not exist in public/ - so a creator with no photo
+                            got a broken image, and the browser rendered its alt text
+                            (the full name) spilling out of the circle. */}
+                        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black overflow-hidden bg-zinc-900 shadow-2xl flex items-center justify-center">
+                            {brand.profilePhoto ? (
+                                <Image
+                                    src={brand.profilePhoto}
+                                    alt={brand.name}
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <span className="text-5xl md:text-6xl font-bold text-white uppercase select-none">
+                                    {brand.name?.charAt(0)}
+                                </span>
+                            )}
                         </div>
                         <span className="absolute bottom-2 right-0 md:bottom-3 md:right-1 px-3 py-1 rounded-full bg-black text-white border border-white/10 text-xs font-medium backdrop-blur-md uppercase tracking-wider">
                             {brand.type}
@@ -66,13 +80,16 @@ export default function BrandHeader({ brand, onFollow, isFollowing, isOwnProfile
 
                         <div className="flex flex-col gap-2 mt-4">
                             <div className="flex flex-wrap gap-4 text-sm font-medium text-gray-300">
+                                {/* Same compact formatting as the card, so a creator's
+                                    follower count does not read "12,400" here and
+                                    "12.4K" one screen earlier. */}
                                 <div className="flex items-center gap-1">
                                     <Users size={16} />
-                                    <span className="text-white">{brand.stats.followers.toLocaleString()}</span> Followers
+                                    <span className="text-white tabular-nums">{formatCount(brand.stats.followers)}</span> Followers
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Calendar size={16} />
-                                    <span className="text-white">{brand.stats.events}</span> Events
+                                    <span className="text-white tabular-nums">{formatCount(brand.stats.events)}</span> Events
                                 </div>
                             </div>
                         </div>

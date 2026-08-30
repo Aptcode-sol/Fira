@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
-import { CITIES } from '@/lib/cities';
+import { byActivity, fetchListedCities } from '@/lib/seo/listedCities';
 import {
     SITE_NAME,
     SITE_URL,
@@ -35,7 +35,14 @@ export const metadata: Metadata = {
     },
 };
 
-const faqs = [
+/** Revalidate with the same window as the city pages, so the copy agrees with them. */
+export const revalidate = 3600;
+
+/**
+ * @param cityNames Cities we currently list in, named in the coverage answer.
+ *   Stating cities we do not cover is a claim a visitor can check and find false.
+ */
+const buildFaqs = (cityNames: string[]) => [
     {
         q: 'What is FIRA?',
         a: `FIRA is an event discovery and venue booking platform in India. You can find parties, concerts and festivals near you and buy tickets, or book a verified venue and host your own event. The brand is also written as "Lets FIRA" or "letsfira", after our website letsfira.com.`,
@@ -46,7 +53,9 @@ const faqs = [
     },
     {
         q: 'Which cities does FIRA cover?',
-        a: `We list events and venues across major Indian cities including ${CITIES.slice(0, 8).map(c => c.name).join(', ')} and more, with new cities added as venues come on board.`,
+        a: cityNames.length
+            ? `We list events and venues in ${cityNames.slice(0, 8).join(', ')} and more, with new cities added as venues come on board.`
+            : `We list events and venues across India, with new cities added as venues come on board.`,
     },
     {
         q: 'How do I list my venue on FIRA?',
@@ -58,7 +67,10 @@ const faqs = [
     },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+    const listedCities = byActivity(await fetchListedCities());
+    const faqs = buildFaqs(listedCities.map(c => c.city));
+
     return (
         <>
             <JsonLd
@@ -157,24 +169,26 @@ export default function AboutPage() {
                         </ul>
                     </section>
 
-                    <section className="mt-14">
-                        <h2 className="text-2xl font-bold text-white mb-4">Where FIRA operates</h2>
-                        <p className="text-gray-300 mb-5">
-                            FIRA lists events and venues across major Indian cities. Pick a city to
-                            see what is on:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                            {CITIES.map(city => (
-                                <Link
-                                    key={city.slug}
-                                    href={`/events/in/${city.slug}`}
-                                    className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-gray-300 text-sm hover:text-white hover:border-white/20 transition-all"
-                                >
-                                    {city.name}
-                                </Link>
-                            ))}
-                        </div>
-                    </section>
+                    {listedCities.length > 0 && (
+                        <section className="mt-14">
+                            <h2 className="text-2xl font-bold text-white mb-4">Where FIRA operates</h2>
+                            <p className="text-gray-300 mb-5">
+                                FIRA lists events and venues across India. Pick a city to
+                                see what is on:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {listedCities.map(city => (
+                                    <Link
+                                        key={city.slug}
+                                        href={`/events/in/${city.slug}`}
+                                        className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-gray-300 text-sm hover:text-white hover:border-white/20 transition-all"
+                                    >
+                                        {city.city}
+                                    </Link>
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
                     <section className="mt-14">
                         <h2 className="text-2xl font-bold text-white mb-6">Frequently asked questions</h2>

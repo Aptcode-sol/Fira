@@ -1,85 +1,139 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Input } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui';
 import { inquiriesApi, messagesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 
+export type InquiryReference = 'event' | 'venue' | 'creator';
+
 interface InquiryFormProps {
-    referenceType: 'event' | 'venue';
+    referenceType: InquiryReference;
     referenceId: string;
     referenceName: string;
     onClose: () => void;
 }
 
+/** Who the sender is actually writing to, for the copy. */
+const COUNTERPARTY: Record<InquiryReference, string> = {
+    event: 'organizer',
+    venue: 'venue owner',
+    creator: 'creator',
+};
+
+const MESSAGE_MIN = 10;
+const MESSAGE_MAX = 2000;
+
+/**
+ * "Ask a question" on an event or venue. The question opens a chat thread with
+ * the organizer/owner, so this collects only the question itself:
+ *
+ * - Name and email used to be fields here, but the server derives both from the
+ *   authenticated account and explicitly ignores whatever the body sends
+ *   (inquiryService.submitInquiry). They were read-only for signed-in users and
+ *   discarded for everyone, so they only added steps.
+ * - Phone was never stored by the server at all.
+ * - Reference type/name were read-only inputs restating the page you are already
+ *   on; they are a heading now.
+ */
 export default function InquiryForm({ referenceType, referenceId, referenceName, onClose }: InquiryFormProps) {
     const { isAuthenticated, user } = useAuth();
     const { showToast } = useToast();
+    const router = useRouter();
 
-    const [senderName, setSenderName] = useState(user?.name || '');
-    const [senderEmail, setSenderEmail] = useState(user?.email || '');
-    const [senderPhone, setSenderPhone] = useState('');
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [error, setError] = useState('');
 
-    const validate = (): boolean => {
-        const newErrors: Record<string, string> = {};
-        if (!senderName.trim()) newErrors.senderName = 'Name is required';
-        if (!senderEmail.trim()) newErrors.senderEmail = 'Email is required';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) newErrors.senderEmail = 'Invalid email format';
-        if (!message.trim()) newErrors.message = 'Message is required';
-        else if (message.trim().length < 10) newErrors.message = 'Message must be at least 10 characters';
-        else if (message.trim().length > 2000) newErrors.message = 'Message must be at most 2000 characters';
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
+    // The server 401s an anonymous enquiry, and a chat thread needs an account to
+    // reply into, so ask for sign-in up front instead of failing on submit.
+    if (!isAuthenticated || !user?._id) {
+        const redirect = `/${referenceType}s/${referenceId}`;
+        return (
+            <div className="space-y-5">
+                <p className="text-gray-300 text-sm">
+                    Sign in to ask about <span className="text-white font-medium">{referenceName}</span>. Your
+                    question starts a chat with the {COUNTERPARTY[referenceType]}, so you get replies in one
+                    place.
+                </p>
+                <div className="flex gap-3 pt-2">
+                    <Button variant="secondary" className="flex-1" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button
+                        className="flex-1"
+                        onClick={() => {
+                            window.location.href = `/signin?redirect=${encodeURIComponent(redirect)}`;
+                        }}
+                    >
+                        Sign in
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    const trimmed = message.trim();
+    const canSubmit = trimmed.length >= MESSAGE_MIN && trimmed.length <= MESSAGE_MAX && !isSubmitting;
 
     const handleSubmit = async () => {
-        if (!validate()) return;
+        if (trimmed.length < MESSAGE_MIN) {
+            setError(`Please write at least ${MESSAGE_MIN} characters`);
+            return;
+        }
+        setError('');
         setIsSubmitting(true);
         try {
-            // Preservation (24.1): the inquiry record is always created first.
-            await inquiriesApi.submit({
+            // A creator has no Inquiry record behind it - the thread with the brand
+            // owner IS the enquiry. Still gated behind this form rather than opening
+            // a thread on a bare button press: that created an empty conversation
+            // that then sat in both inboxes forever reading "No messages yet".
+            if (referenceType === 'creator') {
+                const { conversation } = await messagesApi.startBrandEnquiry({
+                    brandId: referenceId,
+                    message: trimmed,
+                });
+                onClose();
+                showToast('Question sent. Opening your chat...', 'success');
+                router.push(`/messages?conversation=${conversation._id}`);
+                return;
+            }
+
+            // The enquiry record is always created first, then promoted to a chat
+            // thread. The inquiry's own id is what the server needs to resolve the
+            // owner - it will not take a reference id from the client.
+            const inquiry = await inquiriesApi.submit({
                 referenceType,
                 referenceId,
-                senderName: senderName.trim(),
-                senderEmail: senderEmail.trim(),
-                senderPhone: senderPhone.trim() || undefined,
-                message: message.trim(),
+                message: trimmed,
             });
-            showToast('Inquiry submitted successfully!', 'success');
             onClose();
+            showToast('Question sent. Opening your chat...', 'success');
 
-            // Chat entry point (23.1): once the inquiry exists, an authenticated
-            // sender is taken into a conversation bound to this reference so they
-            // can converse with the owner. Reuses messagesApi (find-or-create).
-            // Guests just get the confirmation above — they cannot hold a
-            // conversation without an account.
-            if (isAuthenticated && user?._id) {
-                try {
-                    const { conversation } = await messagesApi.startInquiryConversation({
-                        referenceType,
-                        referenceId,
-                        message: message.trim(),
-                    });
-                    // ponytail: plain client navigation (same pattern the brand/
-                    // creator enquiry redirect already uses) avoids taking a
-                    // router-context dependency in this shared form.
-                    window.location.href = `/messages?conversation=${conversation._id}`;
-                } catch (convErr) {
-                    // The inquiry succeeded; failing to open chat is non-fatal.
-                    console.error('Failed to open inquiry conversation:', convErr);
-                }
+            try {
+                const { conversation } = await messagesApi.startInquiryConversation({
+                    inquiryId: inquiry._id,
+                    message: trimmed,
+                });
+                // router.push, not window.location: a full page load tears down the
+                // toast provider, so the confirmation above would flash and die.
+                router.push(`/messages?conversation=${conversation._id}`);
+            } catch (convErr) {
+                // The enquiry landed, so this is not a failed submit - but the
+                // sender still needs telling that the thread did not open,
+                // otherwise the silence looks like nothing happened.
+                console.error('Failed to open inquiry conversation:', convErr);
+                showToast('Enquiry sent. Opening the chat failed - find it under Enquiries.', 'info');
             }
         } catch (err: any) {
-            if (err.status === 400) {
-                showToast(err.message || 'Reference is unavailable', 'error');
-            } else if (err.status === 429) {
-                showToast(err.message || 'Rate limit exceeded. Try again later.', 'error');
+            if (err.status === 429) {
+                showToast(err.message || 'Too many enquiries for this listing. Try again later.', 'error');
+            } else if (err.status === 400) {
+                showToast(err.message || 'This listing is unavailable', 'error');
             } else {
-                showToast(err.message || 'Failed to submit inquiry', 'error');
+                showToast(err.message || 'Failed to send enquiry', 'error');
             }
         } finally {
             setIsSubmitting(false);
@@ -88,88 +142,43 @@ export default function InquiryForm({ referenceType, referenceId, referenceName,
 
     return (
         <div className="space-y-5">
-            {/* Read-only reference fields */}
-            <div className="space-y-3">
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Reference Type</label>
-                    <input
-                        type="text"
-                        value={referenceType === 'event' ? 'Event' : 'Venue'}
-                        readOnly
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 cursor-not-allowed"
-                        aria-label="Reference type"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Reference Name</label>
-                    <input
-                        type="text"
-                        value={referenceName}
-                        readOnly
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 cursor-not-allowed"
-                        aria-label="Reference name"
-                    />
-                </div>
-            </div>
+            <p className="text-sm text-gray-300">
+                Asking about <span className="text-white font-medium">{referenceName}</span>. This starts a chat
+                with the {COUNTERPARTY[referenceType]}.
+            </p>
 
-            {/* Sender fields */}
-            <div className="space-y-3">
-                <Input
-                    label="Your Name"
-                    placeholder="Enter your name"
-                    value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
-                    readOnly={isAuthenticated && !!user?.name}
-                    error={errors.senderName}
-                    required
-                />
-                <Input
-                    label="Your Email"
-                    placeholder="Enter your email"
-                    type="email"
-                    value={senderEmail}
-                    onChange={(e) => setSenderEmail(e.target.value)}
-                    readOnly={isAuthenticated && !!user?.email}
-                    error={errors.senderEmail}
-                    required
-                />
-                <Input
-                    label="Phone (optional)"
-                    placeholder="Enter your phone number"
-                    type="tel"
-                    value={senderPhone}
-                    onChange={(e) => setSenderPhone(e.target.value.replace(/\D/g, ''))}
-                />
-            </div>
-
-            {/* Message */}
             <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Message <span className="text-red-400">*</span>
+                <label htmlFor="enquiry-message" className="block text-sm font-medium text-gray-300 mb-2">
+                    Your question <span className="text-red-400">*</span>
                 </label>
                 <textarea
+                    id="enquiry-message"
                     value={message}
-                    onChange={(e) => setMessage(e.target.value.slice(0, 2000))}
+                    onChange={(e) => {
+                        setMessage(e.target.value.slice(0, MESSAGE_MAX));
+                        if (error) setError('');
+                    }}
                     placeholder="What would you like to know?"
-                    rows={4}
-                    maxLength={2000}
+                    rows={5}
+                    maxLength={MESSAGE_MAX}
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
-                    aria-label="Message"
+                    aria-describedby="enquiry-message-help"
                     required
                 />
-                <div className="flex justify-between mt-1">
-                    {errors.message && <p className="text-red-400 text-xs">{errors.message}</p>}
-                    <p className="text-xs text-gray-500 ml-auto">{message.length}/2000</p>
+                <div id="enquiry-message-help" className="flex justify-between mt-1">
+                    {error && <p className="text-red-400 text-xs">{error}</p>}
+                    <p className="text-xs text-gray-500 ml-auto">
+                        {message.length}/{MESSAGE_MAX}
+                    </p>
                 </div>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3 pt-2">
                 <Button variant="secondary" className="flex-1" onClick={onClose}>
                     Cancel
                 </Button>
-                <Button className="flex-1" onClick={handleSubmit} disabled={isSubmitting}>
-                    {isSubmitting ? 'Submitting...' : 'Submit Inquiry'}
+                <Button className="flex-1" onClick={handleSubmit} disabled={!canSubmit}>
+                    {isSubmitting ? 'Sending...' : 'Send question'}
                 </Button>
             </div>
         </div>

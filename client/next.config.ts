@@ -21,6 +21,31 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  /**
+   * Venue management lives in the venue portal only.
+   *
+   * These two /dashboard routes were second copies of screens the venue portal
+   * already owns: /dashboard/venues listed the same venues as
+   * /venue-portal/venues, and /dashboard/requests combined the same booking and
+   * event-request queues as /venue-portal/bookings and /venue-portal/events. Old
+   * bookmarks and any link still pointing at them land on the live screen instead
+   * of a stale duplicate.
+   *
+   * ponytail: config redirects rather than stub pages - no component, no effect, no
+   * flash of a loading state. Deliberately NOT `/dashboard/venues/:path*`:
+   * /dashboard/venues/[id] is the per-venue management screen (photo ordering, date
+   * blocking, activate/delete, auto-approve) and has no venue-portal equivalent, so
+   * it stays. It is reached from the "Manage" action on the venue portal's list.
+   *
+   * Session is held in localStorage, so a same-origin redirect keeps the user
+   * signed in.
+   */
+  async redirects() {
+    return [
+      { source: '/dashboard/venues', destination: '/venue-portal/venues', permanent: false },
+      { source: '/dashboard/requests', destination: '/venue-portal/events', permanent: false },
+    ];
+  },
 };
 
 // ponytail: withSentryConfig is a no-op when NEXT_PUBLIC_SENTRY_DSN is unset —

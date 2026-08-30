@@ -81,6 +81,16 @@ export default function EventCard({ event, index = 0 }: EventCardProps) {
                         {event.name}
                     </h3>
 
+                    {/* About, two lines then ellipsis. Card height stays uniform in a
+                        grid because the clamp is a hard cap, and the name/venue/price
+                        below it are what people scan for - this is context, not the
+                        headline. */}
+                    {event.description && (
+                        <p className="text-sm text-gray-300 line-clamp-2 mb-3">
+                            {event.description}
+                        </p>
+                    )}
+
                     {/* Venue */}
                     {venue && typeof venue === 'object' && (
                         <div className="flex items-center gap-1 text-gray-300 text-sm mb-3">
@@ -111,10 +121,14 @@ export default function EventCard({ event, index = 0 }: EventCardProps) {
                         </div>
                     )}
 
-                    {/* Footer */}
-                    <div className="flex items-center justify-between">
+                    {/* Footer.
+                        Price only, pushed to the right end. The attendee counter that
+                        used to sit here ("12/200") advertised how few tickets had sold,
+                        which reads as "nobody is going" on every new listing - the one
+                        moment an event most needs to look worth attending. */}
+                    <div className="flex items-center justify-end">
                         {event.status !== 'completed' ? (
-                            <div>
+                            <div className="text-right">
                                 <span className={`text-lg font-bold ${event.ticketPrice === 0 ? 'text-green-400' : 'text-white'}`}>
                                     {formatPrice(event.ticketPrice)}
                                 </span>
@@ -125,14 +139,6 @@ export default function EventCard({ event, index = 0 }: EventCardProps) {
                         ) : (
                             <span className="text-sm text-gray-400">Event ended</span>
                         )}
-
-                        {/* Attendees */}
-                        <div className="flex items-center gap-1 text-gray-300 text-sm">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span>{event.currentAttendees}/{event.maxAttendees}</span>
-                        </div>
                     </div>
                 </div>
             </motion.div>

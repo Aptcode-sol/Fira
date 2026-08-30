@@ -190,6 +190,35 @@ const adminApi = {
         return handle(res, 'Failed to fetch audit trail');
     },
 
+    // ================== EARNINGS & PAYOUTS (read-only) ==================
+    async getEarningsOverview({ from, to } = {}) {
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        const query = params.toString();
+        const res = await fetch(`${API_BASE}/earnings/overview${query ? `?${query}` : ''}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch earnings overview');
+    },
+
+    async getEarningsRecipients({ from, to } = {}) {
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        const query = params.toString();
+        const res = await fetch(`${API_BASE}/earnings/recipients${query ? `?${query}` : ''}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch recipient breakdown');
+    },
+
+    async getEarningsPayouts({ statuses } = {}) {
+        // Backend accepts comma-separated ?status=pending,failed (absent → no filter)
+        const params = new URLSearchParams();
+        const list = Array.isArray(statuses) ? statuses.filter(Boolean) : [];
+        if (list.length) params.set('status', list.join(','));
+        const query = params.toString();
+        const res = await fetch(`${API_BASE}/earnings/payouts${query ? `?${query}` : ''}`, { headers: authHeaders() });
+        return handle(res, 'Failed to fetch payouts');
+    },
+
     // ================== DISCOUNT CODES ==================
     async getDiscountCodes() {
         const res = await fetch(`${MAIN_API_BASE}/discounts/admin/discount-codes`, { headers: authHeaders() });

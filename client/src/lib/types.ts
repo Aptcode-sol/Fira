@@ -62,8 +62,12 @@ export interface Venue {
         max: number;
     };
     pricing: {
+        /** Authoritative day rate. Null on venues created before it existed. */
+        pricePerDay?: number | null;
+        /** Deprecated: legacy flat fee, still read as a fallback via venueDayRate(). */
         basePrice: number;
-        pricePerHour: number | null;
+        /** Deprecated and no longer written. */
+        pricePerHour?: number | null;
         currency: string;
     };
     amenities: string[];

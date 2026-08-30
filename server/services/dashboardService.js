@@ -48,10 +48,17 @@ const dashboardService = {
             // Total events organized
             Event.countDocuments({ organizer: userId, isDeleted: { $ne: true } }),
 
-            // Upcoming events organized (not cancelled, date >= now)
+            // Upcoming events organized: not cancelled and not yet ended.
+            //
+            // Gated on endDateTime, which is a field the Event schema actually has.
+            // This filtered on `date`, which it does not - the schema stores
+            // startDateTime/endDateTime - so the query matched zero documents on every
+            // account and the dashboard read "0 Events Organizing" directly above
+            // "3 total". Same rule as the public listing in eventService: an event is
+            // still upcoming until it ends, so one that has started is not dropped.
             Event.countDocuments({
                 organizer: userId,
-                date: { $gte: now },
+                endDateTime: { $gte: now },
                 status: { $ne: 'cancelled' },
                 isDeleted: { $ne: true }
             }),
@@ -102,14 +109,17 @@ const dashboardService = {
             ]),
 
             // Organized events (upcoming) - previously sequential
+            // Same phantom-field bug as the count above: this returned an empty list,
+            // so the dashboard's "upcoming events" section was always empty too.
+            // Sorted by start so the soonest event is first.
             Event.find({
                 organizer: userId,
-                date: { $gte: now },
+                endDateTime: { $gte: now },
                 status: { $ne: 'cancelled' },
                 isDeleted: { $ne: true }
             })
                 .populate('venue', 'name address images')
-                .sort({ date: 1 })
+                .sort({ startDateTime: 1 })
                 .limit(5)
                 .lean(),
 
@@ -195,7 +205,12 @@ const dashboardService = {
             organizedEvents: organizedEvents.map(e => ({
                 _id: e._id,
                 name: e.name,
-                date: e.date,
+                // `date` is kept as the legacy alias clients still read
+                // (`e.date || e.startDateTime`), but sourced from the real field -
+                // e.date is always undefined, the schema has no such path.
+                date: e.startDateTime,
+                startDateTime: e.startDateTime,
+                endDateTime: e.endDateTime,
                 startTime: e.startTime,
                 endTime: e.endTime,
                 images: e.images,
@@ -235,9 +250,10 @@ const dashboardService = {
             venuesOwned,
             activeBookings
         ] = await Promise.all([
+            // endDateTime, not the non-existent `date` - see getOverviewStats.
             Event.countDocuments({
                 organizer: userId,
-                date: { $gte: now },
+                endDateTime: { $gte: now },
                 status: { $ne: 'cancelled' }
             }),
             Ticket.countDocuments({

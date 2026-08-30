@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import DiscountCodesSection from '@/components/dashboard/DiscountCodesSection';
-import { Button, Modal, StepperModal } from '@/components/ui';
-import type { StepperStep } from '@/components/ui';
-import { eventsApi, ticketsApi, uploadApi } from '@/lib/api';
+import { Button, Modal } from '@/components/ui';
+import { eventsApi, ticketsApi, uploadApi, clearRequestCache, type ScanningCode } from '@/lib/api';
+import { openEditEvent } from '@/components/modals/CreateEventLauncher';
+import { EVENT_SAVED } from '@/components/modals/CreateEventModal';
 import { Event, User, Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
@@ -42,34 +43,6 @@ export default function DashboardEventDetailPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [cancelling, setCancelling] = useState(false);
 
-    // Edit mode state
-    interface EditTicketTier {
-        name: string;
-        price: number;
-        description: string;
-        // '' while the field is being cleared; coerced to a number on save.
-        maxQuantity: number | '';
-    }
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [editStep, setEditStep] = useState(0);
-    const [isSaving, setIsSaving] = useState(false);
-    const [editForm, setEditForm] = useState({
-        name: '',
-        description: '',
-        category: '',
-        startDate: '',
-        endDate: '',
-        startTime: '',
-        endTime: '',
-        eventType: 'public' as 'public' | 'private',
-        ticketType: 'free' as 'free' | 'paid',
-        ticketPrice: 0,
-        maxAttendees: 100 as number | '',
-        termsAndConditions: '',
-        ticketTiers: [{ name: '', price: 0, description: '', maxQuantity: 1 }] as EditTicketTier[],
-    });
-    const [editTierErrors, setEditTierErrors] = useState<Record<number, string>>({});
-
     // Posts state
     const [posts, setPosts] = useState<any[]>([]);
     const [showPostModal, setShowPostModal] = useState(false);
@@ -85,9 +58,7 @@ export default function DashboardEventDetailPage() {
     const [isDeletingPost, setIsDeletingPost] = useState(false);
 
     // Scanning Links state
-    const [scanningCodes, setScanningCodes] = useState<{ _id: string; code: string; label: string; isActive: boolean; createdAt: string }[]>([]);
-    const [newLabel, setNewLabel] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [scanningCodes, setScanningCodes] = useState<ScanningCode[]>([]);
     const [copiedScanLink, setCopiedScanLink] = useState<string | null>(null);
 
     useEffect(() => {
@@ -102,6 +73,10 @@ export default function DashboardEventDetailPage() {
             fetchTickets(params.id as string);
             fetchScanningCodes(params.id as string);
         }
+        // The event form opens as a modal over this page, so nothing remounts on save.
+        const reload = () => params.id && fetchEvent(params.id as string);
+        window.addEventListener(EVENT_SAVED, reload);
+        return () => window.removeEventListener(EVENT_SAVED, reload);
     }, [params.id, isAuthenticated]);
 
     const fetchEvent = async (id: string) => {
@@ -136,30 +111,24 @@ export default function DashboardEventDetailPage() {
         }
     };
 
-    const handleGenerateScanningLink = async () => {
-        if (!event) return;
-        setIsGenerating(true);
-        try {
-            const labels = newLabel.trim() ? [newLabel.trim()] : [''];
-            const created = await eventsApi.createScanningCodes(event._id, labels);
-            setScanningCodes(prev => [...created, ...prev]);
-            setNewLabel('');
-            showToast('Scanning link generated!', 'success');
-        } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Failed to generate link', 'error');
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
+    /**
+     * Revoke a link and replace it.
+     *
+     * Links are provisioned per tier by the server, so deactivating one is a rotation
+     * rather than a deletion: refetching immediately issues a fresh link for that tier
+     * and the revoked one stays listed as inactive.
+     */
     const handleDeactivateCode = async (codeId: string) => {
         if (!event) return;
         try {
             await eventsApi.deactivateScanningCode(event._id, codeId);
-            setScanningCodes(prev => prev.map(c => c._id === codeId ? { ...c, isActive: false } : c));
-            showToast('Scanning code deactivated', 'success');
+            showToast('Link reset — copy the new one', 'success');
+            // The refetch is what issues the replacement, so it must not be served
+            // from the API client's 15s GET cache.
+            clearRequestCache('/events');
+            fetchScanningCodes(event._id);
         } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Failed to deactivate code', 'error');
+            showToast(error instanceof Error ? error.message : 'Failed to revoke link', 'error');
         }
     };
 
@@ -236,142 +205,6 @@ export default function DashboardEventDetailPage() {
     };
 
     // Initialize edit form with event data
-    const initEditForm = (e: Event) => {
-        const eventWithTerms = e as Event & { termsAndConditions?: string };
-        // Extract date and time from combined datetime fields
-        const startDT = e.startDateTime ? new Date(e.startDateTime) : new Date();
-        const endDT = e.endDateTime ? new Date(e.endDateTime) : new Date();
-
-        const formatDateForInput = (dt: Date) => dt.toISOString().split('T')[0];
-        const formatTimeForInput = (dt: Date) => {
-            const hours = dt.getHours().toString().padStart(2, '0');
-            const mins = dt.getMinutes().toString().padStart(2, '0');
-            return `${hours}:${mins}`;
-        };
-
-        setEditForm({
-            name: e.name || '',
-            description: e.description || '',
-            category: e.category || '',
-            startDate: formatDateForInput(startDT),
-            endDate: formatDateForInput(endDT),
-            startTime: formatTimeForInput(startDT),
-            endTime: formatTimeForInput(endDT),
-            eventType: e.eventType || 'public',
-            ticketType: e.ticketType || 'free',
-            ticketPrice: e.ticketPrice || 0,
-            maxAttendees: e.maxAttendees || 100,
-            termsAndConditions: eventWithTerms.termsAndConditions || '',
-            ticketTiers: e.ticketTiers && e.ticketTiers.length > 0
-                ? e.ticketTiers.map(t => ({ name: t.name, price: t.price, description: t.description || '', maxQuantity: t.maxQuantity }))
-                : [{ name: '', price: 0, description: '', maxQuantity: 1 }],
-        });
-    };
-
-    const handleEditClick = () => {
-        if (event) {
-            initEditForm(event);
-            setEditStep(0);
-            setIsEditMode(true);
-        }
-    };
-
-    // Per-step validation gate for the edit stepper (0-based steps).
-    const validateEditStep = (currentStep: number): boolean => {
-        if (currentStep === 0) {
-            if (!editForm.name.trim()) { showToast('Please enter an event name', 'error'); return false; }
-            if (!editForm.description.trim()) { showToast('Please enter a description', 'error'); return false; }
-        }
-        if (currentStep === 1) {
-            if (!editForm.startDate || !editForm.endDate || !editForm.startTime || !editForm.endTime) {
-                showToast('Please fill in all date and time fields', 'error'); return false;
-            }
-            if (!editForm.maxAttendees || Number(editForm.maxAttendees) < 1) {
-                showToast('Please enter a valid number of maximum attendees', 'error'); return false;
-            }
-        }
-        if (currentStep === 2 && editForm.ticketType === 'paid') {
-            const tiers = editForm.ticketTiers;
-            for (let i = 0; i < tiers.length; i++) {
-                if (!tiers[i].name.trim()) { showToast(`Tier ${i + 1}: Please enter a name`, 'error'); return false; }
-                if (Number(tiers[i].maxQuantity) < 1) { showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error'); return false; }
-            }
-            const names = tiers.map(t => t.name.trim().toLowerCase());
-            if (names.some((n, i) => n && names.indexOf(n) !== i)) {
-                showToast('Tier names must be unique', 'error'); return false;
-            }
-        }
-        return true;
-    };
-
-    const handleSave = async () => {
-        if (!event) return;
-
-        if (!editForm.maxAttendees || Number(editForm.maxAttendees) < 1) {
-            showToast('Please enter a valid number of maximum attendees', 'error');
-            return;
-        }
-
-        // Validate ticket tiers for paid events
-        if (editForm.ticketType === 'paid') {
-            const tiers = editForm.ticketTiers;
-            for (let i = 0; i < tiers.length; i++) {
-                if (!tiers[i].name.trim()) {
-                    showToast(`Tier ${i + 1}: Please enter a name`, 'error');
-                    return;
-                }
-                if (Number(tiers[i].maxQuantity) < 1) {
-                    showToast(`Tier ${i + 1}: Max quantity must be at least 1`, 'error');
-                    return;
-                }
-            }
-            const names = tiers.map(t => t.name.trim().toLowerCase());
-            const hasDuplicates = names.some((n, i) => n && names.indexOf(n) !== i);
-            if (hasDuplicates) {
-                showToast('Tier names must be unique', 'error');
-                return;
-            }
-        }
-
-        setIsSaving(true);
-        try {
-            // Combine date and time into DateTime strings
-            const startDateTime = new Date(`${editForm.startDate}T${editForm.startTime}:00`).toISOString();
-            const endDateTime = new Date(`${editForm.endDate}T${editForm.endTime}:00`).toISOString();
-
-            const updateData: any = {
-                name: editForm.name,
-                description: editForm.description,
-                category: editForm.category,
-                startDateTime,
-                endDateTime,
-                eventType: editForm.eventType,
-                ticketType: editForm.ticketType,
-                ticketPrice: editForm.ticketType === 'paid' ? (editForm.ticketTiers[0]?.price ?? 0) : 0,
-                maxAttendees: Number(editForm.maxAttendees),
-                termsAndConditions: editForm.termsAndConditions || null,
-            };
-
-            if (editForm.ticketType === 'paid') {
-                updateData.ticketTiers = editForm.ticketTiers.map(t => ({
-                    name: t.name.trim(),
-                    price: t.price,
-                    description: t.description.trim(),
-                    maxQuantity: Number(t.maxQuantity) || 1,
-                }));
-            }
-
-            await eventsApi.update(event._id, updateData);
-            showToast('Event updated successfully!', 'success');
-            setIsEditMode(false);
-            fetchEvent(event._id);
-        } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Failed to update event', 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
     // Fetch event posts
     const fetchPosts = async () => {
         if (!params.id) return;
@@ -552,7 +385,10 @@ export default function DashboardEventDetailPage() {
                         </div>
                         <p className="text-gray-300 text-sm md:text-base">View bookings and manage your event</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
+                    {/* justify-end: the row is w-full on mobile, so without it these sat
+                        left-aligned under the subtitle and read as part of the heading
+                        block rather than as actions. */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 w-full md:w-auto">
                         <Link href={`/events/${event._id}`} target="_blank">
                             <Button variant="secondary" size="sm">
                                 <span className="hidden sm:inline">View Public Page</span>
@@ -564,7 +400,7 @@ export default function DashboardEventDetailPage() {
                                 <Button
                                     variant="secondary"
                                     size="sm"
-                                    onClick={handleEditClick}
+                                    onClick={() => openEditEvent(event._id)}
                                 >
                                     <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -585,8 +421,10 @@ export default function DashboardEventDetailPage() {
                     </div>
                 </div>
 
-                {/* Hero Image — 11.5: sized to match the events-listing card (EventCard h-44). */}
-                <div className="relative h-44 rounded-2xl overflow-hidden mb-8 group">
+                {/* Hero Image — same height as the public event page, so the organizer
+                    previews their cover at the size attendees actually see it. It was
+                    h-44 (a listing-card height), which cropped a wide cover to a strip. */}
+                <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-8 group">
                     {event.images && event.images.length > 0 ? (
                         <img src={event.images[0]} alt={event.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
@@ -721,78 +559,53 @@ export default function DashboardEventDetailPage() {
                                 Scanning Links
                             </h3>
                             <p className="text-gray-300 text-sm mb-4">
-                                Generate unique scanning links for your event personnel to scan tickets at entry gates.
+                                One link per ticket tier. Share it with whoever works that door — they
+                                open it on their own phone, no sign-in. It admits that tier only.
                             </p>
 
-                            {/* Generate Codes Form */}
-                            {scanningCodes.length >= 20 ? (
-                                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 mb-4">
-                                    <p className="text-yellow-300 text-sm">Maximum of 20 scanning codes reached for this event.</p>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-3 mb-4">
-                                    <input
-                                        type="text"
-                                        value={newLabel}
-                                        onChange={(e) => setNewLabel(e.target.value)}
-                                        placeholder="Label (e.g. Gate A, Gate B)"
-                                        className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-sm"
-                                    />
-                                    <Button
-                                        onClick={handleGenerateScanningLink}
-                                        disabled={isGenerating}
-                                        size="sm"
-                                    >
-                                        {isGenerating ? 'Generating...' : 'Generate'}
-                                    </Button>
-                                </div>
-                            )}
-
-                            {/* Existing Codes List */}
-                            {scanningCodes.length === 0 ? (
+                            {/* No generate step: the server issues a link for every tier, so
+                                there is nothing to decide here - just find the tier and copy.
+                                Only active links are listed; a revoked one is replaced rather
+                                than left as a dead row the organiser has to reason about. */}
+                            {scanningCodes.filter(sc => sc.isActive).length === 0 ? (
                                 <div className="text-center py-6">
-                                    <p className="text-gray-400 text-sm">No scanning codes generated yet.</p>
+                                    <p className="text-gray-400 text-sm">No scanner links yet.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                                    {scanningCodes.map((sc) => (
-                                        <div key={sc._id} className={`bg-black/30 rounded-xl p-4 border ${sc.isActive ? 'border-white/5' : 'border-red-500/20 opacity-60'}`}>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-white font-medium text-sm">{sc.label || 'Unlabeled'}</span>
-                                                    <span className={`px-2 py-0.5 rounded text-xs ${sc.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                                        {sc.isActive ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                </div>
-                                                {sc.isActive && (
-                                                    <button
-                                                        onClick={() => handleDeactivateCode(sc._id)}
-                                                        className="text-xs text-red-400 hover:text-red-300 transition-colors"
-                                                    >
-                                                        Deactivate
-                                                    </button>
+                                <div className="space-y-2">
+                                    {scanningCodes.filter(sc => sc.isActive).map((sc) => (
+                                        <div key={sc._id} className="flex items-center gap-3 bg-black/30 rounded-xl p-3 border border-white/5">
+                                            <span className="text-white font-medium text-sm truncate flex-1 min-w-0">
+                                                {/* Only shows on an event with no tiers -
+                                                    once tiers exist, every live link is
+                                                    scoped to one. */}
+                                                {sc.ticketTier || 'All tickets'}
+                                            </span>
+                                            <button
+                                                onClick={() => copyScanLink(sc.code)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 text-xs font-medium text-violet-300 transition-colors flex-shrink-0"
+                                            >
+                                                {copiedScanLink === sc.code ? (
+                                                    <span className="text-green-400">Copied</span>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                        Copy link
+                                                    </>
                                                 )}
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className="text-gray-400 text-xs truncate flex-1 font-mono">
-                                                    {typeof window !== 'undefined' ? `${window.location.origin}/scan/${sc.code}` : `/scan/${sc.code}`}
-                                                </span>
-                                                <button
-                                                    onClick={() => copyScanLink(sc.code)}
-                                                    className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-xs text-gray-300 hover:text-white transition-colors"
-                                                >
-                                                    {copiedScanLink === sc.code ? (
-                                                        <span className="text-green-400">Copied!</span>
-                                                    ) : (
-                                                        <>
-                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                            </svg>
-                                                            Copy
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
+                                            </button>
+                                            {/* Revoking issues a replacement, so this is a rotation -
+                                                the wording says so rather than implying the tier is
+                                                left without a door. */}
+                                            <button
+                                                onClick={() => handleDeactivateCode(sc._id)}
+                                                className="text-xs text-gray-400 hover:text-red-400 transition-colors flex-shrink-0"
+                                                title="Revoke this link and issue a new one"
+                                            >
+                                                Reset
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
@@ -850,253 +663,6 @@ export default function DashboardEventDetailPage() {
                             <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.description}</p>
                         </div>
 
-                        {/* Edit Form - opens as a centred modal (like Create Event)
-                            rather than swapping this card inline, which rendered
-                            the form far down the page where it went unnoticed. */}
-                        <StepperModal
-                            isOpen={isEditMode}
-                            onClose={() => setIsEditMode(false)}
-                            title="Edit Event Details"
-                            size="lg"
-                            step={editStep}
-                            onStepChange={setEditStep}
-                            canAdvance={validateEditStep}
-                            onFinish={handleSave}
-                            finishLabel="Save Changes"
-                            isFinishing={isSaving}
-                            steps={[
-                              {
-                                label: 'Basic Information',
-                                content: (
-                                <div className="space-y-4">
-                                    {/* Name */}
-                                    <div>
-                                        <label className="block text-sm text-gray-300 mb-1">Event Name *</label>
-                                        <input
-                                            type="text"
-                                            value={editForm.name}
-                                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                        />
-                                    </div>
-
-                                    {/* Description */}
-                                    <div>
-                                        <label className="block text-sm text-gray-300 mb-1">Description *</label>
-                                        <textarea
-                                            value={editForm.description}
-                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                            rows={4}
-                                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
-                                        />
-                                    </div>
-                                </div>
-                                ),
-                              },
-                              {
-                                label: 'Date, Time & Tickets',
-                                content: (
-                                <div className="space-y-4">
-                                    {/* Date & Time */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">Start Date *</label>
-                                            <input
-                                                type="date"
-                                                value={editForm.startDate}
-                                                onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">End Date</label>
-                                            <input
-                                                type="date"
-                                                value={editForm.endDate}
-                                                onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">Start Time *</label>
-                                            <input
-                                                type="time"
-                                                value={editForm.startTime}
-                                                onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">End Time *</label>
-                                            <input
-                                                type="time"
-                                                value={editForm.endTime}
-                                                onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Ticket Info */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">Max Attendees</label>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                value={editForm.maxAttendees}
-                                                onChange={(e) => setEditForm({ ...editForm, maxAttendees: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                                                onWheel={(e) => e.currentTarget.blur()}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">Ticket Type</label>
-                                            <select
-                                                value={editForm.ticketType}
-                                                onChange={(e) => setEditForm({ ...editForm, ticketType: e.target.value as 'free' | 'paid' })}
-                                                className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                            >
-                                                <option value="free">Free</option>
-                                                <option value="paid">Paid</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                ),
-                              },
-                              {
-                                label: 'Tiers & Terms',
-                                content: (
-                                <div className="space-y-4">
-                                    {/* Ticket Tiers for Paid Events */}
-                                    {editForm.ticketType === 'paid' && (
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <label className="block text-sm text-gray-300">Ticket Tiers</label>
-                                                <span className="text-xs text-gray-500">{editForm.ticketTiers.length}/10</span>
-                                            </div>
-
-                                            {editForm.ticketTiers.map((tier, index) => (
-                                                <div key={index} className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-medium text-gray-400">Tier {index + 1}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (editForm.ticketTiers.length <= 1) return;
-                                                                const tiers = editForm.ticketTiers.filter((_, i) => i !== index);
-                                                                setEditForm({ ...editForm, ticketTiers: tiers });
-                                                                const names = tiers.map(t => t.name.trim().toLowerCase());
-                                                                const errors: Record<number, string> = {};
-                                                                names.forEach((n, i) => { if (n && names.indexOf(n) !== i) errors[i] = 'Duplicate tier name'; });
-                                                                setEditTierErrors(errors);
-                                                            }}
-                                                            disabled={editForm.ticketTiers.length <= 1}
-                                                            className="text-xs text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div>
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Tier name"
-                                                                maxLength={50}
-                                                                value={tier.name}
-                                                                onChange={(e) => {
-                                                                    const tiers = [...editForm.ticketTiers];
-                                                                    tiers[index] = { ...tiers[index], name: e.target.value };
-                                                                    setEditForm({ ...editForm, ticketTiers: tiers });
-                                                                    const names = tiers.map(t => t.name.trim().toLowerCase());
-                                                                    const errors: Record<number, string> = {};
-                                                                    names.forEach((n, i) => { if (n && names.indexOf(n) !== i) errors[i] = 'Duplicate tier name'; });
-                                                                    setEditTierErrors(errors);
-                                                                }}
-                                                                className={`w-full px-3 py-2 rounded-lg bg-white/5 border text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${editTierErrors[index] ? 'border-red-500/50' : 'border-white/10'}`}
-                                                            />
-                                                            {editTierErrors[index] && (
-                                                                <p className="mt-1 text-xs text-red-400">{editTierErrors[index]}</p>
-                                                            )}
-                                                        </div>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="Price (₹)"
-                                                            min={0}
-                                                            value={tier.price || ''}
-                                                            onChange={(e) => {
-                                                                const tiers = [...editForm.ticketTiers];
-                                                                tiers[index] = { ...tiers[index], price: Math.max(0, parseInt(e.target.value) || 0) };
-                                                                setEditForm({ ...editForm, ticketTiers: tiers });
-                                                            }}
-                                                            onWheel={(e) => e.currentTarget.blur()}
-                                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                                        />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Description (optional)"
-                                                        maxLength={200}
-                                                        value={tier.description}
-                                                        onChange={(e) => {
-                                                            const tiers = [...editForm.ticketTiers];
-                                                            tiers[index] = { ...tiers[index], description: e.target.value };
-                                                            setEditForm({ ...editForm, ticketTiers: tiers });
-                                                        }}
-                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                                    />
-                                                    <div>
-                                                        <label className="text-xs text-gray-400">Max Quantity</label>
-                                                        <input
-                                                            type="number"
-                                                            min={1}
-                                                            value={tier.maxQuantity || ''}
-                                                            onChange={(e) => {
-                                                                const tiers = [...editForm.ticketTiers];
-                                                                tiers[index] = { ...tiers[index], maxQuantity: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0) };
-                                                                setEditForm({ ...editForm, ticketTiers: tiers });
-                                                            }}
-                                                            onWheel={(e) => e.currentTarget.blur()}
-                                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (editForm.ticketTiers.length >= 10) return;
-                                                    setEditForm({ ...editForm, ticketTiers: [...editForm.ticketTiers, { name: '', price: 0, description: '', maxQuantity: 1 }] });
-                                                }}
-                                                disabled={editForm.ticketTiers.length >= 10}
-                                                className="w-full py-2 rounded-xl border border-dashed border-white/20 text-sm text-gray-400 hover:bg-white/5 hover:border-violet-500/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                            >
-                                                + Add Tier
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Terms */}
-                                    <div>
-                                        <label className="block text-sm text-gray-300 mb-1">Terms & Conditions</label>
-                                        <textarea
-                                            value={editForm.termsAndConditions}
-                                            onChange={(e) => setEditForm({ ...editForm, termsAndConditions: e.target.value })}
-                                            rows={3}
-                                            placeholder="Optional terms and conditions..."
-                                            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
-                                        />
-                                    </div>
-                                </div>
-                                ),
-                              },
-                            ] as StepperStep[]}
-                        />
 
                         {/* Venue Details - Non-editable */}
                         {venue && typeof venue === 'object' && (

@@ -84,9 +84,28 @@ export function useSSENotifications() {
 
                     try {
                         const payload = JSON.parse(dataLines.join('\n'));
-                        // Show a toast with the notification message
-                        const message = payload.message || payload.title || 'New notification';
-                        showToast(message, 'info');
+
+                        // One stream now carries several event types. Re-dispatch
+                        // every payload as a window event so any open screen can
+                        // react (the chat page listens for message events), then
+                        // decide locally whether it also deserves a toast.
+                        // ponytail: window events are already this codebase's
+                        // cross-component signal (see `brand-post-created`), so no
+                        // new context or store is needed.
+                        window.dispatchEvent(new CustomEvent('fira:sse', { detail: payload }));
+
+                        if (payload.type === 'message:new') {
+                            // Don't toast a message the user is already looking at -
+                            // the thread renders it live.
+                            if (!window.location.pathname.startsWith('/messages')) {
+                                showToast(payload.title || 'New message', 'info');
+                            }
+                        } else if (payload.type === 'message:read') {
+                            // Read receipts update ticks silently.
+                        } else {
+                            const message = payload.message || payload.title || 'New notification';
+                            showToast(message, 'info');
+                        }
                     } catch {
                         // Non-JSON data line — ignore
                     }

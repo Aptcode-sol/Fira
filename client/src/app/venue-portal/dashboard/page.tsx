@@ -7,8 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isVenueOwner } from '@/lib/types';
 import { venuesApi, bookingsApi, eventsApi } from '@/lib/api';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
-import { Button } from '@/components/ui';
+import { Button, Pagination } from '@/components/ui';
+import { usePaged } from '@/hooks/usePaged';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { openCreateVenue } from '@/components/modals/CreateVenueLauncher';
 
 interface DashboardStats {
     totalVenues: number;
@@ -107,8 +109,9 @@ export default function VenuePortalDashboardPage() {
                     totalRevenue,
                 });
 
-                // Set recent activity from venues
-                const activities: RecentActivity[] = venues.slice(0, 5).map(v => ({
+                // Every venue, not the first five: the list is paginated now, so
+                // truncating here would have hidden rows the footer says exist.
+                const activities: RecentActivity[] = venues.map(v => ({
                     id: v._id,
                     type: 'venue' as const,
                     title: v.name,
@@ -130,6 +133,9 @@ export default function VenuePortalDashboardPage() {
         }
     }, [isAuthenticated, user]);
 
+    // Declared above the early returns - hooks cannot sit behind a conditional.
+    const activityPage = usePaged(recentActivity, 5);
+
     if (isLoading) {
         return (
             <VenueDashboardLayout>
@@ -147,29 +153,33 @@ export default function VenuePortalDashboardPage() {
     return (
         <VenueDashboardLayout>
             <div className="p-4 sm:p-6 lg:p-8">
-                {/* Header */}
-                <SlideUp>
-                    <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2 break-words max-w-full">
-                                Welcome back, {user?.name}! 👋
-                            </h1>
-                            <p className="text-sm sm:text-base text-gray-300">Here's what's happening with your venues.</p>
-                        </div>
-                        <Link href="/venue-portal/venues/create">
-                            <Button variant="violet" className="shadow-lg shadow-violet-500/25 w-full sm:w-auto">
+                {/* Stats + Add Venue.
+                    The "Welcome back" heading and its "here's what's happening"
+                    subtitle are gone - they said nothing the stats below do not.
+                    One flex column holds both blocks so `order` alone puts Add
+                    New Venue above the stats on desktop and under all four of
+                    them on mobile, without rendering the button twice. */}
+                <div className="mb-6 sm:mb-8 flex flex-col gap-4">
+                    {/* Title first at every width - it names the page, so burying it
+                        under the stats the way the Add button is deliberately buried
+                        would defeat the point. Matches the user dashboard's Overview. */}
+                    <SlideUp className="order-1">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white">Overview</h1>
+                    </SlideUp>
+
+                    <SlideUp className="order-3 sm:order-2">
+                        <div className="flex sm:justify-end">
+                            <Button variant="violet" onClick={openCreateVenue} className="shadow-lg shadow-violet-500/25 w-full sm:w-auto">
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                 </svg>
                                 Add New Venue
                             </Button>
-                        </Link>
-                    </div>
-                </SlideUp>
+                        </div>
+                    </SlideUp>
 
-                {/* Stats Grid */}
-                <FadeIn delay={0.1}>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                    <FadeIn delay={0.1} className="order-2 sm:order-3">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         {[
                             {
                                 label: 'Total Venues',
@@ -230,8 +240,9 @@ export default function VenuePortalDashboardPage() {
                                 <div className="text-xs sm:text-sm text-gray-300">{stat.label}</div>
                             </div>
                         ))}
-                    </div>
-                </FadeIn>
+                        </div>
+                    </FadeIn>
+                </div>
 
                 {/* Revenue Section */}
                 <FadeIn delay={0.2}>
@@ -277,7 +288,8 @@ export default function VenuePortalDashboardPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {[
                                     {
-                                        label: 'Add New Venue', href: '/venue-portal/venues/create', icon: (
+                                        // No href: this opens the creation modal in place.
+                                        label: 'Add New Venue', onClick: openCreateVenue, icon: (
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                             </svg>
@@ -304,34 +316,45 @@ export default function VenuePortalDashboardPage() {
                                             </svg>
                                         )
                                     },
-                                ].map((action, i) => (
-                                    <Link
-                                        key={i}
-                                        href={action.href}
-                                        className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all group"
-                                    >
-                                        <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-400 flex items-center justify-center group-hover:bg-violet-500/20 group-hover:scale-105 transition-all">
-                                            {action.icon}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="text-sm font-medium text-gray-200">{action.label}</div>
-                                        </div>
-                                        <svg className="w-5 h-5 text-gray-300 group-hover:text-violet-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </Link>
-                                ))}
+                                ].map((action, i) => {
+                                    const body = (
+                                        <>
+                                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-400 flex items-center justify-center group-hover:bg-violet-500/20 group-hover:scale-105 transition-all">
+                                                {action.icon}
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <div className="text-sm font-medium text-gray-200">{action.label}</div>
+                                            </div>
+                                            <svg className="w-5 h-5 text-gray-300 group-hover:text-violet-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </>
+                                    );
+                                    const shell = 'flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all group';
+
+                                    // Most actions navigate; "Add New Venue" opens a modal
+                                    // in place, so it renders as a button instead of a link.
+                                    return 'onClick' in action && action.onClick ? (
+                                        <button key={i} type="button" onClick={action.onClick} className={`${shell} w-full`}>
+                                            {body}
+                                        </button>
+                                    ) : (
+                                        <Link key={i} href={(action as { href: string }).href} className={shell}>
+                                            {body}
+                                        </Link>
+                                    );
+                                })}
                             </div>
                         </div>
                     </FadeIn>
 
                     {/* Recent Activity */}
                     <FadeIn delay={0.4}>
-                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-4 sm:p-6 h-full flex flex-col">
-                            <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Recent Activity</h2>
-                            <div className="space-y-4 flex-1">
-                                {recentActivity.length > 0 ? (
-                                    recentActivity.map((activity) => (
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl h-full flex flex-col overflow-hidden">
+                            <h2 className="text-base sm:text-lg font-semibold text-white px-4 sm:px-6 pt-4 sm:pt-6 mb-3 sm:mb-4">Recent Activity</h2>
+                            <div className="space-y-4 flex-1 px-4 sm:px-6 pb-4 sm:pb-6">
+                                {activityPage.total > 0 ? (
+                                    activityPage.pageRows.map((activity) => (
                                         <div key={activity.id} className="flex items-start gap-4 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors border border-transparent hover:border-white/[0.05]">
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${activity.status === 'approved' ? 'bg-green-500/20 text-green-400' :
                                                 activity.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
@@ -359,6 +382,14 @@ export default function VenuePortalDashboardPage() {
                                     </div>
                                 )}
                             </div>
+                            {/* Rendered even with an empty list, so "nothing here"
+                                reads as a finished list rather than a broken one. */}
+                            <Pagination
+                                page={activityPage.page}
+                                totalPages={activityPage.totalPages}
+                                onChange={activityPage.setPage}
+                                disabled={loading}
+                            />
                         </div>
                     </FadeIn>
                 </div>

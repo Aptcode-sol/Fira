@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import PushNotificationToggle from '@/components/PushNotificationToggle';
+import Navbar from '@/components/Navbar';
+import PartyBackground from '@/components/PartyBackground';
 import { Button } from '@/components/ui';
 import { notificationsApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
@@ -84,11 +84,12 @@ export default function NotificationsPage() {
 
     if (isLoading || !isAuthenticated) {
         return (
-            <DashboardLayout>
-                <div className="min-h-screen flex items-center justify-center">
+            <>
+                <PartyBackground />
+                <main className="relative z-20 min-h-screen flex items-center justify-center">
                     <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
-                </div>
-            </DashboardLayout>
+                </main>
+            </>
         );
     }
 
@@ -211,8 +212,14 @@ export default function NotificationsPage() {
     };
 
     return (
-        <DashboardLayout>
-            <div className="p-6 lg:p-8">
+        <>
+            {/* Standalone page, not a dashboard section: the navbar bell opens it
+                directly, so wrapping it in the dashboard shell put a whole
+                sidebar around a screen nobody reached through the dashboard. */}
+            <PartyBackground />
+            <Navbar />
+            <main className="relative z-20 min-h-screen pt-28 pb-24 px-4">
+                <div className="max-w-3xl mx-auto">
                 {/* Header */}
                 <SlideUp>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 mb-8">
@@ -230,10 +237,8 @@ export default function NotificationsPage() {
                     </div>
                 </SlideUp>
 
-                {/* Per-device push opt-in */}
-                <div className="mb-8">
-                    <PushNotificationToggle />
-                </div>
+                {/* Push opt-in moved to Settings - it is a one-time device choice,
+                    not something to re-read every visit. */}
 
                 {/* Loading State - Skeleton Cards */}
                 {loading && (
@@ -307,7 +312,8 @@ export default function NotificationsPage() {
                         </p>
                     </div>
                 )}
-            </div>
-        </DashboardLayout>
+                </div>
+            </main>
+        </>
     );
 }

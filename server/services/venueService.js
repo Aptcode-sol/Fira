@@ -1,6 +1,7 @@
 const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
 const VenueReview = require('../models/VenueReview');
+const { citySlug } = require('../utils/citySlug');
 
 const DEFAULT_CANCELLATION_POLICY = {
     freeCancellationHours: 48,
@@ -25,8 +26,15 @@ const venueService = {
             filter.isActive = true;
         }
 
-        if (city && city !== 'All') filter['address.city'] = new RegExp(city, 'i');
-        
+        // Matched on the canonical slug, not the display name. This used to be an
+        // unanchored RegExp(city, 'i'), which had two faults: "Goa" also matched
+        // "North Goa" (and "Kota" matched "Kotagiri"), and the caller's string went
+        // into a regex unescaped, so a crafted city was a ReDoS lever on a public
+        // endpoint. An indexed equality match has neither problem, and it survives
+        // the geocoder spelling a city differently next month.
+        if (city && city !== 'All') filter['address.citySlug'] = citySlug(city);
+
+
         // Venue type filter
         if (venueType && venueType !== 'all') {
             filter.venueType = venueType;
@@ -118,15 +126,53 @@ const venueService = {
 
     // Create venue
     async createVenue(data) {
-        const venue = await Venue.create(data);
+        // Trust boundary: payoutAccount comes from the client through a
+        // .passthrough() body schema, so verify it is one of this owner's own saved
+        // accounts before storing it. Anything else becomes null = use my default.
+        const { sanitizePayoutAccount } = require('../utils/payoutAccount');
+        const venue = await Venue.create({
+            ...data,
+            payoutAccount: await sanitizePayoutAccount(data.owner, data.payoutAccount),
+        });
         return venue;
+    },
+
+    // Fields an owner must never set through a normal venue update. Stripping
+    // them here - in the single shared update path, not per-route - closes a
+    // mass-assignment hole: without it a venue owner could PUT { status:
+    // 'approved' } to self-approve (bypassing admin review), forge
+    // rating/isVerified, or reassign `owner` to steal/dump a venue. Status is
+    // changed only via adminService; soft-delete only via deleteVenue.
+    PROTECTED_VENUE_FIELDS: ['status', 'isVerified', 'isDeleted', 'deletedAt', 'owner', 'rating', '_id', 'createdAt', 'updatedAt'],
+
+    // Pure: return a copy of an update payload with owner-protected fields
+    // removed. Kept separate so it is unit-testable without a DB round-trip.
+    stripProtectedFields(updateData = {}) {
+        const safe = { ...updateData };
+        for (const field of venueService.PROTECTED_VENUE_FIELDS) delete safe[field];
+        return safe;
     },
 
     // Update venue
     async updateVenue(id, updateData) {
+        const safe = venueService.stripProtectedFields(updateData);
+
+        // Same trust boundary as createVenue. payoutAccount is deliberately not in
+        // PROTECTED_VENUE_FIELDS - an owner may move their own earnings to another of
+        // their own accounts - but the id still arrives through a .passthrough()
+        // schema, so it has to be checked against their saved accounts here too.
+        // The edit form sends this field on every save, so create-only checking left
+        // the update path able to store a foreign id.
+        if ('payoutAccount' in safe) {
+            const { sanitizePayoutAccount } = require('../utils/payoutAccount');
+            const existing = await Venue.findById(id).select('owner').lean();
+            if (!existing) throw new Error('Venue not found');
+            safe.payoutAccount = await sanitizePayoutAccount(existing.owner, safe.payoutAccount);
+        }
+
         const venue = await Venue.findByIdAndUpdate(
             id,
-            { $set: updateData },
+            { $set: safe },
             { new: true }
         );
         if (!venue) {
@@ -159,19 +205,6 @@ const venueService = {
         const venue = await Venue.findByIdAndUpdate(
             id,
             { $set: { availability } },
-            { new: true }
-        );
-        if (!venue) {
-            throw new Error('Venue not found');
-        }
-        return venue;
-    },
-
-    // Update status (admin)
-    async updateStatus(id, status) {
-        const venue = await Venue.findByIdAndUpdate(
-            id,
-            { $set: { status } },
             { new: true }
         );
         if (!venue) {

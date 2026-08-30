@@ -36,6 +36,14 @@ const userSchema = new mongoose.Schema({
     trim: true,
     default: null
   },
+  /**
+   * Canonical slug of `city`. Derived by the hook below - see Venue.address.citySlug
+   * for why the display name is not the thing we match on.
+   */
+  citySlug: {
+    type: String,
+    default: null
+  },
   role: {
     type: String,
     enum: ['user', 'venue_owner', 'admin'],
@@ -86,6 +94,29 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'BrandProfile'
   }],
+  /**
+   * Saved payout accounts. One is flagged `isDefault`, which is what a venue or
+   * event pre-selects at creation time; the organiser can pick a different one
+   * there without changing this default.
+   */
+  bankAccounts: [{
+    accountName: { type: String, required: true },
+    accountNumber: { type: String, required: true },
+    ifscCode: { type: String, required: true },
+    bankName: { type: String, required: true },
+    isDefault: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  /**
+   * The default account, mirrored here on every change to `bankAccounts`.
+   *
+   * Deliberately kept rather than migrated away: payouts (paymentService),
+   * earnings breakdowns (earningsService), admin reads and registration all read
+   * this shape today. Mirroring the default means multi-account support does not
+   * require rewriting any payout-critical code path - those keep resolving a
+   * single account exactly as before, and get the default unless a listing names
+   * a specific one.
+   */
   bankDetails: {
     accountName: { type: String, default: null },
     accountNumber: { type: String, default: null },
@@ -162,5 +193,8 @@ userSchema.index({ location: '2dsphere' });
 userSchema.index({ verificationBadge: 1 });
 userSchema.index({ isVerified: 1 });
 userSchema.index({ followingBrands: 1 });
+
+// Derives citySlug from city on every write path (signup, profile edit, admin).
+require('../utils/citySlugHook').attachCitySlug(userSchema);
 
 module.exports = mongoose.model('User', userSchema);

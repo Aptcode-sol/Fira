@@ -128,6 +128,30 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
                         </div>
                         <div style={{ position: 'absolute', bottom: '10px', left: '12px', right: '12px' }}>
                             <h2 style={{ color: '#fff', fontSize: '17px', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.name}</h2>
+                            {/* The tier, stated on the face of the ticket. Doors can be
+                                tier-scoped, so which one this is decides where the holder
+                                is admitted - it should be readable without squinting at
+                                the small print at the bottom. */}
+                            {ticket.ticketType && (
+                                <span style={{
+                                    display: 'inline-block',
+                                    marginTop: '4px',
+                                    padding: '2px 8px',
+                                    borderRadius: '999px',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.95)',
+                                    color: '#fff',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.06em',
+                                    maxWidth: '100%',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}>
+                                    {ticket.ticketType}
+                                </span>
+                            )}
                         </div>
                     </div>
 

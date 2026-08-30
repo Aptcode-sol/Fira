@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const eventService = require('../services/eventService');
 const notificationService = require('../services/notificationService');
+const earningsService = require('../services/earningsService');
 
 const auth = require('../middleware/auth');
 const { publicCache, invalidateCache } = require('../middleware/httpCache');
@@ -128,6 +129,18 @@ router.get('/:id', /** @param {AuthenticatedRequest} req @param {Response} res *
         res.json(event);
     } catch (error) {
         res.status(404).json({ error: error.message });
+    }
+});
+
+// GET /api/events/:id/earnings - Per-event earnings breakdown (organizer only)
+// Behind requireAuth(); earningsService enforces organizer ownership server-side
+// and throws an error with status 403 for non-owners, returning no data.
+router.get('/:id/earnings', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        const earnings = await earningsService.getEventEarnings(req.params.id, req.user._id);
+        res.json(earnings);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
     }
 });
 
@@ -265,32 +278,21 @@ router.post('/:id/admin-approve', /** @param {AuthenticatedRequest} req @param {
 
 // =================== SCANNING CODE ROUTES ===================
 
-// POST /api/events/:id/scanning-codes - Create scanning codes for an event
-router.post('/:id/scanning-codes', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+/**
+ * GET /api/events/:id/scanning-codes - the event's scanner links (organizer only).
+ *
+ * Provisions a link for any tier missing one before returning, so there is nothing to
+ * generate: the organiser opens the event and copies the link for the tier they need.
+ */
+router.get('/:id/scanning-codes', auth, async (req, res) => {
     try {
-        const codes = await eventService.createScanningCodes(req.params.id, req.body.labels || [], req.user._id);
-        res.status(201).json(codes);
+        const codes = await eventService.listScanningCodes(req.params.id, req.user._id);
+        res.json(codes);
     } catch (error) {
         const status = error.message.includes('not found') ? 404
             : error.message.includes('Only the event organizer') ? 403
             : 400;
         res.status(status).json({ error: error.message });
-    }
-});
-
-// GET /api/events/:id/scanning-codes - List scanning codes for an event (organizer only)
-router.get('/:id/scanning-codes', auth, async (req, res) => {
-    try {
-        const ScanningCode = require('../models/ScanningCode');
-        const event = await Event.findById(req.params.id);
-        if (!event) return res.status(404).json({ error: 'Event not found' });
-        if (event.organizer.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ error: 'Only the event organizer can view scanning codes' });
-        }
-        const codes = await ScanningCode.find({ event: req.params.id }).sort({ createdAt: -1 });
-        res.json(codes);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
     }
 });
 

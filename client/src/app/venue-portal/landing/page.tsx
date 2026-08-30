@@ -117,13 +117,13 @@ export default function VenuePortalLandingPage() {
                         <FadeIn delay={0.4} duration={0.6} direction="up">
                             <div className="flex flex-row gap-4 justify-center">
                                 <Link
-                                    href="/signin"
+                                    href="/venue-portal"
                                     className="min-w-[160px] px-6 py-3.5 rounded-full text-white font-medium bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
                                 >
                                     Access Dashboard
                                 </Link>
                                 <Link
-                                    href="/signup"
+                                    href="/create/venue-owner"
                                     className="min-w-[160px] btn-primary px-6 py-3.5 rounded-full font-medium"
                                 >
                                     List Your Venue
@@ -167,7 +167,7 @@ export default function VenuePortalLandingPage() {
                                             </p>
 
                                             <Link
-                                                href="/signup"
+                                                href="/create/venue-owner"
                                                 className="inline-flex items-center gap-2 text-white hover:text-violet-400 transition-colors"
                                             >
                                                 Get started
@@ -231,10 +231,10 @@ export default function VenuePortalLandingPage() {
 
                             <SlideUp delay={0.3}>
                                 <Link
-                                    href="/signup"
+                                    href="/create/venue-owner"
                                     className="btn-primary px-10 py-4 rounded-full font-medium text-lg inline-flex items-center gap-2"
                                 >
-                                    Create Account
+                                    List Your Venue
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                     </svg>

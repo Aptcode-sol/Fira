@@ -8,6 +8,8 @@ import { isVenueOwner } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { brandsApi } from '@/lib/api';
 import CreatePostModal from './modals/CreatePostModal';
+import { openCreateVenue } from './modals/CreateVenueLauncher';
+import { openCreateEvent } from './modals/CreateEventLauncher';
 
 export default function FloatingActionButton() {
     const { isAuthenticated, user } = useAuth();
@@ -51,6 +53,11 @@ export default function FloatingActionButton() {
         '/forgot-password',
         '/create/event',
         '/create/creator',
+        // Chat and alerts: the button sits exactly where the message composer's
+        // send button goes, so on mobile it covered it. Neither screen is a place
+        // you go to create something anyway.
+        '/messages',
+        '/notifications',
     ];
 
     const shouldHide = hiddenPaths.some(path => pathname.startsWith(path));
@@ -58,6 +65,12 @@ export default function FloatingActionButton() {
     // Only show for authenticated regular users (not venue owners on their portal)
     const userIsVenueOwner = isVenueOwner(user);
     const isOnVenuePortal = pathname.startsWith('/venue-portal');
+
+    // "Create Venue" is for verified venue owners only. Being a venue owner is not
+    // enough: an unverified owner reaching the create form would build a listing
+    // that cannot be approved, so the option is withheld until verification lands.
+    // "Create Event" stays open to everyone.
+    const canCreateVenue = userIsVenueOwner && Boolean(user?.isVerified);
 
     // On a brand/creator page the only sensible action is posting to that
     // profile - offering "Create Event" there sends people away from what they
@@ -88,13 +101,17 @@ export default function FloatingActionButton() {
         setShowOptions(false);
     };
 
+    // Opens in place, like Create Venue: dismissing returns the user to this page
+    // rather than navigating them into the dashboard.
     const handleCreateEvent = () => {
-        router.push('/create/event');
+        openCreateEvent();
         setShowOptions(false);
     };
 
+    // Opens in place rather than navigating: venue creation is a stepper modal now,
+    // mounted once app-wide by CreateVenueLauncher.
     const handleCreateVenue = () => {
-        router.push('/venue-portal/venues/create');
+        openCreateVenue();
         setShowOptions(false);
     };
 
@@ -130,7 +147,7 @@ export default function FloatingActionButton() {
                             {/* Create Venue — venue owners only (Flow 7). A normal
                                 user with no owner role never sees this option
                                 (preservation 3.10). Hidden on brand pages too. */}
-                            {!postOnly && userIsVenueOwner && (
+                            {!postOnly && canCreateVenue && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 20, scale: 0.8 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -228,6 +245,8 @@ export default function FloatingActionButton() {
                     brandId={brandId}
                 />
             )}
+
+
         </>
     );
 }

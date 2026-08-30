@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const emailService = require('./emailService');
 const passwordValidator = require('../utils/passwordValidator');
 const bankDetailsValidator = require('../utils/bankDetailsValidator');
+const { withRole } = require('../utils/roleUtils');
 
 const authService = {
     /**
@@ -190,6 +191,7 @@ const authService = {
                 email: user.email,
                 name: user.name,
                 role: user.role,
+                roles: user.roles,
                 emailVerified: user.emailVerified
             },
             token,
@@ -287,11 +289,76 @@ const authService = {
                 email: user.email,
                 name: user.name,
                 role: user.role,
+                roles: user.roles,
                 emailVerified: user.emailVerified,
                 isVerified: user.isVerified,
                 verificationBadge: user.verificationBadge
             },
             token
+        };
+    },
+
+    /**
+     * Upgrade an already-signed-in user to also be a venue owner (Flow 7,
+     * "become a host" model). This is a role ADDITION, not a new account: the
+     * same identity keeps its `user` role and gains `venue_owner` in `roles[]`,
+     * which is the source of truth the auth middleware authorizes against.
+     */
+    async becomeVenueOwner({ userId, businessName, businessPhone, govIdType, govIdNumber, govIdDocument, bankDetails }) {
+        if (!businessName || !businessPhone) {
+            throw new Error('Business name and phone are required to become a venue owner.');
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new Error('Account not found. Please sign in again.');
+        }
+
+        // Idempotent grant: add venue_owner once, seeding from roles[] (source
+        // of truth) or the legacy scalar for un-migrated accounts.
+        user.roles = withRole(user.roles, user.role, 'venue_owner');
+
+        // Only overwrite a field when a value was supplied, so a partial
+        // re-submit never wipes previously saved KYC / bank details.
+        if (businessName) user.businessName = businessName;
+        if (businessPhone) user.businessPhone = businessPhone;
+        if (govIdType) user.govIdType = govIdType;
+        if (govIdNumber) user.govIdNumber = govIdNumber;
+        if (govIdDocument) user.govIdDocument = govIdDocument;
+        if (bankDetails) {
+            user.bankDetails = {
+                accountName: bankDetails.accountName ?? user.bankDetails?.accountName ?? null,
+                accountNumber: bankDetails.accountNumber ?? user.bankDetails?.accountNumber ?? null,
+                ifscCode: bankDetails.ifscCode ?? user.bankDetails?.ifscCode ?? null,
+                bankName: bankDetails.bankName ?? user.bankDetails?.bankName ?? null,
+            };
+        }
+
+        await user.save();
+
+        // Re-issue the token so it stays consistent with the account. Access is
+        // resolved from the DB on every request (see middleware/auth.js), so a
+        // fresh token is not required for authorization - it just avoids a stale
+        // claim for anything that later reads the token directly.
+        const token = jwt.sign(
+            { userId: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        return {
+            user: {
+                _id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                roles: user.roles,
+                emailVerified: user.emailVerified,
+                isVerified: user.isVerified,
+                verificationBadge: user.verificationBadge
+            },
+            token,
+            message: 'You are now a venue owner!'
         };
     },
 

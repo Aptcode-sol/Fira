@@ -1,6 +1,7 @@
 const Notification = require('../models/Notification');
 const Ticket = require('../models/Ticket');
 const pushService = require('./pushService');
+const sse = require('../lib/sse');
 
 /**
  * Channels that should also fire a browser push. `in_app` stays silent - it is
@@ -20,7 +21,7 @@ function dispatchPush(userIds, { title, message, data }) {
         .sendToUsers(ids, {
             title,
             body: message,
-            url: data?.actionUrl || '/inbox',
+            url: data?.actionUrl || '/notifications',
             data: { referenceId: data?.referenceId, ...(data?.extra || {}) }
         })
         .catch(err => console.error('Push dispatch failed:', err.message));
@@ -66,6 +67,19 @@ const notificationService = {
         if (PUSH_CHANNELS.has(channel)) {
             dispatchPush(userId, { title, message, data });
         }
+
+        // Live-deliver to any open tab. The SSE stream existed but nothing ever
+        // wrote to it, so alerts only appeared on reload. Persisted above first,
+        // so a user with no open connection loses nothing.
+        sse.send(userId, {
+            type: 'notification',
+            _id: notification._id,
+            title,
+            message,
+            category: notification.category,
+            actionUrl: data?.actionUrl || null,
+            createdAt: notification.createdAt
+        });
 
         return notification;
     },

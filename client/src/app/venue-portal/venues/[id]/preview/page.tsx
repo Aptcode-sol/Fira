@@ -8,6 +8,8 @@ import { venuesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { isVenueOwner } from '@/lib/types';
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
+import { openEditVenue } from '@/components/modals/CreateVenueLauncher';
+import { VENUE_SAVED } from '@/components/modals/CreateVenueModal';
 
 interface Venue {
     _id: string;
@@ -61,6 +63,9 @@ export default function VenueOwnerPreviewPage() {
             }
         };
         fetchVenue();
+        // Editing happens in a modal over this page, so nothing remounts on save.
+        window.addEventListener(VENUE_SAVED, fetchVenue);
+        return () => window.removeEventListener(VENUE_SAVED, fetchVenue);
     }, [isAuthenticated, user, venueId]);
 
     const formatPrice = (price: number) =>
@@ -148,14 +153,12 @@ export default function VenueOwnerPreviewPage() {
                         }`}>
                             {venue.status}
                         </span>
-                        <Link href={`/venue-portal/venues/${venueId}/edit`}>
-                            <Button variant="violet" size="sm" className="shadow-lg shadow-violet-500/25">
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Edit Venue
-                            </Button>
-                        </Link>
+                        <Button variant="violet" size="sm" className="shadow-lg shadow-violet-500/25" onClick={() => openEditVenue(venueId)}>
+                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit Venue
+                        </Button>
                     </div>
                 </div>
 
@@ -432,14 +435,12 @@ export default function VenueOwnerPreviewPage() {
 
                             {/* Owner Actions */}
                             <div className="space-y-3">
-                                <Link href={`/venue-portal/venues/${venueId}/edit`} className="block">
-                                    <Button variant="violet" className="w-full shadow-lg shadow-violet-500/25">
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                        Edit Venue
-                                    </Button>
-                                </Link>
+                                <Button variant="violet" className="w-full shadow-lg shadow-violet-500/25" onClick={() => openEditVenue(venueId)}>
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Edit Venue
+                                </Button>
                                 <button
                                     onClick={() => router.push('/venue-portal/venues')}
                                     className="w-full py-2.5 text-sm text-gray-400 hover:text-white border border-white/10 rounded-xl hover:bg-white/5 transition-all"

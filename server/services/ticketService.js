@@ -2,6 +2,7 @@ const Ticket = require('../models/Ticket');
 const Event = require('../models/Event');
 const paymentService = require('./paymentService'); // Import payment service
 const discountService = require('./discountService'); // Server-side discount re-validation
+const { PURCHASE_FALLBACK_TIER } = require('./ticketTiers');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 
@@ -95,7 +96,7 @@ const ticketService = {
     },
 
     // Purchase ticket
-    async purchaseTicket({ userId, eventId, quantity = 1, ticketType = 'general', paymentId = null, discountCode = null }) {
+    async purchaseTicket({ userId, eventId, quantity = 1, ticketType = PURCHASE_FALLBACK_TIER, paymentId = null, discountCode = null }) {
         const event = await Event.findById(eventId);
         if (!event) {
             throw new Error('Event not found');
@@ -114,6 +115,31 @@ const ticketService = {
         if (event.currentAttendees + quantity > event.maxAttendees) {
             throw new Error('Not enough tickets available');
         }
+
+        /*
+         * Resolve the tier the buyer asked for.
+         *
+         * The tier is client-supplied, and it now decides which door admits the
+         * holder (tier-scoped scanners match Ticket.ticketType against it) and what
+         * they are charged. So it is a trust boundary twice over: an unrecognised
+         * name is rejected rather than stored, and the price comes from the tier
+         * record on the event, never from the request.
+         *
+         * 'general' stays valid on an event with no tiers, which is what every
+         * ticket issued before tiers existed is - so no migration is needed.
+         */
+        const tiers = event.ticketTiers || [];
+        const tier = tiers.find(t => t.name === ticketType) || null;
+        if (tiers.length > 0 && !tier) {
+            throw new Error(`"${ticketType}" is not a ticket tier for this event`);
+        }
+        if (tiers.length === 0 && ticketType !== PURCHASE_FALLBACK_TIER) {
+            throw new Error('This event does not have ticket tiers');
+        }
+
+        // A tier's own price is authoritative when one applies; event.ticketPrice is
+        // the flat fallback for untiered events.
+        const unitPrice = tier ? tier.price : event.ticketPrice;
 
         console.log('Purchase Request:', {
             eventId,
@@ -135,7 +161,10 @@ const ticketService = {
         // must be paid for, whatever the type flag happens to say. The client
         // already decides what to display from `ticketPrice`, so this also
         // makes both sides agree.
-        if (event.ticketPrice > 0 && !paymentId) {
+        // unitPrice, not event.ticketPrice: on a tiered event the flat field is the
+        // base price and says nothing about what a VIP ticket costs. Charging off it
+        // sold every tier at the cheapest one's price.
+        if (unitPrice > 0 && !paymentId) {
             // Charge the SAME total the buyer sees in the billing summary -
             // ticket price plus platform fee plus GST, minus any discount.
             // calculateBilling is the shared source of truth for both sides.
@@ -153,13 +182,13 @@ const ticketService = {
                 ({ discountAmount, discountBearer } = await discountService.validateAndApplyDiscount(
                     discountCode,
                     eventId,
-                    event.ticketPrice * quantity
+                    unitPrice * quantity
                 ));
                 appliedCode = discountCode.toUpperCase();
             }
 
             const paymentResult = await requirePaymentFor(
-                event.ticketPrice,
+                unitPrice,
                 quantity,
                 platformFeePercentage,
                 discountAmount,
@@ -183,16 +212,33 @@ const ticketService = {
         // currentAttendees, both pass, and both increment, overselling past
         // maxAttendees. This conditional update only succeeds while capacity
         // remains, so the last seat can be sold exactly once.
-        const reserved = await Event.findOneAndUpdate(
-            {
-                _id: eventId,
-                $expr: { $lte: [{ $add: ['$currentAttendees', quantity] }, '$maxAttendees'] }
-            },
-            { $inc: { currentAttendees: quantity } },
-            { new: true }
-        );
+        // A tiered purchase must fit twice over: inside the event's overall capacity
+        // AND inside that tier's own allocation. Both increments happen in one
+        // conditional update so a tier cannot oversell, and so the two counters can
+        // never disagree about the same sale.
+        const reservation = tier
+            ? {
+                filter: {
+                    _id: eventId,
+                    'ticketTiers.name': ticketType,
+                    $expr: { $lte: [{ $add: ['$currentAttendees', quantity] }, '$maxAttendees'] },
+                    'ticketTiers.soldCount': { $lte: tier.maxQuantity - quantity }
+                },
+                update: { $inc: { currentAttendees: quantity, 'ticketTiers.$.soldCount': quantity } },
+                soldOut: `"${ticketType}" is sold out`
+            }
+            : {
+                filter: {
+                    _id: eventId,
+                    $expr: { $lte: [{ $add: ['$currentAttendees', quantity] }, '$maxAttendees'] }
+                },
+                update: { $inc: { currentAttendees: quantity } },
+                soldOut: 'Not enough tickets available'
+            };
+
+        const reserved = await Event.findOneAndUpdate(reservation.filter, reservation.update, { new: true });
         if (!reserved) {
-            throw new Error('Not enough tickets available');
+            throw new Error(reservation.soldOut);
         }
 
         // Generate ticket ID
@@ -221,11 +267,20 @@ const ticketService = {
                 qrCode: qrCodeUrl, // Storing the Data URL directly
                 ticketType,
                 quantity,
-                price: event.ticketPrice * quantity,
+                // The tier's price when one applies, so the ticket records what was
+                // actually charged rather than the event's base price.
+                price: unitPrice * quantity,
                 payment: paymentId // Link to payment if exists
             });
         } catch (err) {
-            await Event.findByIdAndUpdate(eventId, { $inc: { currentAttendees: -quantity } });
+            // Release both counters the reservation took, or a failed issue would
+            // permanently shrink the tier's allocation as well as the event's.
+            await Event.findOneAndUpdate(
+                tier ? { _id: eventId, 'ticketTiers.name': ticketType } : { _id: eventId },
+                tier
+                    ? { $inc: { currentAttendees: -quantity, 'ticketTiers.$.soldCount': -quantity } }
+                    : { $inc: { currentAttendees: -quantity } }
+            );
             throw err;
         }
 

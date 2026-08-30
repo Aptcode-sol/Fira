@@ -51,13 +51,26 @@ router.post('/', optionalAuth, /** @param {AuthenticatedRequest} req @param {Res
     }
 });
 
-// GET /api/inquiries/:id — get inquiry by ID (requires auth)
+// GET /api/inquiries/:id — get inquiry by ID (sender or listing owner only)
 router.get('/:id', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const inquiry = await Inquiry.findById(req.params.id);
         if (!inquiry) {
             return res.status(404).json({ error: 'Inquiry not found' });
         }
+
+        // This used to return any enquiry to any authenticated caller, which leaks
+        // the sender's name, email and phone to anyone iterating ids. Only the two
+        // parties to the enquiry have business reading it.
+        const requesterId = req.user._id.toString();
+        const isSender = inquiry.user && inquiry.user.toString() === requesterId;
+        const ownerId = isSender ? null : await inquiryService.resolveOwnerId(inquiry);
+        const isOwner = ownerId && ownerId.toString() === requesterId;
+
+        if (!isSender && !isOwner) {
+            return res.status(403).json({ error: 'Not allowed to view this inquiry' });
+        }
+
         res.json(inquiry);
     } catch (error) {
         res.status(500).json({ error: error.message });

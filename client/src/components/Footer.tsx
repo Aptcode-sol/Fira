@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
-import { useRef } from 'react';
-import { FEATURED_CITIES } from '@/lib/cities';
+import { useMemo, useRef } from 'react';
+import { useListedCities } from '@/hooks/useCities';
+import { byActivity } from '@/lib/seo/listedCities';
 
 const footerLinks = {
     product: [
@@ -81,6 +82,12 @@ const linkHoverVariants = {
 export default function Footer() {
     const footerRef = useRef(null);
     const isInView = useInView(footerRef, { once: true, amount: 0.2 });
+
+    // The busiest eight cities we actually have listings in, rather than a
+    // hardcoded eight. A link to a city page with nothing on it wastes the one
+    // site-wide internal link those pages get.
+    const listedCities = useListedCities();
+    const popularCities = useMemo(() => byActivity(listedCities).slice(0, 8), [listedCities]);
 
     const legalLinks = [
         { label: 'Privacy Policy', href: '/privacy' },
@@ -178,6 +185,10 @@ export default function Footer() {
                     the difference between them being crawled and being orphans. */}
                 <motion.nav
                     aria-label="Popular cities"
+                    // Hidden entirely until the cities load. An empty block with a
+                    // heading and nothing under it reads as broken; a footer that
+                    // grows a section a moment later does not.
+                    hidden={popularCities.length === 0}
                     className="border-t border-white/5 pt-10 pb-10"
                     variants={itemVariants}
                 >
@@ -187,11 +198,11 @@ export default function Footer() {
                         line-height keeps the arrow aligned to the first line
                         when a long city name wraps. */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
-                        {FEATURED_CITIES.map(city => (
+                        {popularCities.map(city => (
                             <div key={city.slug} className="flex flex-col gap-2">
                                 {[
-                                    { href: `/events/in/${city.slug}`, label: `Events in ${city.name}`, tone: 'text-gray-300' },
-                                    { href: `/venues/in/${city.slug}`, label: `Venues in ${city.name}`, tone: 'text-gray-300' },
+                                    { href: `/events/in/${city.slug}`, label: `Events in ${city.city}`, tone: 'text-gray-300' },
+                                    { href: `/venues/in/${city.slug}`, label: `Venues in ${city.city}`, tone: 'text-gray-300' },
                                 ].map(item => (
                                     <Link
                                         key={item.href}

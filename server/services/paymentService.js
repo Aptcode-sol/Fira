@@ -7,6 +7,33 @@ const crypto = require('crypto');
 
 // Owner bank details must be real before a payout is recorded (fail closed).
 // ponytail: inline check here; the shared API-boundary validator is task 8.
+/**
+ * The payout account a listing named, if any.
+ *
+ * Events and venues store `payoutAccount` - an id into the owner's
+ * `User.bankAccounts`. Returns null when the listing named nothing, or named an
+ * account that has since been deleted; the caller then falls back to the owner's
+ * default so a deleted account degrades to "pay the default" rather than failing.
+ */
+async function resolveListingPayoutAccount({ owner, referenceId, referenceModel }) {
+    if (!owner || !Array.isArray(owner.bankAccounts) || owner.bankAccounts.length === 0) return null;
+    if (!referenceId || !referenceModel) return null;
+
+    const Model = referenceModel === 'Event'
+        ? require('../models/Event')
+        : referenceModel === 'Venue'
+            ? require('../models/Venue')
+            : null;
+    if (!Model) return null;
+
+    const listing = await Model.findById(referenceId).select('payoutAccount');
+    if (!listing || !listing.payoutAccount) return null;
+
+    return owner.bankAccounts.find(
+        (a) => String(a._id) === String(listing.payoutAccount)
+    ) || null;
+}
+
 const isValidBankDetails = (b) =>
     !!b &&
     /^[0-9]{9,18}$/.test(b.accountNumber || '') &&
@@ -276,8 +303,16 @@ const paymentService = {
         // Bank details are authoritative from the owner, not the caller. Fail
         // closed if the owner has no valid stored details — a payout must be
         // tied to real, valid bank details.
-        const owner = await User.findById(recipientId).select('bankDetails');
-        if (!isValidBankDetails(owner && owner.bankDetails)) {
+        const owner = await User.findById(recipientId).select('bankDetails bankAccounts');
+
+        // Prefer the account the listing itself named, falling back to the owner's
+        // default (mirrored into bankDetails). This is what makes "pay this venue's
+        // earnings into a different account" actually take effect, while every
+        // listing created before payoutAccount existed keeps using the default.
+        const chosen = await resolveListingPayoutAccount({ owner, referenceId, referenceModel });
+        const bankDetails = chosen || (owner && owner.bankDetails);
+
+        if (!isValidBankDetails(bankDetails)) {
             throw new Error('Recipient has no valid bank details on file; cannot process payout');
         }
 
@@ -290,7 +325,14 @@ const paymentService = {
             platformCommission,
             platformCommissionPercentage: commissionPercentage,
             netAmount,
-            bankDetails: owner.bankDetails,
+            // Snapshot, not a reference: a payout records where the money actually
+            // went, so deleting the account later must not rewrite history.
+            bankDetails: {
+                accountName: bankDetails.accountName,
+                accountNumber: bankDetails.accountNumber,
+                ifscCode: bankDetails.ifscCode,
+                bankName: bankDetails.bankName,
+            },
             method: 'manual',
             gatewayPayoutId: null,
             status: 'pending'

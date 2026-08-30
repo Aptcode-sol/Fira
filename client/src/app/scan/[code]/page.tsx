@@ -10,6 +10,8 @@ interface CodeInfo {
     eventName: string | null;
     eventId: string | null;
     label: string;
+    /** Empty = this scanner admits every tier. */
+    ticketTier: string;
 }
 
 interface CheckinResult {
@@ -147,7 +149,13 @@ export default function ScanPage() {
                     {codeInfo?.label && (
                         <p className="text-sm text-gray-400 mt-1">{codeInfo.label}</p>
                     )}
-                    <p className="text-xs text-gray-500 mt-1">Ticket Scanner</p>
+                    {/* Stated up front, not discovered from the first rejection: the
+                        person on the door needs to know what they are turning away. */}
+                    <p className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300">
+                        {codeInfo?.ticketTier
+                            ? `Admits ${codeInfo.ticketTier} only`
+                            : 'Admits all tickets'}
+                    </p>
                 </div>
 
                 {/* Scanner */}

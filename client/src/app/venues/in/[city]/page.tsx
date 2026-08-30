@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { CityVenuesGrid } from '@/components/city/CityListingGrid';
-import { CITIES, getCityBySlug } from '@/lib/cities';
+import { fetchListedCities, getListedCity, otherListedCities } from '@/lib/seo/listedCities';
 import { getVenuesByCity } from '@/lib/seo/data';
 import { SITE_NAME } from '@/lib/siteConfig';
 import { JsonLd, breadcrumbSchema, itemListSchema } from '@/lib/seo/jsonLd';
@@ -17,8 +17,14 @@ import type { Venue } from '@/lib/types';
  */
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-    return CITIES.map(city => ({ city: city.slug }));
+/**
+ * Pre-render the cities that have listings today. A city that gets its first
+ * venue tomorrow is not in this list, and Next renders it on first request and
+ * caches it from then on - so onboarding a new city needs no deploy.
+ */
+export async function generateStaticParams() {
+    const cities = await fetchListedCities();
+    return cities.map(city => ({ city: city.slug }));
 }
 
 export async function generateMetadata({
@@ -27,15 +33,15 @@ export async function generateMetadata({
     params: Promise<{ city: string }>;
 }): Promise<Metadata> {
     const { city: slug } = await params;
-    const city = getCityBySlug(slug);
+    const city = await getListedCity(slug);
 
     if (!city) {
         return { title: 'City not found', robots: { index: false, follow: false } };
     }
 
-    const title = `Event Venues in ${city.name} - Banquet Halls, Rooftops & Farmhouses`;
+    const title = `Event Venues in ${city.city} - Banquet Halls, Rooftops & Farmhouses`;
     const description =
-        `Book event venues in ${city.name}, ${city.state}. Compare verified banquet halls, ` +
+        `Book event venues in ${city.city}, ${city.state}. Compare verified banquet halls, ` +
         `rooftops, clubs, resorts and farmhouses by capacity, budget and availability - ` +
         `then request a booking on ${SITE_NAME}.`;
 
@@ -43,12 +49,12 @@ export async function generateMetadata({
         title,
         description,
         keywords: [
-            `venues in ${city.name}`,
-            `banquet halls in ${city.name}`,
-            `party halls in ${city.name}`,
-            `birthday party venues ${city.name}`,
-            `rooftop venues ${city.name}`,
-            `event space ${city.name}`,
+            `venues in ${city.city}`,
+            `banquet halls in ${city.city}`,
+            `party halls in ${city.city}`,
+            `birthday party venues ${city.city}`,
+            `rooftop venues ${city.city}`,
+            `event space ${city.city}`,
         ],
         alternates: { canonical: `/venues/in/${city.slug}` },
         openGraph: {
@@ -71,29 +77,32 @@ export default async function VenuesInCityPage({
     params: Promise<{ city: string }>;
 }) {
     const { city: slug } = await params;
-    const city = getCityBySlug(slug);
+    const city = await getListedCity(slug);
 
+    // Nothing listed here. 404 rather than render, so an arbitrary slug cannot
+    // mint an empty page for the index.
     if (!city) notFound();
 
-    const venues = await getVenuesByCity(city.name, 24);
-    const otherCities = CITIES.filter(c => c.slug !== city.slug).slice(0, 12);
+    // Filtered by slug, not by display name: the same value the listing carries.
+    const venues = await getVenuesByCity(city.slug, 24);
+    const otherCities = await otherListedCities(city.slug);
 
     const faqs = [
         {
-            q: `How much does it cost to book a party venue in ${city.name}?`,
-            a: `Pricing varies by venue type, capacity and date. Every venue on ${SITE_NAME} shows its starting price up front, and you can filter ${city.name} venues by budget to see only what fits yours.`,
+            q: `How much does it cost to book a party venue in ${city.city}?`,
+            a: `Pricing varies by venue type, capacity and date. Every venue on ${SITE_NAME} shows its starting price up front, and you can filter ${city.city} venues by budget to see only what fits yours.`,
         },
         {
-            q: `How do I check if a venue in ${city.name} is available on my date?`,
+            q: `How do I check if a venue in ${city.city} is available on my date?`,
             a: `Use the "Available on" filter to pick your date and see only venues that are free. You can also open a venue and send a booking request for a specific date - the owner responds directly.`,
         },
         {
             q: `Are the venues on ${SITE_NAME} verified?`,
-            a: `Yes. Every venue listed in ${city.name} is submitted by its owner and reviewed before it goes live, including ownership and bank details for payouts.`,
+            a: `Yes. Every venue listed in ${city.city} is submitted by its owner and reviewed before it goes live, including ownership and bank details for payouts.`,
         },
         {
-            q: `What kinds of venues can I book in ${city.name}?`,
-            a: `Banquet halls, rooftops, clubs, restaurants, resorts, farmhouses, gardens and outdoor spaces - anything from an intimate birthday to a large wedding reception in ${city.name}.`,
+            q: `What kinds of venues can I book in ${city.city}?`,
+            a: `Banquet halls, rooftops, clubs, restaurants, resorts, farmhouses, gardens and outdoor spaces - anything from an intimate birthday to a large wedding reception in ${city.city}.`,
         },
     ];
 
@@ -103,13 +112,13 @@ export default async function VenuesInCityPage({
                 data={breadcrumbSchema([
                     { name: 'Home', path: '/' },
                     { name: 'Venues', path: '/venues' },
-                    { name: city.name, path: `/venues/in/${city.slug}` },
+                    { name: city.city, path: `/venues/in/${city.slug}` },
                 ])}
             />
             {venues.length > 0 && (
                 <JsonLd
                     data={itemListSchema(
-                        `Event venues in ${city.name}`,
+                        `Event venues in ${city.city}`,
                         `/venues/in/${city.slug}`,
                         venues.map(v => ({ name: v.name || 'Venue', path: `/venues/${v._id}` }))
                     )}
@@ -138,16 +147,16 @@ export default async function VenuesInCityPage({
                             <li aria-hidden="true">/</li>
                             <li><Link href="/venues" className="hover:text-white transition-colors">Venues</Link></li>
                             <li aria-hidden="true">/</li>
-                            <li className="text-gray-300">{city.name}</li>
+                            <li className="text-gray-300">{city.city}</li>
                         </ol>
                     </nav>
 
                     <header className="mb-10">
                         <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">
-                            Event Venues in <span className="text-violet-400">{city.name}</span>
+                            Event Venues in <span className="text-violet-400">{city.city}</span>
                         </h1>
                         <p className="text-gray-300 text-lg max-w-3xl leading-relaxed">
-                            Book verified event venues across {city.name}, {city.state} - banquet halls,
+                            Book verified event venues across {city.city}, {city.state} - banquet halls,
                             rooftops, clubs, resorts, farmhouses and open-air spaces. Compare capacity,
                             amenities and starting price, check availability for your date, and send a
                             booking request straight to the owner.
@@ -158,26 +167,26 @@ export default async function VenuesInCityPage({
                         <>
                             <h2 className="text-xl md:text-2xl font-bold text-white mb-5 relative pl-4">
                                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 md:h-6 bg-gradient-to-b from-violet-500 to-pink-500 rounded-full" />
-                                Top rated venues in {city.name}
+                                Top rated venues in {city.city}
                             </h2>
                             <CityVenuesGrid venues={venues as unknown as Venue[]} />
 
                             <div className="mt-10">
                                 <Link
-                                    href={`/venues?city=${encodeURIComponent(city.name)}`}
+                                    href={`/venues?city=${encodeURIComponent(city.city)}`}
                                     className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-colors"
                                 >
-                                    Browse all venues in {city.name}
+                                    Browse all venues in {city.city}
                                 </Link>
                             </div>
                         </>
                     ) : (
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center">
                             <h2 className="text-xl font-bold text-white mb-2">
-                                No venues listed in {city.name} yet
+                                No venues listed in {city.city} yet
                             </h2>
                             <p className="text-gray-300 mb-6 max-w-xl mx-auto">
-                                We are onboarding venues in {city.name} right now. If you own one,
+                                We are onboarding venues in {city.city} right now. If you own one,
                                 listing it is free and takes a few minutes.
                             </p>
                             <div className="flex flex-wrap gap-3 justify-center">
@@ -199,23 +208,23 @@ export default async function VenuesInCityPage({
 
                     <section className="mt-16 rounded-2xl border border-white/10 bg-black/50 p-8">
                         <h2 className="text-2xl font-bold text-white mb-3">
-                            Looking for something to attend in {city.name}?
+                            Looking for something to attend in {city.city}?
                         </h2>
                         <p className="text-gray-300 mb-6 max-w-2xl">
-                            See the parties, concerts, festivals and DJ nights happening in {city.name}
+                            See the parties, concerts, festivals and DJ nights happening in {city.city}
                             over the coming weeks.
                         </p>
                         <Link
                             href={`/events/in/${city.slug}`}
                             className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 font-semibold"
                         >
-                            See events in {city.name} →
+                            See events in {city.city} →
                         </Link>
                     </section>
 
                     <section className="mt-16">
                         <h2 className="text-2xl font-bold text-white mb-6">
-                            Booking a venue in {city.name}: common questions
+                            Booking a venue in {city.city}: common questions
                         </h2>
                         <div className="space-y-4">
                             {faqs.map(faq => (
@@ -236,7 +245,7 @@ export default async function VenuesInCityPage({
                                     href={`/venues/in/${other.slug}`}
                                     className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-gray-300 text-sm hover:text-white hover:border-white/20 transition-all"
                                 >
-                                    Venues in {other.name}
+                                    Venues in {other.city}
                                 </Link>
                             ))}
                         </div>

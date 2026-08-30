@@ -458,7 +458,12 @@ body {
 
    Disables all decorative animations for users who prefer reduced motion.
    Essential progress indicators keep linear transitions capped at 200ms.
-   ponytail: native CSS query covers framer-motion too (it uses CSS transforms).
+
+   This covers CSS animations and transitions only. framer-motion drives inline
+   transforms frame by frame, so none of these overrides reach it - the entrance
+   wrappers in components/animations call useReducedMotion() themselves. An earlier
+   comment here claimed otherwise, which is why those animations kept running for
+   users who had asked them not to.
    --------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -517,10 +522,18 @@ body {
 }
 
 /* Stops the whole page rubber-banding past its bounds on iOS, which drags the
-   fixed bars away from the screen edge mid-gesture. */
+   fixed bars away from the screen edge mid-gesture.
+
+   Only on `html`, never on `body`. `body` already carries `overflow-x: hidden`
+   above, and a non-visible overflow on one axis computes the other axis to
+   `auto` - so `body` is itself a scroll container whose content never overflows
+   it (its height is auto). Adding `overscroll-behavior-y: none` there told the
+   browser not to chain the gesture from that dead-end scroller up to the real
+   document scroller, so touch swipes were swallowed and the page could not
+   scroll at all on mobile. `html` is the actual scroller, so the rule still
+   does its job there. */
 @media (max-width: 767px) {
-  html,
-  body {
+  html {
     overscroll-behavior-y: none;
   }
 }

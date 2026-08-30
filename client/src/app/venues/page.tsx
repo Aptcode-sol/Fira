@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
@@ -9,13 +9,12 @@ import CitySelector from '@/components/CitySelector';
 import { VenueCardSkeleton, Input, Button, FilterPanel } from '@/components/ui';
 import type { FilterGroup } from '@/components/ui';
 import { venuesApi } from '@/lib/api';
-import { Venue, isVenueOwner } from '@/lib/types';
+import { Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { motion } from 'framer-motion';
-import { useCities } from '@/hooks/useCities';
+import { useListedCities } from '@/hooks/useCities';
 import { useUserCity } from '@/hooks/useUserCity';
-import { CITIES, getCityByName } from '@/lib/cities';
 
 const sortOptions = [
     { value: 'topRated', label: 'Top Rated' },
@@ -66,8 +65,8 @@ interface VenuesResponse {
 }
 
 export default function VenuesPage() {
-    // Owner-only Create-venue FAB visibility is driven solely by isVenueOwner
-    // (Req 5.5): owner shown, non-owner and signed-out (user null) hidden.
+    // Creating a venue is reached through the app-wide FloatingActionButton, which
+    // does its own eligibility check - this page no longer gates or renders it.
     const { user } = useAuth();
 
     // Section data (for non-filtered view)
@@ -122,7 +121,10 @@ export default function VenuesPage() {
     const [draftPrice, setDraftPrice] = useState('all');
     const [draftDate, setDraftDate] = useState('');
 
-    const cities = useCities();
+    // One request serves both: the filter needs the names, the city links below
+    // need the slugs.
+    const listedCities = useListedCities();
+    const cities = useMemo(() => listedCities.map(c => c.city), [listedCities]);
 
     // CITY-FIRST: city scopes the whole catalogue rather than acting as one
     // filter among many. Seeded from ?city=, then the visitor's saved choice,
@@ -139,10 +141,11 @@ export default function VenuesPage() {
         // makes Next prerender only the fallback spinner - so crawlers get an
         // empty page for /venues. This runs in an effect anyway, where
         // window.location is always available.
+        // Used as given. The API slugifies whatever arrives, so ?city=bengaluru,
+        // ?city=Bangalore and ?city=bangalore all resolve to one set of venues -
+        // no client-side spelling table needed.
         const fromUrl = new URLSearchParams(window.location.search).get('city');
-        const resolved = fromUrl
-            ? getCityByName(fromUrl)?.name || fromUrl
-            : preferredCity;
+        const resolved = fromUrl || preferredCity;
 
         if (resolved) setSelectedCity(resolved);
         setCityApplied(true);
@@ -424,7 +427,7 @@ export default function VenuesPage() {
                         )}
                     </div>
                     {/* Horizontal scroll container */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 scroll-pl-4">
                         {data.map((venue, index) => (
                             <div key={venue._id} className="flex-shrink-0 w-[280px] md:w-[300px] snap-start">
                                 <VenueCard venue={venue} index={index} />
@@ -506,7 +509,7 @@ export default function VenuesPage() {
                                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>
-                                        Reset Filters
+                                        Reset
                                     </Button>
                                 )}
                             </div>
@@ -656,7 +659,7 @@ export default function VenuesPage() {
                                     </p>
                                     <div className="flex flex-wrap gap-3 justify-center">
                                         <Button variant="ghost" className="text-violet-400 hover:text-violet-300" onClick={resetFilters}>
-                                            Reset Filters
+                                            Reset
                                         </Button>
                                         {selectedCity && (
                                             <Button variant="ghost" className="text-violet-400 hover:text-violet-300" onClick={() => changeCity('')}>
@@ -679,16 +682,16 @@ export default function VenuesPage() {
                     {/* Crawlable links into the city cluster. These give search
                         engines a path to every city landing page from the main
                         listing, and let visitors jump straight to a city. */}
-                    <nav aria-label="Venues by city" className="mt-20 pt-10 border-t border-white/5">
+                    <nav aria-label="Venues by city" hidden={listedCities.length === 0} className="mt-20 pt-10 border-t border-white/5">
                         <h2 className="text-sm font-semibold text-gray-300 mb-4">Browse venues by city</h2>
                         <div className="flex flex-wrap gap-2">
-                            {CITIES.map(city => (
+                            {listedCities.map(city => (
                                 <Link
                                     key={city.slug}
                                     href={`/venues/in/${city.slug}`}
                                     className="px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs hover:text-white hover:border-white/20 transition-all"
                                 >
-                                    Venues in {city.name}
+                                    Venues in {city.city}
                                 </Link>
                             ))}
                         </div>
@@ -696,31 +699,12 @@ export default function VenuesPage() {
                 </div>
             </main>
 
-            {/* Owner-only Create-venue FAB. Visibility is driven solely by
-                isVenueOwner(user) (Req 5.5) — owner shown; non-owner and
-                signed-out hidden. Rendering as a <Link> anchor makes it
-                keyboard-focusable/activatable with aria-label as its
-                accessible name (Req 5.6). The server Owner_Gate remains the
-                real authority; this only decides what to show. */}
-            {isVenueOwner(user) && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="fixed bottom-24 md:bottom-8 right-6 z-50"
-                >
-                    <Link
-                        href="/venue-portal/venues/create"
-                        aria-label="Create a new venue"
-                        className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/25 flex items-center justify-center transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/30"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                        </svg>
-                    </Link>
-                </motion.div>
-            )}
+            {/* No page-specific create button here.
+                This page used to render its own venue-only "+" at the same spot as
+                the app-wide FloatingActionButton (bottom-24/bottom-8, right-6) with a
+                higher z-index, so on /venues it covered the shared button and opened
+                venue creation directly instead of showing the Create Event / Create
+                Venue menu. The plus now behaves identically on every route. */}
         </>
     );
 }

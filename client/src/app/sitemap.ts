@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL, API_BASE_URL } from '@/lib/siteConfig';
-import { CITIES } from '@/lib/cities';
+import { fetchListedCities } from '@/lib/seo/listedCities';
 
 // Regenerate the sitemap once an hour so newly published events and venues get
 // picked up without a redeploy.
@@ -58,7 +58,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // City landing pages. These are the realistic organic-traffic surface -
     // "events in mumbai", "banquet halls in hyderabad" - so they rank just
     // below the main listings in priority.
-    const cityRoutes: MetadataRoute.Sitemap = CITIES.flatMap(city => [
+    //
+    // Taken from the cities that have listings, matching what the city pages
+    // actually render. Submitting a URL that 404s (a listed-nowhere city) is a
+    // crawl error on every fetch, so the two must come from one source.
+    const listedCities = await fetchListedCities();
+    const cityRoutes: MetadataRoute.Sitemap = listedCities.flatMap(city => [
         {
             url: `${SITE_URL}/events/in/${city.slug}`,
             lastModified: now,

@@ -1,7 +1,14 @@
 'use client';
 
-import { motion, Variants } from 'framer-motion';
+import { motion, useReducedMotion, Variants } from 'framer-motion';
 import { ReactNode } from 'react';
+import {
+    ENTRANCE_DURATION,
+    ENTRANCE_EASE,
+    ENTRANCE_OFFSET,
+    VIEWPORT_AMOUNT,
+    scaledDelay,
+} from './motionConfig';
 
 interface FadeInProps {
     children: ReactNode;
@@ -10,43 +17,43 @@ interface FadeInProps {
     direction?: 'up' | 'down' | 'left' | 'right' | 'none';
     className?: string;
     once?: boolean;
-    // 16.1/17.1: opt-in to animate on mount instead of on scroll-into-view.
-    // whileInView keeps content at opacity:0 until it enters the viewport, which
-    // left below-the-fold lists (e.g. My Bookings on mobile) blank until scroll.
+    // Opt in to animate on mount instead of on scroll-into-view. whileInView keeps
+    // content at opacity:0 until it enters the viewport, which left below-the-fold
+    // lists (e.g. My Bookings on mobile) blank until scroll.
     animateOnMount?: boolean;
 }
 
 const directionOffset = {
-    up: { y: 40 },
-    down: { y: -40 },
-    left: { x: 40 },
-    right: { x: -40 },
+    up: { y: ENTRANCE_OFFSET },
+    down: { y: -ENTRANCE_OFFSET },
+    left: { x: ENTRANCE_OFFSET },
+    right: { x: -ENTRANCE_OFFSET },
     none: {},
 };
 
 export default function FadeIn({
     children,
     delay = 0,
-    duration = 0.5,
+    duration = ENTRANCE_DURATION,
     direction = 'up',
     className = '',
     once = true,
     animateOnMount = false,
 }: FadeInProps) {
+    // Honoured here rather than relying on the global CSS reduced-motion rule:
+    // framer-motion animates inline transforms frame by frame, not with CSS
+    // animations or transitions, so `animation-duration: 0.01ms` never touched it.
+    const reduceMotion = useReducedMotion();
+
     const variants: Variants = {
-        hidden: {
-            opacity: 0,
-            ...directionOffset[direction],
-        },
+        hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, ...directionOffset[direction] },
         visible: {
             opacity: 1,
             x: 0,
             y: 0,
-            transition: {
-                duration,
-                delay,
-                ease: [0.25, 0.1, 0.25, 1],
-            },
+            transition: reduceMotion
+                ? { duration: 0 }
+                : { duration, delay: scaledDelay(delay), ease: ENTRANCE_EASE },
         },
     };
 
@@ -54,7 +61,7 @@ export default function FadeIn({
     // waiting for the element to scroll into view (whileInView).
     const activation = animateOnMount
         ? { animate: 'visible' as const }
-        : { whileInView: 'visible' as const, viewport: { once, amount: 0.2 } };
+        : { whileInView: 'visible' as const, viewport: { once, amount: VIEWPORT_AMOUNT } };
 
     return (
         <motion.div

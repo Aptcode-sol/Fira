@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { Button, Input } from '@/components/ui';
-import { venuesApi, uploadApi, bookingsApi, eventsApi } from '@/lib/api';
+// The venue portal's shell, not the user dashboard's: this screen is reached from
+// /venue-portal/venues, and the user sidebar no longer carries venue destinations -
+// rendering it there left no way back to the venue list.
+import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
+import { Button } from '@/components/ui';
+import { venuesApi, uploadApi, bookingsApi, eventsApi, clearRequestCache } from '@/lib/api';
+import { openEditVenue } from '@/components/modals/CreateVenueLauncher';
+import { VENUE_SAVED } from '@/components/modals/CreateVenueModal';
+import { venueDayRate } from '@/lib/venuePricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -70,24 +76,15 @@ export default function VenueManagePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
 
-    // Edit form state
-    const [editForm, setEditForm] = useState({
-        name: '',
-        description: '',
-        street: '',
-        city: '',
-        state: '',
-        pincode: '',
-        locationLink: '',
-        basePrice: 0,
-        pricePerHour: 0,
-        capacityMin: 1,
-        capacityMax: 100,
-        amenities: [] as string[],
-        rules: [] as string[],
-        images: [] as string[],
-        autoApproveBookings: false,
-    });
+    /**
+     * Photo edits only.
+     *
+     * This used to be a full copy of the venue form - name, address, pricing,
+     * capacity, amenities - and it had drifted from the real one: it still wrote the
+     * retired basePrice/pricePerHour pair, so saving here quietly undid a day rate set
+     * anywhere else. Those fields now live in one place, the shared venue modal.
+     */
+    const [editForm, setEditForm] = useState({ images: [] as string[] });
 
     // Image management
     const [selectedImage, setSelectedImage] = useState(0);
@@ -129,6 +126,10 @@ export default function VenueManagePage() {
             fetchVenue(params.id as string);
             fetchBookings(params.id as string);
         }
+        // The venue modal opens over this page, so nothing remounts when it saves.
+        const reload = () => params.id && fetchVenue(params.id as string);
+        window.addEventListener(VENUE_SAVED, reload);
+        return () => window.removeEventListener(VENUE_SAVED, reload);
     }, [params.id, isAuthenticated]);
 
     // Fetch event requests when user is available
@@ -226,7 +227,9 @@ export default function VenueManagePage() {
             await venuesApi.cancel(venue._id);
             showToast('Venue deleted successfully', 'success');
             setShowCancelModal(false);
-            router.push('/dashboard/venues');
+            // The venue list lives in the venue portal now; /dashboard/venues
+            // redirects there, so go straight to the real destination.
+            router.push('/venue-portal/venues');
         } catch (err) {
             showToast(err instanceof Error ? err.message : 'Failed to delete venue', 'error');
         } finally {
@@ -250,23 +253,7 @@ export default function VenueManagePage() {
     };
 
     const initEditForm = (v: Venue) => {
-        setEditForm({
-            name: v.name || '',
-            description: v.description || '',
-            street: v.address?.street || '',
-            city: v.address?.city || '',
-            state: v.address?.state || '',
-            pincode: v.address?.pincode || '',
-            locationLink: (v as any).locationLink || '',
-            basePrice: v.pricing?.basePrice || 0,
-            pricePerHour: v.pricing?.pricePerHour || 0,
-            capacityMin: v.capacity?.min || 1,
-            capacityMax: v.capacity?.max || 100,
-            amenities: v.amenities || [],
-            rules: v.rules || [],
-            images: v.images || [],
-            autoApproveBookings: (v as any).autoApproveBookings || false,
-        });
+        setEditForm({ images: v.images || [] });
         setSelectedImage(0);
     };
 
@@ -280,22 +267,14 @@ export default function VenueManagePage() {
                 allImages = [...allImages, ...uploadResult.images.map(img => img.url)];
             }
 
-            await venuesApi.update(venue._id, {
-                name: editForm.name,
-                description: editForm.description,
-                address: { street: editForm.street, city: editForm.city, state: editForm.state, pincode: editForm.pincode },
-                locationLink: editForm.locationLink,
-                pricing: { basePrice: editForm.basePrice, pricePerHour: editForm.pricePerHour },
-                capacity: { min: editForm.capacityMin, max: editForm.capacityMax },
-                amenities: editForm.amenities,
-                rules: editForm.rules,
-                images: allImages,
-                autoApproveBookings: editForm.autoApproveBookings,
-            });
+            // Only images. A partial update that also sent name/pricing/capacity would
+            // overwrite whatever the venue modal had just saved.
+            await venuesApi.update(venue._id, { images: allImages });
 
             setNewImageFiles([]);
             setImagePreviews([]);
             setIsEditMode(false);
+            clearRequestCache('/venues');
             fetchVenue(venue._id);
         } catch (err) {
             setError('Failed to save changes');
@@ -342,15 +321,6 @@ export default function VenueManagePage() {
             setNewImageFiles(prev => [...prev, ...files]);
             setImagePreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
         }
-    };
-
-    const toggleAmenity = (amenity: string) => {
-        setEditForm(prev => ({
-            ...prev,
-            amenities: prev.amenities.includes(amenity)
-                ? prev.amenities.filter(a => a !== amenity)
-                : [...prev.amenities, amenity]
-        }));
     };
 
     // Calendar helpers
@@ -488,43 +458,49 @@ export default function VenueManagePage() {
 
     if (authLoading || isLoading) {
         return (
-            <DashboardLayout>
+            <VenueDashboardLayout>
                 <div className="min-h-screen flex items-center justify-center">
                     <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
                 </div>
-            </DashboardLayout>
+            </VenueDashboardLayout>
         );
     }
 
     if (!venue) {
         return (
-            <DashboardLayout>
+            <VenueDashboardLayout>
                 <div className="min-h-screen flex items-center justify-center">
                     <div className="text-center">
                         <h1 className="text-2xl font-bold text-white mb-2">Venue not found</h1>
-                        <Button onClick={() => router.push('/dashboard/venues')}>Back to Venues</Button>
+                        <Button onClick={() => router.push('/venue-portal/venues')}>Back to Venues</Button>
                     </div>
                 </div>
-            </DashboardLayout>
+            </VenueDashboardLayout>
         );
     }
 
     const displayImages = isEditMode ? editForm.images : venue.images;
 
     return (
-        <DashboardLayout>
+        <VenueDashboardLayout>
             <div className="max-w-6xl mx-auto py-8 px-4">
-                {/* Header with Edit Toggle */}
-                <div className="flex items-center justify-between mb-6">
-                    <button onClick={() => router.push('/dashboard/venues')} className="flex items-center gap-2 text-gray-400 hover:text-white">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* Header with Edit Toggle.
+                    Six controls is more than a phone row can hold. A wrapping flex row
+                    still overflowed, because each control sizes to its own label and
+                    none of them shrink - so a long one like "✓ Auto-Approve ON" pushed
+                    its line past the right edge. On mobile they go into a 2-column grid
+                    instead: equal halves that cannot exceed the container whatever the
+                    labels say. From `md` up there is room for the original flex row. */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <button onClick={() => router.push('/venue-portal/venues')} className="flex items-center gap-2 text-gray-400 hover:text-white self-start">
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                         Back to Venues
                     </button>
-                    <div className="flex items-center gap-3">
+                    <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:justify-end md:gap-3 [&>*]:min-w-0 [&_button]:truncate">
                         {/* Status badges */}
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${venue.status === 'approved'
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium text-center truncate ${venue.status === 'approved'
                             ? 'bg-green-500/20 text-green-400 border border-green-500/20'
                             : venue.status === 'pending'
                                 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
@@ -568,13 +544,20 @@ export default function VenueManagePage() {
                             {isTogglingAutoApprove ? '...' : (venue as any).autoApproveBookings ? '✓ Auto-Approve ON' : 'Auto-Approve OFF'}
                         </button>
 
+                        {/* Venue details are edited in the shared modal, the same form
+                            used to list a venue. This page keeps only what that form
+                            cannot do: reordering photos against the live gallery, and
+                            blocking hours on specific dates. */}
                         {isEditMode ? (
                             <>
-                                <Button variant="ghost" onClick={() => { setIsEditMode(false); initEditForm(venue); }}>Cancel Edit</Button>
-                                <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
+                                <Button variant="ghost" onClick={() => { setIsEditMode(false); initEditForm(venue); }}>Done</Button>
+                                <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Photos'}</Button>
                             </>
                         ) : (
-                            <Button onClick={() => setIsEditMode(true)}>Edit Venue</Button>
+                            <>
+                                <Button variant="ghost" onClick={() => setIsEditMode(true)}>Photos &amp; Dates</Button>
+                                <Button onClick={() => openEditVenue(venue._id)}>Edit Venue</Button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -675,35 +658,7 @@ export default function VenueManagePage() {
                         {/* Location */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                             <h2 className="text-xl font-semibold text-white mb-2">Location</h2>
-                            {isEditMode ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <Input
-                                        placeholder="Street"
-                                        value={editForm.street}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))}
-                                    />
-                                    <Input
-                                        placeholder="City"
-                                        value={editForm.city}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
-                                    />
-                                    <Input
-                                        placeholder="State"
-                                        value={editForm.state}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))}
-                                    />
-                                    <Input
-                                        placeholder="Pincode"
-                                        value={editForm.pincode}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))}
-                                    />
-                                    <Input
-                                        placeholder="Location link (Google Maps URL)"
-                                        value={editForm.locationLink}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, locationLink: e.target.value }))}
-                                    />
-                                </div>
-                            ) : (
+                            {(
                                 <div className="flex items-center gap-2 text-gray-300">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -728,16 +683,7 @@ export default function VenueManagePage() {
                         {/* Description */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                             <h2 className="text-xl font-semibold text-white mb-4">About this venue</h2>
-                            {isEditMode ? (
-                                <textarea
-                                    value={editForm.description}
-                                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                                    rows={5}
-                                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-lg text-white"
-                                />
-                            ) : (
-                                <p className="text-gray-300 leading-relaxed whitespace-pre-line">{venue.description}</p>
-                            )}
+                            <p className="text-gray-300 leading-relaxed whitespace-pre-line">{venue.description}</p>
                         </div>
 
                         {/* Availability Calendar */}
@@ -962,92 +908,41 @@ export default function VenueManagePage() {
                     <div className="lg:col-span-1">
                         {/* Name & Location */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6 mb-6">
-                            {isEditMode ? (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-300 mb-1">Venue Name</label>
-                                        <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} className="text-xl font-bold" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">Street</label>
-                                            <Input value={editForm.street} onChange={(e) => setEditForm(prev => ({ ...prev, street: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">City</label>
-                                            <Input value={editForm.city} onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">State</label>
-                                            <Input value={editForm.state} onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-300 mb-1">Pincode</label>
-                                            <Input value={editForm.pincode} onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))} />
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <h1 className="text-3xl font-bold text-white mb-3">{venue.name}</h1>
-                                    <div className="flex items-center gap-2 text-gray-300">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        </svg>
-                                        <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
-                                    </div>
-                                </>
-                            )}
+                            <h1 className="text-3xl font-bold text-white mb-3">{venue.name}</h1>
+                            <div className="flex items-center gap-2 text-gray-300">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                </svg>
+                                <span>{venue.address.street}, {venue.address.city}, {venue.address.state}</span>
+                            </div>
                         </div>
 
                         <div className="space-y-6">
                             {/* Stats Card */}
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                                 {/* Price */}
+                                {/* One day rate. The old display added an hourly figure
+                                    on top of a base fee, which no longer reflects how a
+                                    booking is priced. */}
                                 <div className="mb-6">
-                                    {isEditMode ? (
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="block text-sm text-gray-300 mb-1">Base Price (₹)</label>
-                                                <Input type="number" value={editForm.basePrice} onChange={(e) => setEditForm(prev => ({ ...prev, basePrice: Number(e.target.value) }))} />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm text-gray-300 mb-1">Price per Hour (₹)</label>
-                                                <Input type="number" value={editForm.pricePerHour} onChange={(e) => setEditForm(prev => ({ ...prev, pricePerHour: Number(e.target.value) }))} />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-bold text-white">{formatPrice(venue.pricing.basePrice)}</span>
-                                                <span className="text-gray-300">base</span>
-                                            </div>
-                                            {venue.pricing.pricePerHour && (
-                                                <p className="text-sm text-gray-300 mt-1">+ {formatPrice(venue.pricing.pricePerHour)} / hour</p>
-                                            )}
-                                        </>
-                                    )}
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold text-white">{formatPrice(venueDayRate(venue))}</span>
+                                        <span className="text-gray-300">/ day</span>
+                                    </div>
                                 </div>
 
                                 {/* Capacity */}
                                 <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
-                                    {isEditMode ? (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-sm text-gray-300 mb-1">Min Capacity</label>
-                                                <Input type="number" value={editForm.capacityMin} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMin: Number(e.target.value) }))} />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm text-gray-300 mb-1">Max Capacity</label>
-                                                <Input type="number" value={editForm.capacityMax} onChange={(e) => setEditForm(prev => ({ ...prev, capacityMax: Number(e.target.value) }))} />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-300">Capacity</span>
-                                            <span className="text-white">{venue.capacity.min} - {venue.capacity.max} guests</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-300">Capacity</span>
+                                        {/* A range only says something when a minimum was
+                                            actually set; min defaults to 1. */}
+                                        <span className="text-white">
+                                            {venue.capacity.min > 1
+                                                ? `${venue.capacity.min} - ${venue.capacity.max} guests`
+                                                : `Up to ${venue.capacity.max} guests`}
+                                        </span>
+                                    </div>
 
                                     {venue.rating.count > 0 && (
                                         <div className="flex items-center justify-between text-sm">
@@ -1077,37 +972,20 @@ export default function VenueManagePage() {
                         {/* Amenities */}
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6 mt-6">
                             <h2 className="text-xl font-semibold text-white mb-4">Amenities</h2>
-                            {isEditMode ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {COMMON_AMENITIES.map((amenity) => (
-                                        <button
-                                            key={amenity}
-                                            onClick={() => toggleAmenity(amenity)}
-                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editForm.amenities.includes(amenity)
-                                                ? 'bg-violet-500/30 text-violet-300 border border-violet-500/50'
-                                                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                                                }`}
-                                        >
-                                            {amenity}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {venue.amenities?.map((amenity, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 text-gray-300">
-                                            <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            {amenity}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {venue.amenities?.map((amenity, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-gray-300">
+                                        <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        {amenity}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </VenueDashboardLayout>
     );
 }

@@ -3,19 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
-import VenuePortalLandingNavbar from '@/components/venue-portal/VenuePortalLandingNavbar';
 import DashboardSwitcher from '@/components/dashboard/DashboardSwitcher';
-
-const navItems = [
-    { href: '/venue-portal/dashboard', icon: 'home', label: 'Dashboard' },
-    { href: '/venue-portal/venues', icon: 'building', label: 'My Venues' },
-    { href: '/venue-portal/bookings', icon: 'calendar', label: 'Bookings' },
-    { href: '/venue-portal/events', icon: 'ticket', label: 'Event Requests' },
-    { href: '/venue-portal/analytics', icon: 'chart', label: 'Analytics' },
-    { href: '/venue-portal/settings', icon: 'cog', label: 'Settings' },
-];
+import SidebarFooter from '@/components/dashboard/SidebarFooter';
+import { SIDEBAR_LABEL, SIDEBAR_SLOT, sidebarRowClass } from '@/components/dashboard/sidebarChrome';
+import { VENUE_NAV_ICONS } from '@/components/venue-portal/venueNavIcons';
+import { venueNavItems } from '@/components/dashboard/navModel.mjs';
 
 interface VenueDashboardLayoutProps {
     children: React.ReactNode;
@@ -23,7 +16,6 @@ interface VenueDashboardLayoutProps {
 
 export default function VenueDashboardLayout({ children }: VenueDashboardLayoutProps) {
     const pathname = usePathname();
-    const { user } = useAuth();
     const [isExpanded, setIsExpanded] = useState(() => {
         if (typeof window !== 'undefined') {
             // Desktop-only preference - see DashboardLayout. On mobile this
@@ -41,9 +33,6 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
         }
         return false;
     });
-    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-    const [isClosing, setIsClosing] = useState(false);
-    const [isAnimating, setIsAnimating] = useState(false);
 
     // Hover-to-peek, kept separate from the pinned `isExpanded` state.
     //
@@ -64,25 +53,6 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Trigger opening animation
-    useEffect(() => {
-        if (isMobileSidebarOpen && !isClosing) {
-            const timer = setTimeout(() => setIsAnimating(true), 10);
-            return () => clearTimeout(timer);
-        } else {
-            setIsAnimating(false);
-        }
-    }, [isMobileSidebarOpen, isClosing]);
-
-    const closeMobileSidebar = () => {
-        setIsClosing(true);
-        setIsAnimating(false);
-        setTimeout(() => {
-            setIsMobileSidebarOpen(false);
-            setIsClosing(false);
-        }, 300);
-    };
-
     // Persist sidebar state
     useEffect(() => {
         localStorage.setItem('venue_sidebar_expanded', String(isExpanded));
@@ -96,42 +66,17 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
         return () => window.removeEventListener('toggle-dashboard-sidebar', handleToggle);
     }, []);
 
-    const getIcon = (name: string) => {
-        const icons: Record<string, React.ReactNode> = {
-            'home': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-            ),
-            'calendar': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-            ),
-            'building': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-            ),
-            'ticket': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                </svg>
-            ),
-            'chart': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-            ),
-            'cog': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-            ),
-        };
-        return icons[name] || null;
+    // Tapping a destination closes the drawer on a phone, matching the user
+    // dashboard. Without this the menu stayed over the page you had just opened.
+    const handleLinkClick = () => {
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            setIsExpanded(false);
+        }
     };
+
+    // Row geometry is shared with the user dashboard - see sidebarChrome. This list
+    // used to be taller on mobile (py-3.5) with 24px icons against the other
+    // sidebar's 20px, so the two portals never quite matched.
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] flex relative">
@@ -143,7 +88,7 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
 
             {/* Mobile Overlay */}
             {isMobile && isExpanded && (
-                <div 
+                <div
                     className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
                     onClick={() => setIsExpanded(false)}
                 />
@@ -162,7 +107,6 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-white/20 via-white/3 to-transparent blur-3xl"></div>
             </div>
 
-
             {/* Sidebar - slim icon-only on mobile, expandable on desktop */}
             <aside
                 onMouseEnter={() => setIsHovered(true)}
@@ -170,116 +114,109 @@ export default function VenueDashboardLayout({ children }: VenueDashboardLayoutP
                 // inset-y-0 rather than top-0 + h-full - see DashboardLayout for
                 // why: `height:100%` on a fixed element drifts on mobile as the
                 // browser URL bar hides and reappears during scroll.
-                className={`fixed left-0 inset-y-0 bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${
-                    isMobile
-                        ? (isExpanded ? 'w-56' : 'w-0 overflow-hidden border-none')
-                        : (isOpen ? 'w-64' : 'w-20')
-                }`}
+                className={`fixed left-0 inset-y-0 bg-black/90 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-[60] flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isMobile
+                    // w-64 open on mobile too, matching the user dashboard. At w-56 the
+                    // same account email truncated here and not there.
+                    ? (isExpanded ? 'w-64' : 'w-0 overflow-hidden border-none')
+                    : (isOpen ? 'w-64' : 'w-20')
+                    }`}
             >
-                {/* Logo.
-                    Left-aligned when the drawer is open so it lines up with the
-                    nav items below; centred only in the collapsed icon rail,
-                    where there is no left edge to align to. It was hard-coded to
-                    justify-center, which left it floating in the middle of an
-                    otherwise left-aligned menu. */}
+                {/* Header: the Fira logo with "Venues" on the line directly beneath it,
+                    so the portal you are in is readable whether the sidebar is open or
+                    collapsed to the rail. The two were previously side by side when
+                    open and stacked only when collapsed, which meant the label moved
+                    as you toggled. One column in both states now.
+
+                    px-4 with no vertical padding: the logo plus the title needs about
+                    2.75rem, which does not fit inside a 4rem header once p-4 has taken
+                    2rem of it. */}
                 <div
-                    className={`p-4 border-b border-white/[0.08] flex items-center h-20 ${isOpen ? 'justify-start' : 'justify-center'
+                    className={`px-3 border-b border-white/[0.08] flex items-center gap-3 h-16 lg:h-20 ${isOpen ? '' : 'justify-center'
                         }`}
                 >
+                    {/* items-center in both states: the logo sits centred over the
+                        wider "Venues" word rather than flush with its left edge, so the
+                        lockup does not shift as the sidebar opens and closes. The block
+                        as a whole is what moves (left when open, centred in the rail). */}
                     <Link
                         href="/venue-portal/dashboard"
-                        className={`flex items-center gap-2.5 ${isOpen ? 'flex-row' : 'flex-col gap-0'}`}
+                        className="flex flex-col items-center min-w-0"
                     >
                         <img
                             src="/logo white.png"
                             alt="FIRA"
                             className="w-8 h-8 object-contain flex-shrink-0"
                         />
-                        <span
-                            className={`text-[10px] text-gray-300 font-medium tracking-wider uppercase whitespace-nowrap ${isOpen ? '' : 'mt-0.5'
-                                }`}
-                        >
+                        <span className="text-[10px] leading-tight text-gray-300 font-medium tracking-wider uppercase whitespace-nowrap">
                             Venues
                         </span>
                     </Link>
+
+                    {isOpen && (
+                        <>
+                            {/* Switcher beside the logo: both are "which product am I
+                                in", so they belong together rather than the switcher
+                                sitting on top of the nav list as a pseudo-item. */}
+                            <DashboardSwitcher current="venue" variant="header" />
+
+                            {/* One control for both breakpoints: clearing the pinned flag
+                                collapses to the rail on desktop and closes the drawer on
+                                mobile. */}
+                            <button
+                                onClick={() => setIsExpanded(false)}
+                                className="text-gray-400 hover:text-white flex-shrink-0 ml-auto"
+                                aria-label="Collapse sidebar"
+                            >
+                                <svg className="w-6 h-6 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                </svg>
+                            </button>
+                        </>
+                    )}
                 </div>
 
-                {/* Dashboard switcher (owners only) — move back to the normal
-                    user dashboard. Self-gates on roles/role. */}
-                <div className="pt-2">
-                    <DashboardSwitcher current="venue" isOpen={isOpen} />
-                </div>
-
-                {/* Navigation */}
-                <nav className="flex-1 p-2 lg:p-3 space-y-1 overflow-y-auto">
-                    {navItems.map((item) => {
+                {/* Navigation. Settings has moved to the pinned block below, so it
+                    cannot scroll away from the position it holds in the other sidebar. */}
+                <nav className={`flex-1 p-2 lg:p-3 space-y-1 overflow-y-auto min-h-0 ${isOpen ? '' : 'flex flex-col items-center'}`}>
+                    {/* Collapsed, there is no room beside the logo, so the switcher
+                        becomes an icon at the top of the rail. */}
+                    {!isOpen && <DashboardSwitcher current="venue" variant="rail" />}
+                    {venueNavItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
                             <Link
                                 key={item.href}
-                                href={item.href}
-                                className={`flex items-center gap-3 px-3 py-3.5 lg:py-3 rounded-xl transition-all duration-300 overflow-hidden ${isActive
-                                    ? 'bg-white text-black shadow-lg shadow-white/10'
-                                    : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                                    } ${isOpen ? '' : 'justify-center'}`}
-                                title={!((!isMobile) && isOpen) ? item.label : undefined}
+                                href={item.href!}
+                                onClick={handleLinkClick}
+                                className={sidebarRowClass({ isOpen, isActive })}
+                                title={!isOpen ? item.label : undefined}
                             >
-                                <span className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
-                                    {getIcon(item.icon)}
-                                </span>
-                                {isOpen && (
-                                    <span className="font-medium whitespace-nowrap">
-                                        {item.label}
-                                    </span>
-                                )}
+                                <span className={SIDEBAR_SLOT}>{VENUE_NAV_ICONS[item.icon]}</span>
+                                {isOpen && <span className={SIDEBAR_LABEL}>{item.label}</span>}
                             </Link>
                         );
                     })}
                 </nav>
 
-                <div className="p-2 lg:p-3 border-t border-white/[0.08] bg-black/20">
-                    {/* User avatar */}
-                    <div className={`flex items-center gap-3 px-2 lg:px-3 py-2 lg:py-3 ${isOpen ? '' : 'justify-center'}`}>
-                        <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium shadow-lg shadow-violet-500/25 flex-shrink-0 overflow-hidden">
-                            {user?.avatar ? (
-                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                            ) : (
-                                user?.name?.charAt(0).toUpperCase() || 'V'
-                            )}
-                        </div>
-                        {isOpen && (
-                            <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-white truncate">{user?.name || 'Venue Owner'}</div>
-                                <div className="text-xs text-gray-300 truncate">{user?.email}</div>
-                            </div>
-                        )}
-                    </div>
-                    {/* Logout Button */}
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('fira_token');
-                            localStorage.removeItem('fira_user');
-                            window.location.href = '/signin';
-                        }}
-                        className={`w-full flex items-center gap-3 px-2 lg:px-3 py-2.5 mt-1 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 ${isOpen ? '' : 'justify-center'}`}
-                        title="Sign Out"
-                    >
-                        <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        {isOpen && (
-                            <span className="font-medium whitespace-nowrap">Sign Out</span>
-                        )}
-                    </button>
-                </div>
+                {/* Settings, then the signed-in account with Log out opposite it.
+                    Same component as the user dashboard - the footers used to be two
+                    separate blocks and had already drifted apart. */}
+                <SidebarFooter
+                    portal="venue"
+                    isOpen={isOpen}
+                    currentPath={pathname}
+                    onNavigate={handleLinkClick}
+                />
             </aside>
 
-            {/* Main Content */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-20 lg:pt-24 pb-20 lg:pb-0 transition-all duration-300 ${
-                isMobile 
-                    ? 'ml-0' 
-                    : (isExpanded ? 'ml-64' : 'ml-20')
-            }`}>
+            {/* Main Content.
+                lg:pl-6 matches the user dashboard. The ml-* offset equals the sidebar
+                width exactly, so without it the content sat flush against the sidebar
+                border - which is what made this portal look cramped next to the other. */}
+            <main className={`flex-1 min-h-screen relative z-10 pt-20 lg:pt-24 pb-20 lg:pb-0 lg:pl-6 transition-all duration-300 ${isMobile
+                ? 'ml-0'
+                : (isExpanded ? 'ml-64' : 'ml-20')
+                }`}>
                 {children}
             </main>
         </div>

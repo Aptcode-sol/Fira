@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
-import { Button, Input, Select } from '@/components/ui';
+import { Button, CitySearch, Input, Select } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { brandsApi, uploadApi } from '@/lib/api';
@@ -52,7 +52,6 @@ export default function CreateCreatorPage() {
     const [coverPreview, setCoverPreview] = useState('');
 
     const [cities, setCities] = useState<string[]>([]);
-    const [newCity, setNewCity] = useState('');
     const [primaryCity, setPrimaryCity] = useState('');
 
     const [members, setMembers] = useState<{ name: string; role: string }[]>([]);
@@ -389,40 +388,26 @@ export default function CreateCreatorPage() {
                                         </div>
                                     )}
 
-                                    {/* Add City Input */}
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={newCity}
-                                            onChange={(e) => setNewCity(e.target.value)}
-                                            placeholder="e.g., Mumbai, Delhi, Bangalore..."
-                                            className="bg-black/40 flex-1"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && newCity.trim()) {
-                                                    e.preventDefault();
-                                                    if (!cities.includes(newCity.trim())) {
-                                                        setCities(prev => [...prev, newCity.trim()]);
-                                                        if (!primaryCity) setPrimaryCity(newCity.trim());
-                                                    }
-                                                    setNewCity('');
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            onClick={() => {
-                                                if (newCity.trim() && !cities.includes(newCity.trim())) {
-                                                    setCities(prev => [...prev, newCity.trim()]);
-                                                    if (!primaryCity) setPrimaryCity(newCity.trim());
-                                                    setNewCity('');
-                                                }
-                                            }}
-                                            className="px-4"
-                                        >
-                                            Add
-                                        </Button>
-                                    </div>
-                                    <p className="text-xs text-gray-300 mt-2">Press Enter or click Add to add a city. Click ★ to set as primary.</p>
+                                    {/* Searched, not typed: creator discovery
+                                        filters on `cities` / `primaryCity`, so a
+                                        typo here drops the creator out of its own
+                                        city. */}
+                                    <CitySearch
+                                        // Held at '' so the placeholder always shows -
+                                        // the chips above are the real selection.
+                                        value=""
+                                        clearOnSelect
+                                        onSelect={(c) => {
+                                            // The picker no longer hides already-added
+                                            // cities (there is no fixed list to filter),
+                                            // so the duplicate guard lives here.
+                                            if (cities.includes(c.city)) return;
+                                            setCities(prev => [...prev, c.city]);
+                                            if (!primaryCity) setPrimaryCity(c.city);
+                                        }}
+                                        placeholder="Add a city"
+                                    />
+                                    <p className="text-xs text-gray-300 mt-2">Search a city to add it. Click ★ to set as primary.</p>
                                 </div>
                             </div>
                         )}

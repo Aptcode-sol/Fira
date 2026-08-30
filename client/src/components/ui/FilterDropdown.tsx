@@ -33,16 +33,21 @@ export default function FilterDropdown({ label, value, options, onChange }: Filt
     }, []);
 
     return (
-        <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-300">{label}</label>
-            <div className="relative" ref={dropdownRef}>
+        // Shrinkable by construction: min-w-0 plus flex-1, and a truncating label
+        // inside the trigger. Without these the control demanded its full intrinsic
+        // width, so a row of two filters was wider than a phone - it happened to fit
+        // on iOS and wrapped to two lines on Android, whose default font is wider.
+        // A layout that depends on font metrics is a layout that breaks per device.
+        <div className="flex items-center gap-2 min-w-0">
+            <label className="text-sm text-gray-300 flex-shrink-0">{label}</label>
+            <div className="relative min-w-0 flex-1" ref={dropdownRef}>
                 {/* Trigger Button */}
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.1] text-white rounded-xl px-4 py-2.5 pr-10 text-sm font-medium hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
+                    className="w-full flex items-center bg-white/[0.05] border border-white/[0.1] text-white rounded-xl px-3 py-2.5 pr-9 text-sm font-medium hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
                 >
-                    {selectedOption?.label || 'Select...'}
+                    <span className="truncate">{selectedOption?.label || 'Select...'}</span>
                     <svg
                         className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                         fill="none"

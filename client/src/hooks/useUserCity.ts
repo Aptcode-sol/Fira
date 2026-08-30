@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getCityByName } from '@/lib/cities';
 
 const STORAGE_KEY = 'fira_city';
 
@@ -38,8 +37,10 @@ export function useUserCity() {
             return;
         }
 
-        const profileCity = getCityByName(user?.city)?.name || user?.city || '';
-        setCityState(profileCity);
+        // Used as stored. The server canonicalises the spelling when the profile
+        // is saved, and the listing APIs slugify whatever they are given, so there
+        // is nothing left for the client to normalise.
+        setCityState(user?.city || '');
         setIsResolved(true);
     }, [authLoading, user?.city]);
 

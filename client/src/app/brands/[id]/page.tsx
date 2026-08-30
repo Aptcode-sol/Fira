@@ -10,6 +10,8 @@ import PostCard from '@/components/PostCard';
 import EventCard from '@/components/EventCard';
 import { Loader2, AlertCircle, Instagram, Globe, Facebook, Linkedin, Twitter, Youtube, Link as LinkIcon } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import InquiryForm from '@/components/InquiryForm';
+import { Modal } from '@/components/ui';
 // Footer removed as it is in layout
 
 export default function BrandProfilePage() {
@@ -26,7 +28,7 @@ export default function BrandProfilePage() {
     const [activeTab, setActiveTab] = useState('about');
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
-    const [enquiryLoading, setEnquiryLoading] = useState(false);
+    const [isEnquiryOpen, setIsEnquiryOpen] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -141,26 +143,9 @@ export default function BrandProfilePage() {
         }
     };
 
-    // Start an in-app enquiry conversation bound to this brand.
-    const handleEnquiry = async () => {
-        // If not logged in, redirect to signin
-        if (!user?._id) {
-            window.location.href = '/signin?redirect=' + encodeURIComponent(`/brands/${id}`);
-            return;
-        }
-
-        setEnquiryLoading(true);
-        try {
-            const response = await messagesApi.startBrandEnquiry({ brandId: id });
-            router.push(`/messages?conversation=${response.conversation._id}`);
-        } catch (error) {
-            console.error('Error starting enquiry:', error);
-            const message = error instanceof Error ? error.message : 'Failed to start conversation';
-            showToast(message, 'error');
-        } finally {
-            setEnquiryLoading(false);
-        }
-    };
+    // Opens the shared enquiry form rather than starting a thread outright, so no
+    // empty conversation is created. Sign-in gate lives inside the form.
+    const handleEnquiry = () => setIsEnquiryOpen(true);
 
     if (loading) {
         return (
@@ -345,17 +330,12 @@ export default function BrandProfilePage() {
                             ) : (
                                 <button
                                     onClick={handleEnquiry}
-                                    disabled={enquiryLoading}
-                                    className="w-full px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                                    className="w-full px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                                 >
-                                    {enquiryLoading ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                        </svg>
-                                    )}
-                                    {enquiryLoading ? 'Starting...' : 'Send Enquiry'}
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    Send Enquiry
                                 </button>
                             )}
 
@@ -432,6 +412,20 @@ export default function BrandProfilePage() {
                 </div>
             </div>
 
+            {/* Shared enquiry form: no thread until there is a question in it. */}
+            <Modal
+                isOpen={isEnquiryOpen}
+                onClose={() => setIsEnquiryOpen(false)}
+                title={`Ask ${brand.name}`}
+                size="md"
+            >
+                <InquiryForm
+                    referenceType="creator"
+                    referenceId={id}
+                    referenceName={brand.name}
+                    onClose={() => setIsEnquiryOpen(false)}
+                />
+            </Modal>
         </div>
 
 

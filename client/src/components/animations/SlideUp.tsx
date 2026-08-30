@@ -1,7 +1,14 @@
 'use client';
 
-import { motion, Variants } from 'framer-motion';
+import { motion, useReducedMotion, Variants } from 'framer-motion';
 import { ReactNode } from 'react';
+import {
+    ENTRANCE_DURATION,
+    ENTRANCE_EASE,
+    ENTRANCE_OFFSET,
+    VIEWPORT_AMOUNT,
+    scaledDelay,
+} from './motionConfig';
 
 interface SlideUpProps {
     children: ReactNode;
@@ -14,23 +21,23 @@ interface SlideUpProps {
 export default function SlideUp({
     children,
     delay = 0,
-    duration = 0.6,
+    duration = ENTRANCE_DURATION,
     className = '',
     once = true,
 }: SlideUpProps) {
+    // See FadeIn: the global CSS reduced-motion rule cannot reach framer-motion.
+    const reduceMotion = useReducedMotion();
+
     const variants: Variants = {
-        hidden: {
-            opacity: 0,
-            y: 60,
-        },
+        // Was y: 60 over 0.6s. Page headings use SlideUp, so that was the first
+        // thing every screen did and the slowest.
+        hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, y: ENTRANCE_OFFSET },
         visible: {
             opacity: 1,
             y: 0,
-            transition: {
-                duration,
-                delay,
-                ease: [0.25, 0.1, 0.25, 1],
-            },
+            transition: reduceMotion
+                ? { duration: 0 }
+                : { duration, delay: scaledDelay(delay), ease: ENTRANCE_EASE },
         },
     };
 
@@ -38,7 +45,7 @@ export default function SlideUp({
         <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once, amount: 0.15 }}
+            viewport={{ once, amount: VIEWPORT_AMOUNT }}
             variants={variants}
             className={className}
         >

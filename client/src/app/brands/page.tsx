@@ -304,7 +304,7 @@ export default function BrandsPage() {
                         </Button>
                     </div>
                     {/* Horizontal scroll container */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 scroll-pl-4">
                         {data.map((brand, index) => (
                             <div key={brand._id} className="flex-shrink-0 w-[280px] md:w-[300px] snap-start">
                                 <BrandCard brand={brand} index={index} />
@@ -547,7 +547,7 @@ export default function BrandsPage() {
                                 <div className="text-center py-20 text-gray-300">
                                     <p className="text-xl mb-4">No results found</p>
                                     <Button variant="ghost" className="text-violet-400" onClick={resetFilters}>
-                                        Reset Filters
+                                        Reset
                                     </Button>
                                 </div>
                             )}

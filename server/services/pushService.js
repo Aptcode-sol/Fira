@@ -109,7 +109,7 @@ const pushService = {
         const body = JSON.stringify({
             title: payload.title || 'FIRA',
             body: payload.body || '',
-            url: payload.url || '/inbox',
+            url: payload.url || '/notifications',
             tag: payload.tag || undefined,
             icon: payload.icon || '/logo white.png',
             data: payload.data || {}

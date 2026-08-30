@@ -1,4 +1,8 @@
 const rateLimit = require('express-rate-limit');
+// Normalises an IP into a bucket key. Required for the IPv6 fallback below: a
+// raw req.ip lets one person cycle addresses inside their own /64 and get a fresh
+// limit each time, which express-rate-limit rejects outright at startup.
+const { ipKeyGenerator } = require('express-rate-limit');
 
 /**
  * Rate limiters for the endpoints that cost real money or reputation.
@@ -54,4 +58,35 @@ const loginLimiter = rateLimit({
     message: { error: 'Too many login attempts. Please wait 15 minutes and try again.' },
 });
 
-module.exports = { registerLimiter, otpLimiter, loginLimiter };
+/**
+ * Chat messages. Each send fans out a web push to the other participant, so an
+ * unbounded loop here is a way to hammer someone's lock screen. Keyed per
+ * account rather than per IP: the limit should follow the sender, not punish
+ * everyone behind one office NAT, and every message route is authenticated.
+ * 60/minute is far above human typing speed and well below abuse.
+ */
+const messageLimiter = rateLimit({
+    ...base,
+    windowMs: 60 * 1000,
+    max: 60,
+    keyGenerator: (req, res) => (req.user?._id ? `user:${req.user._id}` : ipKeyGenerator(req, res)),
+    message: { error: 'You are sending messages too quickly. Please slow down.' },
+});
+
+/**
+ * City autocomplete. Public (signup needs it before an account exists) and every
+ * cache miss is a paid geocoder call, so an unlimited endpoint is a way for a
+ * stranger to burn our provider quota and take the address forms down with it.
+ *
+ * A person filling one address types maybe 30 keystrokes across two fields, and
+ * the client only fires after a debounce. 120/minute leaves room for a shared
+ * office NAT while making a scraper useless.
+ */
+const locationLimiter = rateLimit({
+    ...base,
+    windowMs: 60 * 1000,
+    max: 120,
+    message: { error: 'Too many city lookups. Please wait a moment and try again.' },
+});
+
+module.exports = { registerLimiter, otpLimiter, loginLimiter, messageLimiter, locationLimiter };

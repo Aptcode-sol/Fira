@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { notificationsApi } from '@/lib/api';
+import { notificationsApi, messagesApi } from '@/lib/api';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -14,6 +14,10 @@ export default function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [shouldAnimate, setShouldAnimate] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    // Chats and alerts are separate destinations on both breakpoints now, so each
+    // needs its own badge - a single combined count could not tell you which one
+    // to open.
+    const [unreadMessages, setUnreadMessages] = useState(0);
     // 8.13: how far the on-screen keyboard has shrunk the visual viewport.
     // 0 = no keyboard (nav stays pinned at the layout-viewport bottom, as today).
     const [keyboardOffset, setKeyboardOffset] = useState(0);
@@ -51,26 +55,57 @@ export default function Navbar() {
         setShouldAnimate(true);
     }, []);
 
-    // Fetch unread notification count using a lightweight endpoint
+    // Fetch unread counts using the lightweight count endpoints
     useEffect(() => {
-        const fetchUnreadCount = async () => {
+        const fetchUnreadCounts = async () => {
             if (!user?._id) return;
             try {
-                const data = await notificationsApi.getUnreadCount(user._id);
-                setUnreadCount(data.count);
+                const [alerts, chats] = await Promise.all([
+                    notificationsApi.getUnreadCount(user._id),
+                    messagesApi.getUnreadCount().catch(() => ({ unreadCount: 0 })),
+                ]);
+                setUnreadCount(alerts.count);
+                setUnreadMessages(chats.unreadCount || 0);
             } catch (error) {
-                console.error('Failed to fetch unread count:', error);
+                console.error('Failed to fetch unread counts:', error);
             }
         };
 
         if (isAuthenticated && user?._id) {
-            fetchUnreadCount();
+            fetchUnreadCounts();
 
             // Poll every 60 seconds (reduced from 30s to lower load)
-            const interval = setInterval(fetchUnreadCount, 60000);
+            const interval = setInterval(fetchUnreadCounts, 60000);
             return () => clearInterval(interval);
         }
     }, [isAuthenticated, user?._id]);
+
+    // Move the badges the moment something arrives rather than up to 60s later.
+    // Same `fira:sse` window events the chat screens listen to.
+    useEffect(() => {
+        const onSse = (event: Event) => {
+            const payload = (event as CustomEvent).detail;
+            if (payload?.type === 'message:new') {
+                // Already looking at the thread list means it is being read.
+                if (!window.location.pathname.startsWith('/messages')) {
+                    setUnreadMessages(count => count + 1);
+                }
+            } else if (payload?.type === 'notification') {
+                if (!window.location.pathname.startsWith('/notifications')) {
+                    setUnreadCount(count => count + 1);
+                }
+            }
+        };
+        window.addEventListener('fira:sse', onSse);
+        return () => window.removeEventListener('fira:sse', onSse);
+    }, []);
+
+    // Opening either destination clears its own badge, so the count matches what
+    // the page itself just marked read.
+    useEffect(() => {
+        if (pathname.startsWith('/messages')) setUnreadMessages(0);
+        if (pathname.startsWith('/notifications')) setUnreadCount(0);
+    }, [pathname]);
 
     // 5.1: Home removed from desktop navLinks — the logo already links home,
     // so a text "Home" item was a redundant affordance. The mobile bottom-nav
@@ -184,11 +219,11 @@ export default function Navbar() {
                                 <div className="w-20 h-8 bg-white/10 rounded-full animate-pulse" />
                             ) : isAuthenticated ? (
                                 <>
-                                    {/* Messages */}
+                                    {/* Enquiries */}
                                     <Link
                                         href="/messages"
                                         className="relative text-gray-400 hover:text-white transition-colors p-1"
-                                        aria-label="Messages"
+                                        aria-label="Enquiries"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -421,8 +456,10 @@ export default function Navbar() {
             {/* Mobile Floating Dynamic Island Navbar - Phones Only */}
             <div className="mobile-fixed-bar fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[70%] min-w-[260px] max-w-[70%] md:hidden">
                 <div className="flex items-center justify-between px-4 py-2 bg-black/80 backdrop-blur-md border border-white/10 rounded-full shadow-lg">
-                    {/* Left: Hamburger (Visible only when logged in) */}
-                    <div className="w-7 flex items-center justify-start">
+                    {/* Left: Hamburger (Visible only when logged in).
+                        Width matches the two-icon group on the right so FIRA stays
+                        optically centred. */}
+                    <div className="w-14 flex items-center justify-start">
                         {isAuthenticated ? (
                             <button
                                 onClick={handleHamburgerClick}
@@ -443,17 +480,40 @@ export default function Navbar() {
                         FIRA
                     </Link>
 
-                    {/* Right: Inbox (Visible only when logged in) */}
-                    <div className="w-7 flex items-center justify-end">
+                    {/* Right: Enquiries + Alerts (Visible only when logged in).
+                        Split out of the single "Inbox" button so mobile lands on the
+                        same two destinations as desktop - /messages and
+                        /notifications - instead of a mobile-only combined screen
+                        with its own duplicate chat implementation. Same routes, same
+                        icons, one set of pages to maintain. */}
+                    <div className="w-14 flex items-center justify-end gap-3">
                         {isAuthenticated ? (
-                            <Link href="/inbox" className="relative text-gray-400 hover:text-white transition-colors" aria-label="Inbox">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                </svg>
-                                {unreadCount > 0 && (
-                                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-violet-500 rounded-full"></span>
-                                )}
-                            </Link>
+                            <>
+                                <Link
+                                    href="/messages"
+                                    className="relative text-gray-400 hover:text-white transition-colors"
+                                    aria-label={unreadMessages > 0 ? `Enquiries, ${unreadMessages} unread` : 'Enquiries'}
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    {unreadMessages > 0 && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-violet-500 rounded-full" />
+                                    )}
+                                </Link>
+                                <Link
+                                    href="/notifications"
+                                    className="relative text-gray-400 hover:text-white transition-colors"
+                                    aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                    {unreadCount > 0 && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-violet-500 rounded-full" />
+                                    )}
+                                </Link>
+                            </>
                         ) : (
                             <div className="w-5 h-5" /> // spacer to keep title centered
                         )}
@@ -550,7 +610,7 @@ export default function Navbar() {
                                                 : 'text-gray-400 hover:bg-white/5 hover:text-white'
                                                 }`}
                                         >
-                                            Messages
+                                            Enquiries
                                         </Link>
                                         <Link
                                             href="/notifications"

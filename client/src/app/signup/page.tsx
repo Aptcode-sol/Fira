@@ -6,8 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import { SIGNUP_CITIES } from '@/lib/cities';
-import { Button, Input, OTPInput, PasswordStrengthIndicator, Select } from '@/components/ui';
+import { Button, CitySearch, Input, OTPInput, PasswordStrengthIndicator, Select } from '@/components/ui';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 
@@ -39,10 +38,6 @@ function SignUpContent() {
         confirmPassword: '',
         city: '',
     });
-
-    // Full India city list (see lib/cities.ts). The Select is searchable, so a
-    // long list is fine - typing narrows it instantly.
-    const cities = SIGNUP_CITIES;
 
 
     /**
@@ -132,8 +127,10 @@ function SignUpContent() {
             // logged-in user; writing to localStorage alone bounces us to /signin.
             setSession(response.user, response.token);
 
-            // Redirect to dashboard
-            router.push('/dashboard');
+            // Home, not the dashboard. A brand new account has nothing on its
+            // dashboard - no events, no bookings, no tickets - so landing there shows
+            // a screen of zeroes. Home is where they can find something to do.
+            router.push('/');
         } catch (err) {
             fail(err instanceof Error ? err.message : 'Verification failed');
             setOtp(''); // Clear OTP on error
@@ -300,24 +297,14 @@ function SignUpContent() {
                                     </div>
 
                                     {/* City Selection */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">City</label>
-                                        <Select
-                                            value={formData.city}
-                                            onChange={(val: string) => setFormData({ ...formData, city: val })}
-                                            options={cities.map(city => ({ value: city, label: city }))}
-                                            searchable={true}
-                                            searchPlaceholder="Search your city..."
-                                            placeholder="Select your city"
-                                            icon={
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                            }
-                                        />
-                                        <p className="mt-1.5 text-xs text-gray-300">We'll show you events and venues near you</p>
-                                    </div>
+                                    <CitySearch
+                                        label="City"
+                                        value={formData.city}
+                                        onSelect={(c) => setFormData({ ...formData, city: c.city })}
+                                        onClear={() => setFormData({ ...formData, city: '' })}
+                                        placeholder="Start typing your city"
+                                        helperText="We'll show you events and venues near you"
+                                    />
 
 
                                     <Button

@@ -7,6 +7,7 @@ import { useToast } from './ui/Toast';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { brandsApi } from '@/lib/api';
+import { formatCount } from '@/lib/formatCount';
 
 interface BrandCardProps {
     brand: {
@@ -85,11 +86,7 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
         }
     };
 
-    const formatFollowers = (count: number) => {
-        if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
-        if (count >= 1000) return (count / 1000).toFixed(1) + 'K';
-        return count.toString();
-    };
+
 
     // ENQUIRY DISABLED - this only ever fired a toast telling you to open the
     // profile, and the in-app enquiry it pointed at is commented out while chat
@@ -175,17 +172,26 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
                         </p>
 
                         <div className="pt-3 border-t border-white/5 space-y-3">
-                            {/* Stats on their own line - followers pinned left,
-                                events pinned right. */}
-                            <div className="flex items-center justify-between text-xs font-medium text-gray-300">
-                                <div className="flex flex-col">
-                                    <span className="text-white font-semibold">{formatFollowers(followersCount)}</span>
+                            {/* Followers pinned to the left edge, events to the right,
+                                each count on the outer side of its own label so the two
+                                numbers sit at the card's extremes.
+                                gap-1.5 is the breathing room between a count and its
+                                label; whitespace-nowrap + tabular-nums keep the widest
+                                case ("999.9K Followers") on one line and stop the row
+                                twitching sideways when the follow count changes. */}
+                            <div className="flex items-baseline justify-between gap-4 text-xs font-medium text-gray-300">
+                                <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+                                    <span className="text-white font-semibold tabular-nums">
+                                        {formatCount(followersCount)}
+                                    </span>
                                     <span className="text-[10px] uppercase tracking-wider">Followers</span>
-                                </div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-white font-semibold">{brand.stats.events}</span>
+                                </span>
+                                <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
                                     <span className="text-[10px] uppercase tracking-wider">Events</span>
-                                </div>
+                                    <span className="text-white font-semibold tabular-nums">
+                                        {formatCount(brand.stats.events)}
+                                    </span>
+                                </span>
                             </div>
 
                             {/* Action on the next line. Follow is full width now

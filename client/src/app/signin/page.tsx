@@ -15,7 +15,25 @@ import { useFormErrors } from '@/hooks/useFormErrors';
 function SignInContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const redirectTo = searchParams.get('redirect') || '/dashboard';
+    /**
+     * Where to go after signing in.
+     *
+     * Home, not the dashboard. `redirect` still wins when RouteGuard bounced the
+     * visitor here from a guarded page, so they land back where they were going - the
+     * default only applies when they chose to sign in of their own accord, and then
+     * the browsing surface is the useful place to be.
+     *
+     * Only same-site paths are accepted. This value goes straight into router.push,
+     * so an absolute URL (`?redirect=https://evil.example`) would have been an open
+     * redirect - a phishing link that carries the real sign-in page and then hands
+     * the visitor to an attacker's copy. A leading `//` is rejected too: browsers
+     * read `//host` as protocol-relative and treat it as off-site.
+     */
+    const requestedRedirect = searchParams.get('redirect');
+    const redirectTo =
+        requestedRedirect && requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+            ? requestedRedirect
+            : '/';
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const { showToast } = useToast();
