@@ -19,18 +19,37 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
     };
 
     return (
-        <Link href={`/venues/${venue._id}`}>
-            <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.1 }}
-                transition={{
-                    duration: 0.4,
-                    delay: index * 0.05,
-                    ease: [0.25, 0.1, 0.25, 1]
-                }}
-                className="group bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-white/20 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/10 h-full"
+        // The card is a plain container, NOT a <Link> wrapper.
+        //
+        // It used to wrap everything in <Link>, with the maps link as a second <a>
+        // inside it. Nested anchors are invalid HTML - the parser hoists the inner one
+        // out, so the server tree and the client tree disagree and React refuses to
+        // hydrate ("<a> cannot be a descendant of <a>"). Stopping propagation did not
+        // help: the problem is the markup, not the click.
+        //
+        // Instead the venue link is an absolutely positioned overlay covering the card,
+        // and the maps link is a sibling stacked above it. Two sibling anchors, valid
+        // HTML, and the whole card is still clickable.
+        <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{
+                duration: 0.4,
+                delay: index * 0.05,
+                ease: [0.25, 0.1, 0.25, 1]
+            }}
+            className="group relative bg-black/70 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-white/20 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/10 h-full"
+        >
+            {/* Whole-card link. Carries real text for screen readers and keyboard
+                users, since it has no visible content of its own. */}
+            <Link
+                href={`/venues/${venue._id}`}
+                className="absolute inset-0 z-10 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             >
+                <span className="sr-only">View {venue.name}</span>
+            </Link>
+            <div>
 
                 {/* Image */}
                 <div className="relative h-48 overflow-hidden">
@@ -104,13 +123,15 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         {venue.locationLink ? (
+                            // relative z-20 lifts this above the card-wide overlay link
+                            // (z-10) so the map wins the click here while the rest of
+                            // the card still goes to the venue.
                             <a
                                 href={venue.locationLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
                                 title={`Open ${venue.address.city}, ${venue.address.state} in Maps`}
-                                className="line-clamp-1 text-violet-400 hover:text-violet-300 hover:underline underline-offset-2 transition-colors"
+                                className="relative z-20 line-clamp-1 text-violet-400 hover:text-violet-300 hover:underline underline-offset-2 transition-colors"
                             >
                                 {venue.address.city}, {venue.address.state}
                             </a>
@@ -134,7 +155,7 @@ export default function VenueCard({ venue, index = 0 }: VenueCardProps) {
                         </p>
                     )}
                 </div>
-            </motion.div>
-        </Link>
+            </div>
+        </motion.div>
     );
 }

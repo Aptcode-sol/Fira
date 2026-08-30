@@ -51,7 +51,14 @@ const GEOAPIFY_URL = 'https://api.geoapify.com/v1/geocode/autocomplete';
  */
 const PHOTON_URL = 'https://photon.komoot.io/api';
 
-const REQUEST_TIMEOUT_MS = 4000;
+/**
+ * Warm provider calls land around 600-900ms. The ceiling is set well above that
+ * for the first call after a boot, which pays DNS and a TLS handshake on top -
+ * that cold call was exceeding a 4s limit, tripping the breaker and telling the
+ * user their city did not exist. Only the long tail waits this long; anything in
+ * the local index answers before a request is made.
+ */
+const REQUEST_TIMEOUT_MS = 8000;
 
 /** Shortest query worth spending a provider call on. */
 const MIN_QUERY_LENGTH = 2;

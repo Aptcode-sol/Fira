@@ -39,6 +39,10 @@ const ALIASES = {
     'pondicherry': 'puducherry',
     'prayagraj': 'allahabad',
     'allahabad-prayagraj': 'allahabad',
+    // The geocoder returns the current official name, while the local index and
+    // existing listings say Rajahmundry. Without this they are two city pages
+    // splitting one city's venues.
+    'rajamahendravaram': 'rajahmundry',
     'benares': 'varanasi',
     'banaras': 'varanasi',
     'simla': 'shimla',
