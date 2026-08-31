@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import SettlementSummary from '@/components/dashboard/SettlementSummary';
 import { Button } from '@/components/ui';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { earningsApi, type EventEarningsDTO, type EarningsPayoutStatus } from '@/lib/api';
@@ -178,6 +179,15 @@ function EarningsContent() {
                             </div>
                         </div>
                     </FadeIn>
+                )}
+
+                {/* The owner's read-only settlement mirror for the selected event
+                    (Requirement 9.4). Gated on a chosen event so it never renders
+                    for an absent id; it owns its own loading/empty/error states. */}
+                {eventId && (
+                    <div className="mt-8 max-w-3xl">
+                        <SettlementSummary kind="event" listingId={eventId} />
+                    </div>
                 )}
             </div>
         </DashboardLayout>

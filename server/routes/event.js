@@ -4,6 +4,7 @@ const router = express.Router();
 const eventService = require('../services/eventService');
 const notificationService = require('../services/notificationService');
 const earningsService = require('../services/earningsService');
+const settlementService = require('../services/settlementService');
 
 const auth = require('../middleware/auth');
 const { publicCache, invalidateCache } = require('../middleware/httpCache');
@@ -139,6 +140,25 @@ router.get('/:id/earnings', auth, /** @param {AuthenticatedRequest} req @param {
     try {
         const earnings = await earningsService.getEventEarnings(req.params.id, req.user._id);
         res.json(earnings);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
+    }
+});
+
+// GET /api/events/:id/settlement - Owner_Settlement_View data for one event
+// (Requirements 9.1, 9.2, 11.5). Same shape as /earnings above: behind auth,
+// with ownership enforced server-side inside getOwnerSettlement, which throws an
+// error carrying status 403 for a non-organizer, an absent event, or a malformed
+// id — all the same rejection, so no figures leak and a prober learns nothing.
+// The owner surface is read-only: GET only, no write route (Requirement 9.6).
+router.get('/:id/settlement', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        const settlement = await settlementService.getOwnerSettlement({
+            kind: 'event',
+            listingId: req.params.id,
+            requesterId: req.user._id,
+        });
+        res.json(settlement);
     } catch (error) {
         res.status(error.status || 500).json({ error: error.message });
     }

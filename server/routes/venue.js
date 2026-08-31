@@ -4,6 +4,7 @@ const { z } = require('zod');
 const router = express.Router();
 const venueService = require('../services/venueService');
 const earningsService = require('../services/earningsService');
+const settlementService = require('../services/settlementService');
 const validate = require('../middleware/validate');
 const { venueOwnerAuth, requireAuth } = require('../middleware/venueOwnerAuth');
 const { publicCache, noStoreCache, invalidateCache } = require('../middleware/httpCache');
@@ -86,6 +87,26 @@ router.get('/:id/earnings', requireAuth(), /** @param {AuthenticatedRequest} req
     try {
         const earnings = await earningsService.getVenueEarnings(req.params.id, req.user._id);
         res.json(earnings);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
+    }
+});
+
+// GET /api/venues/:id/settlement - Owner_Settlement_View data for one venue
+// (Requirements 9.1, 9.2, 11.5). Same shape as /earnings above: behind
+// requireAuth() (any authenticated user), with ownership enforced server-side
+// inside getOwnerSettlement, which throws an error carrying status 403 for a
+// non-owner, an absent venue, or a malformed id — all the same rejection, so no
+// figures leak. Declared before the `/:id` route below so the more specific path
+// wins. The owner surface is read-only: GET only, no write route (Req 9.6).
+router.get('/:id/settlement', requireAuth(), /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        const settlement = await settlementService.getOwnerSettlement({
+            kind: 'venue',
+            listingId: req.params.id,
+            requesterId: req.user._id,
+        });
+        res.json(settlement);
     } catch (error) {
         res.status(error.status || 500).json({ error: error.message });
     }

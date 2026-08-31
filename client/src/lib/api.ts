@@ -1218,4 +1218,58 @@ export const earningsApi = {
         request<VenueEarningsDTO>(`/venues/${venueId}/earnings`),
 };
 
+// Settlement API
+// Read-only per-listing settlement mirror for the listing owner. Both routes are
+// behind auth and enforce ownership server-side, returning the owner DTO
+// verbatim. There is no write method here by design: creating, editing,
+// reversing and disputing an entry are admin-only (Requirement 9.6).
+export type SettlementState =
+    | 'not_settled'
+    | 'partially_settled'
+    | 'fully_settled'
+    | 'over_settled';
+
+/**
+ * One settlement the owner received. This mirrors the server's owner whitelist
+ * (`settlementService.toOwnerRow`) exactly - no admin notes, no override reason,
+ * no administrator identity. A reversed entry is still listed, flagged, and
+ * already excluded from `settledToDate`.
+ */
+export interface OwnerSettlementEntry {
+    settledAmount: number;
+    settlementReference: string;
+    settledAt: string;
+    reversed: boolean;
+}
+
+export interface OwnerSettlementDTO {
+    listing: { kind: 'event' | 'venue'; id: string; name: string };
+    /** Owner-side figures only; the buyer-side breakdown is platform accounting. */
+    money: {
+        ownerGross: number;
+        platformCommission: number;
+        netPayable: number;
+        settledToDate: number;
+        outstandingAmount: number;
+        refundedTotal: number;
+    };
+    activity: {
+        successfulPayments: number;
+        unitsSold: number;
+        confirmed: number;
+        cancelled: number;
+        refundedPayments: number;
+        lastPaymentAt: string | null;
+    };
+    state: SettlementState;
+    entries: OwnerSettlementEntry[];
+}
+
+export const settlementApi = {
+    getEventSettlement: (eventId: string) =>
+        request<OwnerSettlementDTO>(`/events/${eventId}/settlement`),
+    getVenueSettlement: (venueId: string) =>
+        request<OwnerSettlementDTO>(`/venues/${venueId}/settlement`),
+};
+
 export { ApiError };

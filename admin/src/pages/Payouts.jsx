@@ -2,47 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import adminApi from '../api/adminApi';
 import { formatInr } from '../lib/formatInr';
 import { FadeIn, SlideUp } from '../components/animations';
+// Shared with the per-listing settlement panel (Req 1.4, 1.5) — one definition,
+// two callers.
+import { FigureCard } from '../components/ui/FigureCard';
+import { StatusBadge } from '../components/ui/StatusBadge';
 
 // Payout lifecycle statuses that can be filtered on (Req 3.6).
 const FILTERABLE_STATUSES = ['pending', 'processing', 'completed', 'failed'];
-
-// Status → badge styling. 'unknown' covers absent/invalid stored status (Req 3.5).
-const STATUS_STYLES = {
-    pending: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
-    processing: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    completed: 'text-green-400 bg-green-500/10 border-green-500/20',
-    failed: 'text-red-400 bg-red-500/10 border-red-500/20',
-    unknown: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
-};
-
-function StatusBadge({ status }) {
-    const style = STATUS_STYLES[status] || STATUS_STYLES.unknown;
-    return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border capitalize ${style}`}>
-            {status || 'unknown'}
-        </span>
-    );
-}
-
-// One headline figure card (Req 1.1). Value is pre-formatted via formatInr.
-function FigureCard({ label, value, accent = 'violet' }) {
-    const accents = {
-        violet: 'text-violet-400 bg-violet-500/10',
-        green: 'text-green-400 bg-green-500/10',
-        blue: 'text-blue-400 bg-blue-500/10',
-        orange: 'text-orange-400 bg-orange-500/10',
-        pink: 'text-pink-400 bg-pink-500/10',
-        red: 'text-red-400 bg-red-500/10',
-    };
-    return (
-        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5">
-            <div className={`text-xs font-medium px-2 py-1 rounded-md inline-block mb-3 ${accents[accent] || accents.violet}`}>
-                {label}
-            </div>
-            <div className="text-2xl font-bold text-white">{value}</div>
-        </div>
-    );
-}
 
 export default function Payouts() {
     // phase drives the mutually-exclusive loading / empty / error / ready machine (Req 12).

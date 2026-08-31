@@ -30,168 +30,168 @@ Language follows the repo: CommonJS JavaScript on the server, JSX in `admin/`, T
     - Fail closed on a non-finite sum or a malformed/absent listing id, matching the existing `build*` helpers
     - _Requirements: 1.5, 2.1, 2.4, 3.1, 12.1, 12.5_
 
-  - [-]* 2.2 Write property test for activity counts
+  - [x]* 2.2 Write property test for activity counts
     - **Property 18: Activity counts match the underlying records**
     - **Validates: Requirements 3.1, 3.4**
     - `server/__tests__/settlementActivityCounts.property.test.ts`, in-memory Mongo, generated payment/ticket/booking sets including the empty set
     - Tag: `Feature: per-listing-settlement-tracking, Property 18`
 
-  - [-]* 2.3 Write unit tests for `getListingFigures` boundaries
+  - [x]* 2.3 Write unit tests for `getListingFigures` boundaries
     - Listing with payments but no `Payout` record → `netPayable: 0`, `payout: null` (the design's stated consequence)
     - Malformed id and non-finite sum both reject rather than returning a zeroed figure set
     - _Requirements: 1.7, 12.5_
 
-- [ ] 3. `settlementService` pure core
+- [x] 3. `settlementService` pure core
   - [x] 3.1 Create `server/services/settlementService.js` with `buildLedger(rows, netPayable)`
     - Fold signed rows into `settledToDate`, `outstandingAmount` (floored at zero), `excessAmount`, `state`
     - A reversal row and its target both contribute zero — the pair nets out
     - `EPSILON = 0.01` for every comparison, the same tolerance `earningsService.buildOverview` already uses
     - _Requirements: 1.1, 1.6, 1.7, 4.2, 5.6, 5.7, 7.2, 12.2, 12.3_
 
-  - [~] 3.2 Add `checkOverSettlement` and `validateEntry`
+  - [x] 3.2 Add `checkOverSettlement` and `validateEntry`
     - `checkOverSettlement({ settledToDate, netPayable, settledAmount, override, adminRole })` returns `{ allowed: true }` or the rejection carrying `code: 'over_settlement'`, `netPayable`, `settledToDate`, `maxRecordable`; override accepted only for `super_admin` with a non-empty reason
     - `validateEntry(input, now)` names the offending field for a non-integer/non-positive amount, blank reference, absent/unparseable/future `settledAt`, missing `idempotencyKey`, or override without reason
     - Both are decisions only — neither mutates or touches Mongo
     - _Requirements: 4.7, 4.8, 4.9, 5.1, 5.2, 5.3, 5.4, 5.5, 5.7, 6.3_
 
-  - [~] 3.3 Add `toAdminRow` and `toOwnerRow`
+  - [x] 3.3 Add `toAdminRow` and `toOwnerRow`
     - `toAdminRow(row, reversalByTarget)` emits the full admin row including `adminNotes`, `isOverSettlement`, `overrideReason`, `recordedBy.name`, and the `reversedBy` linkage
     - `toOwnerRow(row, reversalByTarget)` is a whitelist of exactly `settledAmount`, `settlementReference`, `settledAt`, `reversed` — a field added to the schema later cannot leak
     - _Requirements: 1.2, 1.3, 7.4, 9.2, 9.3, 9.5_
 
-  - [~] 3.4 Write `server/services/settlementService.check.mjs`
+  - [x] 3.4 Write `server/services/settlementService.check.mjs`
     - Ponytail check, plain `node`, assert-based, no framework: the ledger fold, the reversal net-out, the state lattice at each boundary, the guard's accept/reject split
     - Same shape as `server/services/earningsService.check.mjs`
     - _Requirements: 12.2, 12.3, 5.7_
 
-  - [ ]* 3.5 Write property test for ledger conservation
+  - [x]* 3.5 Write property test for ledger conservation
     - **Property 1: Ledger conservation**
     - **Validates: Requirements 1.1, 1.6, 1.7, 4.2, 12.2, 12.3**
     - Pure, no database; generators cover the empty ledger and exact equality
 
-  - [ ]* 3.6 Write property test for the settlement state classification
+  - [x]* 3.6 Write property test for the settlement state classification
     - **Property 2: Settlement state is a total classification**
     - **Validates: Requirements 1.1, 5.6, 5.7**
 
-  - [ ]* 3.7 Write property test for reversal as inverse
+  - [x]* 3.7 Write property test for reversal as inverse
     - **Property 3: Reversal is the inverse of recording**
     - **Validates: Requirements 7.1, 7.2, 9.5**
 
-  - [ ]* 3.8 Write property test for the over-settlement guard
+  - [x]* 3.8 Write property test for the over-settlement guard
     - **Property 5: The over-settlement guard is exact**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.7**
     - Generators cover the exact-equality boundary and every role/override pairing
 
-  - [ ]* 3.9 Write property test for request validation
+  - [x]* 3.9 Write property test for request validation
     - **Property 7: An invalid request changes nothing**
     - **Validates: Requirements 4.7, 4.8, 4.9, 6.3**
     - Generators cover whitespace-only strings, fractional amounts, and future dates
 
-- [~] 4. Checkpoint
+- [x] 4. Checkpoint
   - Ensure all tests pass and `node server/services/settlementService.check.mjs` exits clean, ask the user if questions arise.
 
-- [ ] 5. `settlementService` DB layer
-  - [~] 5.1 Add `getListingSettlement` and `getOwnerSettlement`
+- [x] 5. `settlementService` DB layer
+  - [x] 5.1 Add `getListingSettlement` and `getOwnerSettlement`
     - Both read rows newest-first, call `earningsService.getListingFigures` once, and hand the same `buildLedger` result to both projections so the shared figures agree by construction
     - `getListingSettlement` returns the admin DTO (money, activity, state, payout, `entries` via `toAdminRow`)
     - `getOwnerSettlement({ kind, listingId, requesterId })` rejects a non-owner with a 403 carrying no figures, and returns the owner DTO via `toOwnerRow`
     - A `getListingFigures` failure surfaces as a 502 naming the listing, with no money figures
     - _Requirements: 1.1, 1.2, 1.3, 1.5, 2.1, 2.4, 3.1, 9.1, 9.2, 9.3, 9.9, 11.5, 12.1, 12.5_
 
-  - [~] 5.2 Add `recordEntry({ kind, listingId, input, admin })`
+  - [x] 5.2 Add `recordEntry({ kind, listingId, input, admin })`
     - The design's ordering exactly: resolve listing → idempotency pre-read → `validateEntry` → `getListingFigures` → `buildLedger` → `checkOverSettlement` → `AuditLog.create` (thrown, not swallowed) → `Settlement.create` (`E11000` → re-read and return existing) → notify in try/catch
     - `method` defaults to `manual`; `recipient` resolved at record time, `null` when unresolvable
     - Returns `{ entry, ledger, state, notified, recipientMissing?, alreadyRecorded? }`
     - _Requirements: 4.1, 4.2, 4.4, 4.5, 4.6, 4.10, 4.11, 5.2, 5.3, 5.4, 6.1, 6.2, 8.1, 8.3, 8.4, 10.1, 10.3, 10.4, 10.5, 12.4_
 
-  - [~] 5.3 Add `recordReversal({ kind, listingId, entryId, reason, admin })`
+  - [x] 5.3 Add `recordReversal({ kind, listingId, entryId, reason, admin })`
     - Same skeleton with its own rejections: target absent or on another listing → 404, already reversed → 409, target is itself a reversal → 400, blank reason → 400
     - Reversal row carries `settledAmount = -target.settledAmount`, the target's reference and date, `isReversalOf`, `reversalReason`, and derived `idempotencyKey = reversal:<targetId>`
     - Audit record before insert; notification carries the reversal and the updated `settledToDate`
     - No update and no delete method is added to the service
     - _Requirements: 7.1, 7.2, 7.3, 7.5, 7.6, 7.7, 7.8, 8.2, 8.4, 10.2, 10.3_
 
-  - [ ]* 5.4 Write property test for the stored settlement fact
+  - [x]* 5.4 Write property test for the stored settlement fact
     - **Property 4: A recorded settlement is an untouched whole-rupee fact**
     - **Validates: Requirements 4.1, 4.4, 4.5, 4.6, 12.4**
     - In-memory Mongo; asserts the read-back row is byte-identical to the submission
 
-  - [ ]* 5.5 Write property test for idempotent recording
+  - [x]* 5.5 Write property test for idempotent recording
     - **Property 6: Recording is idempotent in the Idempotency_Key**
     - **Validates: Requirements 6.1, 6.2**
     - In-memory Mongo — the unique index is part of what is under test
 
-  - [ ]* 5.6 Write property test for invalid reversals
+  - [x]* 5.6 Write property test for invalid reversals
     - **Property 8: An invalid reversal changes nothing**
     - **Validates: Requirements 7.5, 7.6, 7.7, 7.8**
 
-  - [ ]* 5.7 Write property test for append-only storage
+  - [x]* 5.7 Write property test for append-only storage
     - **Property 9: The ledger is append-only**
     - **Validates: Requirements 7.3**
     - Generated operation sequences; snapshots every prior row and asserts none changed
 
-  - [ ]* 5.8 Write property test for verbatim money figures
+  - [x]* 5.8 Write property test for verbatim money figures
     - **Property 10: Money figures are reproduced verbatim from Earnings_Service**
     - **Validates: Requirements 2.1, 2.4, 12.1, 12.5**
     - Stubs `earningsService.getListingFigures` with generated figures, which is what makes "verbatim" checkable
 
-  - [ ]* 5.9 Write property test for admin/owner figure agreement
+  - [x]* 5.9 Write property test for admin/owner figure agreement
     - **Property 13: Admin and owner agree on every shared figure**
     - **Validates: Requirements 9.1, 9.2, 9.9**
 
-  - [ ]* 5.10 Write property test for the audit invariant
+  - [x]* 5.10 Write property test for the audit invariant
     - **Property 14: No settlement exists without its audit record**
     - **Validates: Requirements 8.1, 8.2, 8.3, 8.4**
     - Audit sink stubbed and made to fail at random; asserts no entry ever exists without its record
 
-  - [ ]* 5.11 Write property test for notification delivery
+  - [x]* 5.11 Write property test for notification delivery
     - **Property 15: Every recorded action notifies the owner, and delivery never rolls it back**
     - **Validates: Requirements 10.1, 10.2, 10.4**
     - Notification sink stubbed and made to fail at random
 
-  - [ ]* 5.12 Write property test for the admin ledger projection
+  - [x]* 5.12 Write property test for the admin ledger projection
     - **Property 11: The admin ledger projection is complete and ordered**
     - **Validates: Requirements 1.2, 1.3, 7.4**
     - Generated ledgers including reversal pairs; asserts one row per stored entry, every named field present, `settledAt` descending
 
-  - [ ]* 5.13 Write unit tests for the two exception branches
+  - [x]* 5.13 Write unit tests for the two exception branches
     - No resolvable recipient → entry retained, `notified: false`, `recipientMissing: true`
     - Insert fails after the audit write → 500, ledger unchanged, audit record stands
     - _Requirements: 4.11, 10.5_
 
-- [ ] 6. HTTP API
-  - [~] 6.1 Append the three admin routes to `server/routes/admin.js`
+- [x] 6. HTTP API
+  - [x] 6.1 Append the three admin routes to `server/routes/admin.js`
     - In the existing `EARNINGS & PAYOUTS` section, behind the existing `router.use(adminAuth)`
     - `GET /listings/:kind/:id/settlement`, `POST /listings/:kind/:id/settlement/entries`, `POST /listings/:kind/:id/settlement/entries/:entryId/reversal`, each with `roleGuard(['super_admin', 'admin'])`
     - `entrySchema` / `reversalSchema` via the existing zod `validate` middleware so a malformed body never reaches the service
     - Handlers use the existing `res.status(error.status || 500).json({ error: error.message })` convention; the over-settlement rejection returns `code`, `netPayable`, `settledToDate`, `maxRecordable`
     - _Requirements: 4.7, 4.8, 4.9, 5.2, 5.4, 5.5, 6.3, 7.5, 7.6, 7.7, 7.8, 11.1, 11.2, 11.3, 11.4_
 
-  - [~] 6.2 Add the owner GET routes
+  - [x] 6.2 Add the owner GET routes
     - `server/routes/event.js`: `router.get('/:id/settlement', auth, handler)` beside the existing `/earnings` route
     - `server/routes/venue.js`: `router.get('/:id/settlement', requireAuth(), handler)` beside the existing `/earnings` route
     - Ownership enforced inside the service, exactly as `getEventEarnings` does today; GET only, no write route on either file
     - _Requirements: 9.1, 9.2, 9.6, 11.5_
 
-  - [ ]* 6.3 Write property test for owner-facing data confinement
+  - [x]* 6.3 Write property test for owner-facing data confinement
     - **Property 12: No admin-internal data reaches an owner**
     - **Validates: Requirements 9.3, 10.3**
     - `supertest` over the real routers with sentinel `adminNotes` / override-reason values, asserting on the serialized body at any depth
 
-  - [ ]* 6.4 Write property test for unauthorized settlement requests
+  - [x]* 6.4 Write property test for unauthorized settlement requests
     - **Property 16: Unauthorized requests are rejected and write nothing**
     - **Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.6**
     - Generated role pairings including absent session and `moderator`
 
-  - [ ]* 6.5 Write property test for owner read confinement
+  - [x]* 6.5 Write property test for owner read confinement
     - **Property 17: Owner reads are confined to owned listings**
     - **Validates: Requirements 11.5, 9.1**
     - Generated user/listing ownership pairings
 
-- [~] 7. Checkpoint
+- [x] 7. Checkpoint
   - Ensure all server tests pass, ask the user if questions arise.
 
-- [ ] 8. Admin UI
+- [x] 8. Admin UI
   - [x] 8.1 Extract `getAdminRoleFromToken` to `admin/src/lib/adminRole.js`
     - Move the function out of `AdminDashboardLayout.jsx` and import it back there — one function, two callers, no copy
     - _Requirements: 11.3_
@@ -200,13 +200,13 @@ Language follows the repo: CommonJS JavaScript on the server, JSX in `admin/`, T
     - `getListingSettlement(kind, listingId)`, `recordSettlement(kind, listingId, body)`, `reverseSettlement(kind, listingId, entryId, reason)` in `admin/src/api/adminApi.js`, following the existing method style
     - _Requirements: 1.1, 4.1, 7.1_
 
-  - [~] 8.3 Create `admin/src/components/ListingSettlementPanel.jsx` with its state reducer and fetch
+  - [x] 8.3 Create `admin/src/components/ListingSettlementPanel.jsx` with its state reducer and fetch
     - `<ListingSettlementPanel kind="event|venue" listingId={id} />`
     - Four mutually exclusive view states — `loading | ready | empty | error` — driven by a reducer, following the pattern the client earnings page already uses; retry control re-enters `loading`
     - Renders nothing at all for `adminRole === 'moderator'` using `getAdminRole()` from task 8.1
     - _Requirements: 11.3, 13.1, 13.2, 13.3, 13.4_
 
-  - [~] 8.4 Render the figures, activity, and ledger in the panel
+  - [x] 8.4 Render the figures, activity, and ledger in the panel
     - Money: buyer-side group (Gross collected, Platform fee collected, GST retained) and owner-side group (Owner gross, Platform commission, Net payable, Settled to date, Outstanding) as two labeled groups; `kind === 'venue'` labels gross as "Advance collected"; null renders as ₹0
     - State badge reusing the existing `EventDetail.jsx` badge classes; `over_settled` adds an "Excess settled" figure and pins Outstanding at ₹0; "Payout not initiated — nothing to settle yet" when `netPayable` is 0
     - Activity: the six counts plus the absolute last-payment date via the existing `formatDateTime`, or "No payments yet"
@@ -214,59 +214,59 @@ Language follows the repo: CommonJS JavaScript on the server, JSX in `admin/`, T
     - Every amount through `formatInr` from `admin/src/lib/formatInr.js`
     - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.2, 2.3, 2.5, 2.6, 3.2, 3.3, 3.4, 5.6, 7.4, 12.6_
 
-  - [~] 8.5 Add the record form and the reversal control
+  - [x] 8.5 Add the record form and the reversal control
     - Fields: amount, reference, date, method, notes; `idempotencyKey` generated once per form session via `crypto.randomUUID()`; submit disabled while in flight
     - On success the figures, state, and ledger update without a page reload; on an `alreadyRecorded` response show "Already recorded"; on `notified: false` / `recipientMissing` show that no owner could be notified
     - On rejection show the returned message, keep every entered value, leave the displayed ledger untouched; the super-admin override flag and reason are only offered on an over-settlement rejection
     - Reversal control per row prompts for a mandatory reason
     - _Requirements: 4.3, 5.3, 6.4, 6.5, 7.1, 7.4, 10.5, 13.5_
 
-  - [~] 8.6 Mount the panel on both admin detail pages
+  - [x] 8.6 Mount the panel on both admin detail pages
     - `admin/src/pages/EventDetail.jsx` → `<ListingSettlementPanel kind="event" listingId={id} />`
     - `admin/src/pages/VenueDetail.jsx` → `<ListingSettlementPanel kind="venue" listingId={id} />`
     - No new page or route is added
     - _Requirements: 1.1, 2.1, 3.1_
 
-  - [~] 8.7 Surface the two new actions on the audit trail
+  - [x] 8.7 Surface the two new actions on the audit trail
     - `admin/src/pages/AuditTrail.jsx`: add `settle` and `reverse` to `ACTION_OPTIONS` and `getActionColor`, and render the amount and listing in the "What changed" cell for those rows
     - _Requirements: 8.5_
 
-  - [ ]* 8.8 Write property test for the surface state machine
+  - [x]* 8.8 Write property test for the surface state machine
     - **Property 19: Exactly one surface state is shown**
     - **Validates: Requirements 13.1, 13.2, 13.3**
     - Drives the panel reducer directly over generated outcome sequences — no renderer
 
-  - [ ]* 8.9 Write property test for rejected submissions
+  - [x]* 8.9 Write property test for rejected submissions
     - **Property 20: A rejected submission preserves the form and the ledger**
     - **Validates: Requirements 13.5, 4.11**
     - Generated form values and rejection payloads through the reducer
 
-  - [ ]* 8.10 Write example tests for the admin panel rendering
+  - [x]* 8.10 Write example tests for the admin panel rendering
     - Two-group money layout, state badge including `over_settled`, venue "Advance collected" label, `formatInr` output equality with the Payouts page, "No payments yet", empty ledger, moderator sees no controls
     - _Requirements: 2.3, 2.5, 3.4, 5.6, 11.3, 12.6_
 
-- [ ] 9. Client UI (owner mirror)
-  - [~] 9.1 Add `settlementApi` to `client/src/lib/api.ts`
+- [x] 9. Client UI (owner mirror)
+  - [x] 9.1 Add `settlementApi` to `client/src/lib/api.ts`
     - `getEventSettlement(eventId)` and `getVenueSettlement(venueId)` plus the `OwnerSettlementDTO` type mirroring the owner response whitelist
     - _Requirements: 9.1, 9.2_
 
-  - [~] 9.2 Create `client/src/components/dashboard/SettlementSummary.tsx`
+  - [x] 9.2 Create `client/src/components/dashboard/SettlementSummary.tsx`
     - Read-only: no form and no control that creates, edits, reverses, or disputes an entry
     - Same four mutually exclusive view states with a retry control; three headline figures (Net payable, Settled to date, Outstanding) plus state, the six activity counts, and the settlement history
     - Reversed rows marked and excluded from the total; "no settlement has been made yet" and "no payout is yet due" boundary indications; every amount through `client/src/lib/formatInr.ts`
     - _Requirements: 9.4, 9.5, 9.6, 9.7, 9.8, 12.6, 13.1, 13.2, 13.3, 13.4_
 
-  - [~] 9.3 Mount `SettlementSummary` on the two existing owner surfaces
+  - [x] 9.3 Mount `SettlementSummary` on the two existing owner surfaces
     - `client/src/app/dashboard/creator/earnings/page.tsx` (already scoped to one event via `?event=`) → `kind="event"`
     - `client/src/app/dashboard/venues/[id]/page.tsx` → `kind="venue"`
     - No new page or route is added
     - _Requirements: 9.1, 9.4_
 
-  - [ ]* 9.4 Write example tests for the owner view
+  - [x]* 9.4 Write example tests for the owner view
     - Three labeled headline figures, reversed-row indication excluded from the total, both empty-state indications, no write control present anywhere in the tree
     - _Requirements: 9.5, 9.6, 9.7, 9.8_
 
-- [~] 10. Final checkpoint
+- [x] 10. Final checkpoint
   - Ensure all tests pass and every `.check.mjs` exits clean, ask the user if questions arise.
 
 ## Notes

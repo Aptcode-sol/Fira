@@ -2,19 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
-
-// Helper to format DateTime like "30 Dec 2025 14:00"
-const formatDateTime = (dateTimeStr) => {
-    if (!dateTimeStr) return 'N/A';
-    const dt = new Date(dateTimeStr);
-    if (isNaN(dt.getTime())) return 'Invalid Date';
-    const day = dt.getDate();
-    const month = dt.toLocaleString('en-US', { month: 'short' });
-    const year = dt.getFullYear();
-    const hours = dt.getHours().toString().padStart(2, '0');
-    const mins = dt.getMinutes().toString().padStart(2, '0');
-    return `${day} ${month} ${year} ${hours}:${mins}`;
-};
+import ListingSettlementPanel from '../components/ListingSettlementPanel';
+// Formats DateTime like "30 Dec 2025 14:00" — shared with the settlement panel.
+import { formatDateTime } from '../lib/formatDateTime';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -341,6 +331,9 @@ export default function EventDetail() {
                         </div>
                     )}
                 </div>
+
+                {/* Settlement ledger for this event — renders its own titled card. */}
+                <ListingSettlementPanel kind="event" listingId={id} />
             </FadeIn>
 
             {/* Error Toast */}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
+import ListingSettlementPanel from '../components/ListingSettlementPanel';
 
 export default function VenueDetail() {
     const { id } = useParams();
@@ -237,6 +238,9 @@ export default function VenueDetail() {
                         </div>
                     </div>
                 </div>
+
+                {/* Settlement ledger for this venue — renders its own titled card. */}
+                <ListingSettlementPanel kind="venue" listingId={id} />
             </FadeIn>
         </div>
     );

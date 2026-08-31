@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 // rendering it there left no way back to the venue list.
 import VenueDashboardLayout from '@/components/venue-portal/VenueDashboardLayout';
 import { Button } from '@/components/ui';
+import SettlementSummary from '@/components/dashboard/SettlementSummary';
 import { venuesApi, uploadApi, bookingsApi, eventsApi, clearRequestCache } from '@/lib/api';
 import { openEditVenue } from '@/components/modals/CreateVenueLauncher';
 import { VENUE_SAVED } from '@/components/modals/CreateVenueModal';
@@ -902,6 +903,11 @@ export default function VenueManagePage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Settlement summary — the owner's read-only mirror of what
+                            this venue earned, what has been paid, and what is owed
+                            (Requirement 9.4). Renders its own titled card. */}
+                        <SettlementSummary kind="venue" listingId={venue._id} />
                     </div>
 
                     {/* Sidebar - Venue Stats */}

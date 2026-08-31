@@ -4,6 +4,7 @@ import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Select } from '../components/ui/Select';
 import { Pagination } from '../components/ui/Pagination';
+import { formatInr } from '../lib/formatInr';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -23,6 +24,8 @@ const ACTION_OPTIONS = [
     { value: 'unblock', label: 'Unblock' },
     { value: 'feature', label: 'Feature' },
     { value: 'unfeature', label: 'Unfeature' },
+    { value: 'settle', label: 'Settle' },
+    { value: 'reverse', label: 'Reverse settlement' },
     { value: 'delete', label: 'Delete' },
     { value: 'update', label: 'Other change' },
 ];
@@ -70,6 +73,8 @@ const getActionColor = (action) => {
         case 'unblock': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
         case 'feature': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
         case 'unfeature': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+        case 'settle': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+        case 'reverse': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
         case 'delete': return 'bg-red-900/30 text-red-300 border-red-900/40';
         case 'update': return 'bg-violet-500/20 text-violet-300 border-violet-500/30';
         default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
@@ -99,12 +104,27 @@ const describeValue = (v) => {
 function ChangeDetail({ log }) {
     const meta = log.metadata || {};
     const hasTransition = meta.field && (meta.from !== undefined || meta.to !== undefined);
+    // Money movement records the listing under listingName, and the amount is the
+    // whole point of the row - a settlement without its figure is unreviewable
+    // (Requirement 8.5). A reversal's settledAmount is negative, and formatInr
+    // renders the sign, which is what tells the two rows apart at a glance.
+    const isSettlement = log.action === 'settle' || log.action === 'reverse';
 
     return (
         <div className="min-w-0">
             <div className="text-sm text-white truncate">
-                {meta.name || <span className="text-gray-500">Unnamed {log.entityType}</span>}
+                {meta.name || meta.listingName || <span className="text-gray-500">Unnamed {log.entityType}</span>}
             </div>
+            {isSettlement && (
+                <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span className={log.action === 'reverse' ? 'text-amber-300' : 'text-emerald-300'}>
+                        {formatInr(meta.settledAmount)}
+                    </span>
+                    {meta.settlementReference && (
+                        <span className="font-mono text-gray-400 truncate">{meta.settlementReference}</span>
+                    )}
+                </div>
+            )}
             {hasTransition && (
                 <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                     <span className="text-gray-500">{meta.field}</span>

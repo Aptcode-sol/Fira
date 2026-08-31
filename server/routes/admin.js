@@ -1,9 +1,12 @@
 const express = require('express');
+const { z } = require('zod');
 const router = express.Router();
 const adminService = require('../services/adminService');
 const earningsService = require('../services/earningsService');
+const settlementService = require('../services/settlementService');
 const adminAuth = require('../middleware/adminAuth');
 const roleGuard = require('../middleware/roleGuard');
+const validate = require('../middleware/validate');
 const { invalidateCache } = require('../middleware/httpCache');
 const User = require('../models/User');
 
@@ -298,6 +301,116 @@ router.get('/earnings/payouts', roleGuard(['super_admin', 'admin']), async (req,
         res.json(payouts);
     } catch (error) {
         res.status(error.status || 500).json({ error: error.message });
+    }
+});
+
+// ================== PER-LISTING SETTLEMENT ==================
+// The platform's first money-write routes. Everything above in this section is
+// read-only reporting; these three read a listing's settlement ledger and append
+// to it. All the money decisions (validation, the over-settlement guard, the
+// audit write, idempotency, append-only correction) live in settlementService —
+// a handler here only maps params in and the service's error out.
+
+// The money-write role check. roleGuard on its own is NOT sufficient here: it
+// deliberately calls next() when `adminRole` is falsy (documented backward
+// compatibility for legacy admins predating the sub-role system), so an
+// authenticated admin session carrying no sub-role would pass
+// roleGuard(['super_admin','admin']) and reach these routes. That fallback is
+// load-bearing for the routes it was written for — a legacy admin locked out of
+// the audit trail or the delete routes is a real regression — so it is left
+// alone and the role is named explicitly here instead (Requirements 11.1–11.3).
+// This is strictly stronger than roleGuard's allow-list, so roleGuard is not
+// also listed on these routes: two guards where one decides is one guard nobody
+// reads.
+// ponytail: replace with roleGuard once every admin account carries an
+// adminRole and roleGuard's fallback can be dropped. Note that roleGuard's own
+// self-check (server/middleware/roleGuard.test.js) already asserts the strict
+// behaviour and currently fails against the permissive implementation.
+const settlementRoleGuard = (req, res, next) => {
+    const adminRole = req.user && req.user.adminRole;
+    if (adminRole !== 'super_admin' && adminRole !== 'admin') {
+        return res.status(403).json({ error: 'Insufficient permissions for this action' });
+    }
+    next();
+};
+
+// Request bodies are validated by zod before the service is reached, so a
+// malformed body never becomes a money decision. z.object strips unknown keys,
+// which also means a caller cannot smuggle `isOverSettlement` or `recordedBy`
+// into the stored row.
+const entrySchema = z.object({
+    settledAmount: z.number().int().positive(),
+    settlementReference: z.string().trim().min(1),
+    settledAt: z.coerce.date(),
+    method: z.enum(['manual', 'gateway']).optional(),
+    adminNotes: z.string().trim().optional(),
+    idempotencyKey: z.string().trim().min(1),
+    override: z.boolean().optional(),
+    overrideReason: z.string().trim().optional(),
+});
+
+const reversalSchema = z.object({
+    reason: z.string().trim().min(1),
+});
+
+// The service throws Errors carrying `status`, and the decision helpers attach
+// `field` / `code` plus, for an over-settlement, the three figures the admin
+// needs to correct the submission. Same shape as the earnings routes above, with
+// those extras passed through rather than dropped (Requirement 5.2).
+function sendSettlementError(res, error) {
+    const body = { error: error.message };
+    if (error.field) body.field = error.field;
+    // Only a decision code, never a driver's numeric one.
+    if (typeof error.code === 'string') body.code = error.code;
+    if (error.code === 'over_settlement') {
+        body.netPayable = error.netPayable;
+        body.settledToDate = error.settledToDate;
+        body.maxRecordable = error.maxRecordable;
+    }
+    res.status(error.status || 500).json(body);
+}
+
+const settlementAdmin = (req) => ({ _id: req.user._id, name: req.user.name, adminRole: req.user.adminRole });
+
+// Listing_Stats + the ledger + the derived state (Requirements 1, 2, 3, 11.1).
+router.get('/listings/:kind/:id/settlement', settlementRoleGuard, async (req, res) => {
+    try {
+        const settlement = await settlementService.getListingSettlement({ kind: req.params.kind, listingId: req.params.id });
+        res.json(settlement);
+    } catch (error) {
+        sendSettlementError(res, error);
+    }
+});
+
+// Record one real transfer (Requirements 4, 5, 6, 8, 10, 11.2).
+router.post('/listings/:kind/:id/settlement/entries', settlementRoleGuard, validate(entrySchema), async (req, res) => {
+    try {
+        const result = await settlementService.recordEntry({
+            kind: req.params.kind,
+            listingId: req.params.id,
+            input: req.body,
+            admin: settlementAdmin(req),
+        });
+        res.json(result);
+    } catch (error) {
+        sendSettlementError(res, error);
+    }
+});
+
+// Correct a recorded transfer by appending its reversal — never by editing or
+// deleting the original (Requirement 7).
+router.post('/listings/:kind/:id/settlement/entries/:entryId/reversal', settlementRoleGuard, validate(reversalSchema), async (req, res) => {
+    try {
+        const result = await settlementService.recordReversal({
+            kind: req.params.kind,
+            listingId: req.params.id,
+            entryId: req.params.entryId,
+            reason: req.body.reason,
+            admin: settlementAdmin(req),
+        });
+        res.json(result);
+    } catch (error) {
+        sendSettlementError(res, error);
     }
 });
 
