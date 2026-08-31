@@ -167,11 +167,14 @@ export default function CreateCreatorPage() {
             const MAX_SIZE = 2 * 1024 * 1024;
             if (file.size > MAX_SIZE) {
                 showToast('Profile photo exceeds 2MB limit', 'error');
+                e.target.value = '';
                 return;
             }
             setProfilePhoto(file);
             setProfilePreview(URL.createObjectURL(file));
         }
+        // Reset input so same file can be selected again after removal
+        e.target.value = '';
     };
 
     const handleCoverPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,11 +183,14 @@ export default function CreateCreatorPage() {
             const MAX_SIZE = 2 * 1024 * 1024;
             if (file.size > MAX_SIZE) {
                 showToast('Cover photo exceeds 2MB limit', 'error');
+                e.target.value = '';
                 return;
             }
             setCoverPhoto(file);
             setCoverPreview(URL.createObjectURL(file));
         }
+        // Reset input so same file can be selected again after removal
+        e.target.value = '';
     };
 
     const addMember = () => {
@@ -417,59 +423,83 @@ export default function CreateCreatorPage() {
                             <div className="space-y-8">
                                 {/* Cover Photo */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">Cover Photo</label>
-                                    {/* Same guidance as the event cover image, so one
-                                        photo works for both and nobody has to prepare two
-                                        sizes. The 2MB cap was previously only discoverable
-                                        by exceeding it - it lived in the change handler
-                                        and surfaced as a toast after picking a file. */}
+                                    <label className="block text-sm font-medium text-gray-300 mb-1">Cover Photo <span className="text-violet-400">(Single • Landscape)</span></label>
                                     <p className="text-xs text-gray-400 mb-3">
-                                        Landscape, 1200 × 675 px or larger (16:9). JPG or PNG, up to 2MB.
+                                        Upload <span className="text-white">1 landscape image</span> (16:9 ratio). Recommended: 1200 × 675 px or larger. JPG or PNG, up to 2MB.
                                     </p>
-                                    <div className="relative h-40 rounded-xl overflow-hidden border border-dashed border-white/20 bg-black/40">
+                                    <div className="relative">
                                         {coverPreview ? (
-                                            <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-gray-300">
-                                                <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                                <span className="text-sm">Click to upload</span>
+                                            <div className="relative h-40 rounded-xl overflow-hidden">
+                                                <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setCoverPreview('');
+                                                        setCoverPhoto(null);
+                                                    }}
+                                                    className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg"
+                                                >
+                                                    ×
+                                                </button>
                                             </div>
+                                        ) : (
+                                            <label className="flex flex-col items-center justify-center h-40 rounded-xl border border-dashed border-white/20 bg-black/40 cursor-pointer hover:border-violet-500/50 transition-colors">
+                                                <svg className="w-10 h-10 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                                <span className="text-sm text-gray-400">Click to upload cover photo</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleCoverPhotoChange}
+                                                    className="hidden"
+                                                />
+                                            </label>
                                         )}
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleCoverPhotoChange}
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
-                                        />
                                     </div>
                                 </div>
 
                                 {/* Profile Photo */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-3">Profile Photo</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-1">Profile Photo <span className="text-violet-400">(Single • Square)</span></label>
+                                    <p className="text-xs text-gray-400 mb-3">
+                                        Upload <span className="text-white">1 square image</span>. Recommended: 400 × 400 px or larger. JPG or PNG, up to 2MB.
+                                    </p>
                                     <div className="flex items-center gap-6">
-                                        <div className="relative w-28 h-28 rounded-full overflow-hidden border-2 border-dashed border-white/20 bg-black/40">
+                                        <div className="relative">
                                             {profilePreview ? (
-                                                <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
+                                                <>
+                                                    <div className="w-28 h-28 rounded-full overflow-hidden">
+                                                        <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setProfilePreview('');
+                                                            setProfilePhoto(null);
+                                                        }}
+                                                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </>
                                             ) : (
-                                                <div className="flex items-center justify-center h-full text-gray-300">
-                                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                <label className="w-28 h-28 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 bg-black/40 cursor-pointer hover:border-violet-500/50 transition-colors">
+                                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                                     </svg>
-                                                </div>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleProfilePhotoChange}
+                                                        className="hidden"
+                                                    />
+                                                </label>
                                             )}
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleProfilePhotoChange}
-                                                className="absolute inset-0 opacity-0 cursor-pointer"
-                                            />
                                         </div>
-                                        <div className="text-gray-300 text-sm">
+                                        <div className="text-gray-400 text-sm">
                                             <p>Click to upload</p>
-                                            <p className="text-gray-300">Square image works best</p>
+                                            <p>Square image works best</p>
                                         </div>
                                     </div>
                                 </div>

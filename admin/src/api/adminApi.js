@@ -205,6 +205,14 @@ const adminApi = {
         return handle(res, 'Failed to update brand status');
     },
 
+    async deleteBrand(brandId) {
+        const res = await fetch(`${API_BASE}/brands/${brandId}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to delete brand');
+    },
+
     // ================== AUDIT TRAIL ==================
     async getAuditTrail(params = {}) {
         const query = new URLSearchParams(params).toString();

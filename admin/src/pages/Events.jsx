@@ -446,6 +446,31 @@ export default function Events() {
                                                     </td>
                                                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex items-center gap-2">
+                                                            {/* Approve/Reject for events awaiting admin approval */}
+                                                            {(event.adminApproval?.status !== 'approved' && event.status !== 'rejected' && event.status !== 'cancelled' && event.status !== 'blocked') && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleAdminApprove(event._id, 'approved'); }}
+                                                                        disabled={processingId === event._id}
+                                                                        className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                                                                        title="Approve"
+                                                                    >
+                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setRejectingEvent(event); }}
+                                                                        disabled={processingId === event._id}
+                                                                        className="p-1.5 rounded-lg text-yellow-400 hover:bg-yellow-500/20 transition-colors disabled:opacity-50"
+                                                                        title="Reject"
+                                                                    >
+                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                             {event.status === 'approved' && (
                                                                 <button
                                                                     onClick={(e) => handleBlock(event._id, e)}

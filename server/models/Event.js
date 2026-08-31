@@ -26,6 +26,12 @@ const eventSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    /** Portrait poster image (3:4) for event cards. Separate from banner images. */
+    coverPhoto: {
+        type: String,
+        default: null
+    },
+    /** Landscape images for the detail page banner and gallery. */
     images: [{
         type: String
     }],

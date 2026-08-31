@@ -48,6 +48,7 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
     // below still runs - it returns viewer-specific fields the anonymous server read
     // cannot see - but it refreshes in place instead of blanking the page.
     const [isLoading, setIsLoading] = useState(!initialEvent);
+    const [selectedImage, setSelectedImage] = useState(0);
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
     const [isPrivateCodeModalOpen, setIsPrivateCodeModalOpen] = useState(false);
     const [ticketQuantity, setTicketQuantity] = useState(1);
@@ -434,47 +435,65 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
                         Share sits opposite it - these pages are what actually gets
                         passed around, and copying from the address bar is not a thing
                         anyone does on a phone. */}
-                    <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center justify-between gap-3 mb-4 relative z-30">
                         <BackButton fallbackHref="/events" label="Back to Events" />
                         <ShareButton title={event.name} text={`Check out ${event.name} on FIRA`} />
                     </div>
 
-                    {/* Hero Image */}
-                    <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-8">
-                        {event.images && event.images.length > 0 ? (
-                            <img src={event.images[0]} alt={event.name} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-violet-500/30 to-pink-500/30 flex items-center justify-center">
-                                <svg className="w-24 h-24 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
+                    {/* Hero Image - 16:9 aspect ratio maintained on all screen sizes */}
+                    <div className="mb-8">
+                        <div className="relative w-full aspect-video rounded-2xl overflow-hidden">
+                            {event.images && event.images.length > 0 ? (
+                                <img src={event.images[selectedImage]} alt={event.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-violet-500/30 to-pink-500/30 flex items-center justify-center">
+                                    <svg className="w-24 h-24 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            )}
+
+                            {/* Badges - smaller on mobile */}
+                            <div className="absolute top-3 left-3 flex gap-2">
+                                {event.eventType === 'private' && (
+                                    <span className="px-2 py-1 rounded-full bg-violet-500/30 backdrop-blur-sm border border-violet-500/30 text-violet-200 text-xs font-medium flex items-center gap-1.5">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                        Private
+                                    </span>
+                                )}
+                                <span className="px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-xs capitalize">
+                                    {event.category}
+                                </span>
+                            </div>
+
+                            {/* Date/Time Range Banner - compact overlay */}
+                            <div className="absolute bottom-3 left-3 px-3 py-2 rounded-lg bg-black/80 backdrop-blur-sm border border-white/10">
+                                <div className="text-violet-400 text-xs font-medium">
+                                    {formatSingleDateTime(event.startDateTime)}
+                                </div>
+                                <div className="text-white text-sm font-semibold">
+                                    to {formatSingleDateTime(event.endDateTime)}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Thumbnail Gallery - like venues page */}
+                        {event.images && event.images.length > 1 && (
+                            <div className="flex gap-2 overflow-x-auto pb-2 mt-4">
+                                {event.images.map((image, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setSelectedImage(index)}
+                                        className={`flex-shrink-0 w-28 aspect-video rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index ? 'border-violet-500' : 'border-transparent opacity-60 hover:opacity-100'
+                                            }`}
+                                    >
+                                        <img src={image} alt="" className="w-full h-full object-cover" />
+                                    </button>
+                                ))}
                             </div>
                         )}
-
-                        {/* Badges */}
-                        <div className="absolute top-4 left-4 flex gap-2">
-                            {event.eventType === 'private' && (
-                                <span className="px-3 py-1.5 rounded-full bg-violet-500/30 backdrop-blur-sm border border-violet-500/30 text-violet-200 text-sm font-medium flex items-center gap-2">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                    Private Event
-                                </span>
-                            )}
-                            <span className="px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white text-sm capitalize">
-                                {event.category}
-                            </span>
-                        </div>
-
-                        {/* Date/Time Range Banner */}
-                        <div className="absolute bottom-4 left-4 px-4 py-3 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10">
-                            <div className="text-violet-400 text-sm font-medium">
-                                {formatSingleDateTime(event.startDateTime)}
-                            </div>
-                            <div className="text-white text-lg font-semibold">
-                                to {formatSingleDateTime(event.endDateTime)}
-                            </div>
-                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -743,28 +762,54 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
                                         </label>
                                     )}
 
-                                    {event.images && event.images.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                            {event.images.map((image, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
-                                                    onClick={() => window.open(image, '_blank')}
-                                                >
-                                                    <img
-                                                        src={image}
-                                                        alt={`${event.name} - Image ${index + 1}`}
-                                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                                        </svg>
-                                                    </div>
+                                    {/* Poster Image (3:4 Portrait) */}
+                                    {event.coverPhoto && (
+                                        <div>
+                                            <h3 className="text-white font-medium mb-3">Poster</h3>
+                                            <div
+                                                className="relative w-48 aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer"
+                                                onClick={() => window.open(event.coverPhoto!, '_blank')}
+                                            >
+                                                <img
+                                                    src={event.coverPhoto}
+                                                    alt={`${event.name} - Poster`}
+                                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                />
+                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                    </svg>
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
-                                    ) : (
+                                    )}
+
+                                    {/* Banner/Gallery Images (16:9 Landscape) */}
+                                    {event.images && event.images.length > 0 ? (
+                                        <div>
+                                            <h3 className="text-white font-medium mb-3">Banner & Gallery</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {event.images.map((image, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="relative aspect-video rounded-xl overflow-hidden group cursor-pointer"
+                                                        onClick={() => window.open(image, '_blank')}
+                                                    >
+                                                        <img
+                                                            src={image}
+                                                            alt={`${event.name} - Image ${index + 1}`}
+                                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : !event.coverPhoto ? (
                                         <div className="text-center py-20 text-gray-300">
                                             <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -772,7 +817,7 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
                                             <p>No gallery images yet for this event</p>
                                             {isOrganizer && <p className="text-sm mt-2">Add photos to share event moments!</p>}
                                         </div>
-                                    )}
+                                    ) : null}
                                 </div>
                             )}
                         </div>

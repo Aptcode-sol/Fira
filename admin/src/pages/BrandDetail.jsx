@@ -1,14 +1,35 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 
 export default function BrandDetail() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [brand, setBrand] = useState(null);
     const [events, setEvents] = useState([]);
     const [stats, setStats] = useState({});
     const [loading, setLoading] = useState(true);
+    const [deleting, setDeleting] = useState(false);
+
+    // Hard delete: removes the profile and resets the owner's verified badge so
+    // they can apply again. Irreversible, so the confirm spells that out.
+    const handleDelete = async () => {
+        if (!brand) return;
+        const owner = brand.user?.name || 'its owner';
+        if (!window.confirm(
+            `Delete "${brand.name}"?\n\nThis permanently removes the creator profile and its posts, and resets ${owner}'s verified badge so they can create a new profile. This cannot be undone.`
+        )) return;
+        try {
+            setDeleting(true);
+            await adminApi.deleteBrand(id);
+            navigate('/brands');
+        } catch (err) {
+            console.error('Failed to delete creator:', err);
+            alert(err.message || 'Failed to delete creator');
+            setDeleting(false);
+        }
+    };
 
     useEffect(() => {
         fetchBrand();
@@ -75,13 +96,26 @@ export default function BrandDetail() {
                                 </p>
                             </div>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium border ${brand.status === 'approved' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                            brand.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                                brand.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
-                                    'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                            }`}>
-                            {brand.status || 'approved'}
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium border ${brand.status === 'approved' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                brand.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                    brand.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                        'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                                }`}>
+                                {brand.status || 'approved'}
+                            </span>
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors text-sm font-medium disabled:opacity-50"
+                                title="Delete creator profile"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                {deleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

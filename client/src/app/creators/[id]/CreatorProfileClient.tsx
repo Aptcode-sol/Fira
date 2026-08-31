@@ -224,7 +224,7 @@ export default function CreatorProfileClient({ initialBrand = null }: { initialB
             {/* Above the banner rather than inside the content column: BrandHeader is a
                 full-bleed hero, so a control placed after it would sit below the fold on
                 a phone. Falls back to the creators list when opened from a shared link. */}
-            <div className="max-w-7xl mx-auto px-4 md:px-8 pt-24 flex items-center justify-between gap-3">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 pt-24 pb-4 flex items-center justify-between gap-3 relative z-30">
                 <BackButton fallbackHref="/creators" label="Back to Creators" />
                 <ShareButton title={brand.name} text={`Check out ${brand.name} on FIRA`} />
             </div>

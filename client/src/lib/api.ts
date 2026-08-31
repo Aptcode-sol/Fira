@@ -843,6 +843,41 @@ export const verificationApi = {
         }),
 };
 
+/**
+ * Read an upload response as JSON, but survive the body NOT being JSON.
+ *
+ * The upload route always answers JSON, so an HTML body means the request never
+ * reached it - a proxy 413/502, a dev-server 404, or a multer error hitting
+ * Express's default (HTML) error handler. Calling response.json() on that threw
+ * "Unexpected token '<', "<!DOCTYPE"..." which tells the user nothing. This reads
+ * the text first and, when it will not parse, throws the HTTP status instead, so
+ * the toast says something actionable like "Upload failed (502)".
+ */
+async function readUploadResponse<T>(response: Response, token: string | null): Promise<T> {
+    const raw = await response.text();
+    let parsed: unknown = null;
+    try {
+        parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+        // Body was not JSON (almost always an HTML error page).
+        if (!response.ok) {
+            const hint = response.status === 401 || response.status === 403
+                ? token ? 'your session may have expired' : 'you need to sign in'
+                : response.status === 413
+                    ? 'the image is too large'
+                    : 'the server returned an unexpected response';
+            throw new Error(`Upload failed (${response.status}) - ${hint}`);
+        }
+        throw new Error('Upload succeeded but the server response could not be read');
+    }
+
+    if (!response.ok) {
+        const message = (parsed as { error?: string })?.error || `Upload failed (${response.status})`;
+        throw new Error(message);
+    }
+    return parsed as T;
+}
+
 // Upload API (uses FormData, not JSON)
 export const uploadApi = {
     single: async (file: File, folder = 'events'): Promise<{ url: string; publicId: string }> => {
@@ -862,12 +897,7 @@ export const uploadApi = {
             body: formData,
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Upload failed');
-        }
-
-        return response.json();
+        return readUploadResponse<{ url: string; publicId: string }>(response, token);
     },
     multiple: async (files: File[], folder = 'events'): Promise<{ images: { url: string; publicId: string }[] }> => {
         const formData = new FormData();
@@ -886,12 +916,7 @@ export const uploadApi = {
             body: formData,
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Upload failed');
-        }
-
-        return response.json();
+        return readUploadResponse<{ images: { url: string; publicId: string }[] }>(response, token);
     },
     delete: async (publicId: string): Promise<{ success: boolean }> => {
         return request('/upload/delete', {
@@ -1003,6 +1028,8 @@ export interface DashboardOverview {
         /** Review state of the creator application. Mirrors BrandProfile.status. */
         status: 'pending' | 'approved' | 'rejected' | 'blocked';
         profilePhoto: string;
+        /** Landscape cover image (16:9), same field the creator page banner uses. */
+        coverPhoto?: string | null;
         followers: number;
         events: number;
     } | null;

@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { openCreateCreator } from '@/components/modals/CreateCreatorLauncher';
 
 /** Badges that mean the account is an admin-approved creator. */
 const CREATOR_BADGES = ['brand', 'band', 'organizer'];
@@ -43,7 +43,6 @@ export default function CreatorStatusButton({
 }) {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const router = useRouter();
 
     const badged = Boolean(user?.verificationBadge && CREATOR_BADGES.includes(user.verificationBadge));
     const state = status ?? (badged ? 'approved' : null);
@@ -116,7 +115,7 @@ export default function CreatorStatusButton({
                 variant="secondary"
                 onClick={() => {
                     showToast('Your previous application was not approved. You can apply again.', 'info');
-                    router.push('/create/creator');
+                    openCreateCreator();
                 }}
                 className={`justify-center bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30 ${className}`}
             >
@@ -129,13 +128,15 @@ export default function CreatorStatusButton({
     }
 
     return (
-        <Link href="/create/creator" className={className}>
-            <Button variant="secondary" className="w-full justify-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-                Apply as Creator
-            </Button>
-        </Link>
+        <Button
+            variant="secondary"
+            onClick={openCreateCreator}
+            className={`justify-center ${className}`}
+        >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            Apply as Creator
+        </Button>
     );
 }

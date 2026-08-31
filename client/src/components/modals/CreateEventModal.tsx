@@ -38,6 +38,9 @@ export interface EventDraft {
     maxAttendees?: number;
     termsAndConditions?: string | null;
     ticketTiers?: { name?: string; price?: number; description?: string; maxQuantity?: number }[];
+    /** Portrait poster image (3:4) for cards. */
+    coverPhoto?: string | null;
+    /** Landscape images for banner/gallery. */
     images?: string[];
     friendsAndFamilyStay?: boolean;
     allowAlcohol?: boolean;
@@ -280,8 +283,19 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
         } ${extra}`;
     const [venues, setVenues] = useState<{ _id: string; name: string }[]>([]);
     const [loadingVenues, setLoadingVenues] = useState(true);
+    /** Single banner image file - kept for backward compat, first in gallery */
     const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
     const [coverImagePreview, setCoverImagePreview] = useState<string>('');
+    /** Additional gallery images (landscape) */
+    const [galleryImageFiles, setGalleryImageFiles] = useState<File[]>([]);
+    const [galleryImagePreviews, setGalleryImagePreviews] = useState<string[]>([]);
+    /** Portrait poster image (3:4) for event cards. Separate from banner. */
+    const [posterImageFile, setPosterImageFile] = useState<File | null>(null);
+    const [posterImagePreview, setPosterImagePreview] = useState<string>('');
+    /** Saved image URLs when editing (not files, actual URLs from server) */
+    const [savedPosterUrl, setSavedPosterUrl] = useState<string>('');
+    const [savedBannerUrl, setSavedBannerUrl] = useState<string>('');
+    const [savedGalleryUrls, setSavedGalleryUrls] = useState<string[]>([]);
     const [isVenueDropdownOpen, setIsVenueDropdownOpen] = useState(false);
     const [venueSearchQuery, setVenueSearchQuery] = useState('');
     const filteredVenues = venues.filter(v => v.name.toLowerCase().includes(venueSearchQuery.toLowerCase()));
@@ -308,8 +322,18 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
     const resetForm = () => {
         setFormData(baseline());
         if (coverImagePreview) URL.revokeObjectURL(coverImagePreview);
+        if (posterImagePreview) URL.revokeObjectURL(posterImagePreview);
+        galleryImagePreviews.forEach(url => URL.revokeObjectURL(url));
         setCoverImageFile(null);
         setCoverImagePreview('');
+        setGalleryImageFiles([]);
+        setGalleryImagePreviews([]);
+        setPosterImageFile(null);
+        setPosterImagePreview('');
+        // When editing, show existing images as previews (URLs, not files)
+        setSavedPosterUrl(event?.coverPhoto ?? '');
+        setSavedBannerUrl(event?.images?.[0] ?? '');
+        setSavedGalleryUrls(event?.images?.slice(1) ?? []);
         setPayoutAccountId(event?.payoutAccount ?? null);
         setFieldErrors({});
         setTierErrors({});
@@ -325,6 +349,10 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
         if (!event?._id) return;
         setFormData(baseline());
         setPayoutAccountId(event.payoutAccount ?? null);
+        // Show existing images when editing
+        setSavedPosterUrl(event.coverPhoto ?? '');
+        setSavedBannerUrl(event.images?.[0] ?? '');
+        setSavedGalleryUrls(event.images?.slice(1) ?? []);
         setStep(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, event?._id]);
@@ -586,13 +614,42 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
 
         setIsSubmitting(true);
         try {
-            // Upload image if selected. When editing without picking a new one, keep
-            // whatever the event already had - an empty array would wipe the cover.
-            let imageUrls: string[] = formData.images;
+            // Upload poster image (portrait 3:4 for cards) if selected
+            // Use saved poster if no new one uploaded, null if removed
+            let coverPhotoUrl: string | null = savedPosterUrl || null;
+            if (posterImageFile) {
+                showToast('Uploading poster image...', 'info');
+                const posterResult = await uploadApi.single(posterImageFile, 'events');
+                coverPhotoUrl = posterResult.url;
+            }
+
+            // Upload banner/gallery images (landscape 16:9). When editing without
+            // picking new ones, keep whatever the event already had.
+            // Start with saved images that weren't removed
+            const imageUrls: string[] = [];
+            
+            // Add saved banner if not removed and no new banner uploaded
+            if (savedBannerUrl && !coverImageFile) {
+                imageUrls.push(savedBannerUrl);
+            }
+            
+            // Upload main banner image first (if new one selected)
             if (coverImageFile) {
-                showToast('Uploading image...', 'info');
+                showToast('Uploading banner image...', 'info');
                 const uploadResult = await uploadApi.single(coverImageFile, 'events');
-                imageUrls = [uploadResult.url];
+                imageUrls.push(uploadResult.url);
+            }
+            
+            // Add saved gallery images that weren't removed
+            imageUrls.push(...savedGalleryUrls);
+            
+            // Upload additional gallery images
+            if (galleryImageFiles.length > 0) {
+                showToast(`Uploading ${galleryImageFiles.length} gallery image(s)...`, 'info');
+                for (const file of galleryImageFiles) {
+                    const uploadResult = await uploadApi.single(file, 'events');
+                    imageUrls.push(uploadResult.url);
+                }
             }
 
             // Combine date and time into DateTime strings
@@ -624,6 +681,7 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                 maxAttendees: tierCapacity,
                 termsAndConditions: formData.termsAndConditions || null,
                 payoutAccount: payoutAccountId,
+                coverPhoto: coverPhotoUrl,
                 images: imageUrls,
                 friendsAndFamilyStay: formData.friendsAndFamilyStay,
                 allowAlcohol: formData.allowAlcohol,
@@ -1164,12 +1222,15 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                                     </div>
                                                     <div className={formData.ticketType === 'paid' ? '' : 'hidden'}>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
                                                             placeholder="Price (₹)"
-                                                            min={0}
                                                             value={tier.price || ''}
-                                                            onChange={(e) => updateTier(index, 'price', Math.max(0, parseInt(e.target.value) || 0))}
-                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                                                updateTier(index, 'price', val === '' ? 0 : Math.max(0, parseInt(val)));
+                                                            }}
                                                             aria-invalid={fieldErrors[`tier-${index}-price`] ? true : undefined}
                                                             className={`w-full px-3 py-2 rounded-lg bg-white/5 border text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${fieldErrors[`tier-${index}-price`]
                                                                 ? 'border-red-500 focus:ring-red-500/50'
@@ -1196,11 +1257,14 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                                         the event's capacity. */}
                                                     <label className="text-xs text-gray-400">Max attendees for this tier</label>
                                                     <input
-                                                        type="number"
-                                                        min={1}
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
                                                         value={tier.maxQuantity || ''}
-                                                        onChange={(e) => updateTier(index, 'maxQuantity', e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
-                                                        onWheel={(e) => e.currentTarget.blur()}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                                            updateTier(index, 'maxQuantity', val === '' ? '' : Math.max(1, parseInt(val) || 1));
+                                                        }}
                                                         aria-invalid={fieldErrors[`tier-${index}-maxQuantity`] ? true : undefined}
                                                         className={`w-full px-3 py-2 rounded-lg bg-white/5 border text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${fieldErrors[`tier-${index}-maxQuantity`]
                                                             ? 'border-red-500 focus:ring-red-500/50'
@@ -1224,20 +1288,13 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                         </button>
                                 </div>
 
-                                {/* Event Cover Image */}
+                                {/* Poster / Cover Photo - for cards */}
                                 <div>
-                                    <label htmlFor="cover-image-upload" className="block text-sm font-medium text-gray-300 mb-1">
-                                        Event Cover Image (Optional)
+                                    <label htmlFor="poster-image-upload" className="block text-sm font-medium text-gray-300 mb-1">
+                                        Poster Image <span className="text-violet-400">(Single • For Event Cards)</span>
                                     </label>
-                                    {/* The 2MB cap was only discoverable by exceeding it -
-                                        the limit lived in the change handler and surfaced
-                                        as a toast after picking a file. Stating the size
-                                        up front means nobody picks a 6MB photo first.
-                                        Dimensions matter too: this image is cropped to a
-                                        wide hero on the event page and to a shorter strip
-                                        on cards, so anything portrait loses its subject. */}
-                                    <p id="cover-image-help" className="text-xs text-gray-400 mb-2">
-                                        Landscape, 1200 × 675 px or larger (16:9). JPG or PNG, up to 2MB.
+                                    <p id="poster-image-help" className="text-xs text-gray-400 mb-2">
+                                        Upload <span className="text-white">1 portrait image</span> (3:4 ratio). Recommended: 900 × 1200 px or larger. This appears on event cards and listings. JPG or PNG, up to 2MB.
                                     </p>
                                     <div className="relative">
                                         <input
@@ -1246,14 +1303,108 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
-                                                // 2MB size limit
                                                 const MAX_SIZE = 2 * 1024 * 1024;
                                                 if (file.size > MAX_SIZE) {
-                                                    showToast('Image exceeds 2MB limit', 'error');
+                                                    showToast('Poster image exceeds 2MB limit', 'error');
+                                                    e.target.value = '';
                                                     return;
                                                 }
-                                                setCoverImageFile(file);
-                                                setCoverImagePreview(URL.createObjectURL(file));
+                                                setPosterImageFile(file);
+                                                setPosterImagePreview(URL.createObjectURL(file));
+                                                // Clear saved poster when new one is selected
+                                                setSavedPosterUrl('');
+                                                e.target.value = '';
+                                            }}
+                                            className="hidden"
+                                            id="poster-image-upload"
+                                            aria-describedby="poster-image-help"
+                                        />
+                                        <label
+                                            htmlFor="poster-image-upload"
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-4 rounded-xl bg-white/5 border border-dashed border-white/20 text-gray-400 hover:bg-white/10 hover:border-violet-500/50 cursor-pointer transition-all"
+                                        >
+                                            {(posterImagePreview || savedPosterUrl) ? (
+                                                <span className="text-green-400 text-sm">✓ Poster selected — click to change</span>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span className="text-sm">Click to select poster image (3:4 portrait)</span>
+                                                </>
+                                            )}
+                                        </label>
+                                        {/* Show new preview OR saved poster */}
+                                        {(posterImagePreview || savedPosterUrl) && (
+                                            <div className="mt-2 flex justify-center">
+                                                <div className="relative">
+                                                    <img src={posterImagePreview || savedPosterUrl} alt="Poster Preview" className="w-32 rounded-xl object-cover aspect-[3/4]" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (posterImagePreview) URL.revokeObjectURL(posterImagePreview);
+                                                            setPosterImageFile(null);
+                                                            setPosterImagePreview('');
+                                                            setSavedPosterUrl('');
+                                                        }}
+                                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-lg"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Banner / Gallery Images - for detail page */}
+                                <div>
+                                    <label htmlFor="cover-image-upload" className="block text-sm font-medium text-gray-300 mb-1">
+                                        Banner & Gallery Images <span className="text-violet-400">(Multiple • For Event Page)</span>
+                                    </label>
+                                    <p id="cover-image-help" className="text-xs text-gray-400 mb-2">
+                                        Upload <span className="text-white">landscape images</span> (16:9 ratio). Recommended: 1200 × 675 px or larger. First image appears as hero banner, others in gallery. JPG or PNG, up to 2MB each.
+                                    </p>
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={(e) => {
+                                                const files = Array.from(e.target.files || []);
+                                                if (files.length === 0) return;
+                                                
+                                                const MAX_SIZE = 2 * 1024 * 1024;
+                                                const validFiles: File[] = [];
+                                                const validPreviews: string[] = [];
+                                                
+                                                for (const file of files) {
+                                                    if (file.size > MAX_SIZE) {
+                                                        showToast(`${file.name} exceeds 2MB limit`, 'error');
+                                                        continue;
+                                                    }
+                                                    validFiles.push(file);
+                                                    validPreviews.push(URL.createObjectURL(file));
+                                                }
+                                                
+                                                if (validFiles.length > 0) {
+                                                    // If no banner yet (new or saved), first file becomes banner
+                                                    if (!coverImageFile && !savedBannerUrl) {
+                                                        setCoverImageFile(validFiles[0]);
+                                                        setCoverImagePreview(validPreviews[0]);
+                                                        // Rest go to gallery
+                                                        if (validFiles.length > 1) {
+                                                            setGalleryImageFiles(prev => [...prev, ...validFiles.slice(1)]);
+                                                            setGalleryImagePreviews(prev => [...prev, ...validPreviews.slice(1)]);
+                                                        }
+                                                    } else {
+                                                        // Banner already exists, add all to gallery
+                                                        setGalleryImageFiles(prev => [...prev, ...validFiles]);
+                                                        setGalleryImagePreviews(prev => [...prev, ...validPreviews]);
+                                                    }
+                                                }
+                                                // Reset input so same file can be selected again
+                                                e.target.value = '';
                                             }}
                                             className="hidden"
                                             id="cover-image-upload"
@@ -1263,22 +1414,85 @@ function CreateEventForm({ isOpen, onClose, onCreated, event = null }: CreateEve
                                             htmlFor="cover-image-upload"
                                             className="flex items-center justify-center gap-2 w-full px-4 py-4 rounded-xl bg-white/5 border border-dashed border-white/20 text-gray-400 hover:bg-white/10 hover:border-violet-500/50 cursor-pointer transition-all"
                                         >
-                                            {coverImagePreview ? (
-                                                <span className="text-green-400 text-sm">✓ Image selected (will upload on submit)</span>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                    </svg>
-                                                    <span className="text-sm">Click to select cover image</span>
-                                                </>
-                                            )}
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            <span className="text-sm">
+                                                {(coverImagePreview || savedBannerUrl || galleryImagePreviews.length > 0 || savedGalleryUrls.length > 0) 
+                                                    ? 'Add more landscape images' 
+                                                    : 'Click to select landscape images (16:9)'}
+                                            </span>
                                         </label>
-                                        {coverImagePreview && (
-                                            <img src={coverImagePreview} alt="Preview" className="mt-2 w-full rounded-xl object-cover" />
+                                        
+                                        {/* Preview grid - shows both saved and new images */}
+                                        {(coverImagePreview || savedBannerUrl || galleryImagePreviews.length > 0 || savedGalleryUrls.length > 0) && (
+                                            <div className="mt-3 grid grid-cols-3 gap-2">
+                                                {/* Saved banner (from server) */}
+                                                {savedBannerUrl && !coverImagePreview && (
+                                                    <div className="relative">
+                                                        <img src={savedBannerUrl} alt="Banner" className="w-full rounded-lg object-cover aspect-video" />
+                                                        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-violet-500/80 text-[10px] text-white font-medium">Banner</div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSavedBannerUrl('')}
+                                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-lg"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {/* New banner (file preview) */}
+                                                {coverImagePreview && (
+                                                    <div className="relative">
+                                                        <img src={coverImagePreview} alt="Banner" className="w-full rounded-lg object-cover aspect-video" />
+                                                        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-violet-500/80 text-[10px] text-white font-medium">Banner</div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                URL.revokeObjectURL(coverImagePreview);
+                                                                setCoverImageFile(null);
+                                                                setCoverImagePreview('');
+                                                            }}
+                                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-lg"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {/* Saved gallery images (from server) */}
+                                                {savedGalleryUrls.map((url, idx) => (
+                                                    <div key={`saved-${idx}`} className="relative">
+                                                        <img src={url} alt={`Gallery ${idx + 1}`} className="w-full rounded-lg object-cover aspect-video" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSavedGalleryUrls(prev => prev.filter((_, i) => i !== idx))}
+                                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-lg"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {/* New gallery images (file previews) */}
+                                                {galleryImagePreviews.map((preview, idx) => (
+                                                    <div key={`new-${idx}`} className="relative">
+                                                        <img src={preview} alt={`Gallery ${idx + 1}`} className="w-full rounded-lg object-cover aspect-video" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                URL.revokeObjectURL(preview);
+                                                                setGalleryImageFiles(prev => prev.filter((_, i) => i !== idx));
+                                                                setGalleryImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-lg"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
-                                    <p className="mt-1.5 text-xs text-gray-300">Max size per image: 2MB</p>
+                                    <p className="mt-1.5 text-xs text-gray-400">Max 2MB per image. You can select multiple files.</p>
                                 </div>
 
                                 {/* Terms and Conditions */}

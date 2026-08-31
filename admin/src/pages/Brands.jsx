@@ -74,6 +74,25 @@ export default function Brands() {
         }
     };
 
+    // Hard delete. Unlike block, this removes the profile entirely and resets the
+    // owner's verified badge, letting them apply again from scratch - which is the
+    // whole point of offering it. The confirm spells that out because it cannot be
+    // undone.
+    const handleDelete = async (brand, e) => {
+        e.stopPropagation();
+        const owner = brand.owner?.name || brand.user?.name || 'its owner';
+        if (!window.confirm(
+            `Delete "${brand.name}"?\n\nThis permanently removes the creator profile and its posts, and resets ${owner}'s verified badge so they can create a new profile. This cannot be undone.`
+        )) return;
+        try {
+            await adminApi.deleteBrand(brand._id);
+            fetchBrands();
+        } catch (err) {
+            console.error('Failed to delete creator:', err);
+            alert(err.message || 'Failed to delete creator');
+        }
+    };
+
     const getStatusColor = (status) => {
         switch (status) {
             case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -248,6 +267,20 @@ export default function Brands() {
                                                             </svg>
                                                         </button>
                                                     )}
+                                                    {/* Delete is offered on every row, whatever the
+                                                        status: its purpose is to free the owner to
+                                                        re-apply, which is as valid for a rejected or
+                                                        blocked profile as an approved one. */}
+                                                    <button
+                                                        onClick={(e) => handleDelete(brand, e)}
+                                                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                                                        title="Delete creator"
+                                                        aria-label={`Delete creator ${brand.name}`}
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

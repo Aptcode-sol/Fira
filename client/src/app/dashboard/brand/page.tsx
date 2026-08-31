@@ -9,6 +9,8 @@ import { Button } from '@/components/ui';
 import { brandsApi, uploadApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { openCreateCreator, openEditCreator } from '@/components/modals/CreateCreatorLauncher';
+import { CREATOR_SAVED } from '@/components/modals/CreateCreatorModal';
 
 /** Review state of the creator application. Mirrors BrandProfile.status. */
 type BrandStatus = 'pending' | 'approved' | 'rejected' | 'blocked';
@@ -71,24 +73,6 @@ export default function BrandDashboardPage() {
     const [brand, setBrand] = useState<BrandProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [editTab, setEditTab] = useState<'basic' | 'social' | 'photos'>('basic');
-    const [editForm, setEditForm] = useState({
-        name: '',
-        bio: '',
-        address: '',
-        instagram: '',
-        twitter: '',
-        facebook: '',
-        website: '',
-        spotify: '',
-        youtube: '',
-    });
-    const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
-    const [coverPhotoFile, setCoverPhotoFile] = useState<File | null>(null);
-    const [profilePreview, setProfilePreview] = useState('');
-    const [coverPreview, setCoverPreview] = useState('');
 
     // Posts state
     const [posts, setPosts] = useState<any[]>([]);
@@ -115,19 +99,8 @@ export default function BrandDashboardPage() {
             setLoading(true);
             const brandData = await brandsApi.getMyProfile(user._id) as BrandProfile;
             setBrand(brandData);
-            if (brandData) {
-                setEditForm({
-                    name: brandData.name || '',
-                    bio: brandData.bio || '',
-                    address: brandData.address || '',
-                    instagram: brandData.socialLinks?.instagram || '',
-                    twitter: brandData.socialLinks?.twitter || '',
-                    facebook: brandData.socialLinks?.facebook || '',
-                    website: brandData.socialLinks?.website || '',
-                    spotify: brandData.socialLinks?.spotify || '',
-                    youtube: brandData.socialLinks?.youtube || '',
-                });
-            }
+            // No form seeding: the edit modal takes `brand` as a prop and derives
+            // its own baseline, so there is no second copy of these fields to sync.
         } catch (err) {
             setError('Failed to load brand profile');
         } finally {
@@ -141,69 +114,18 @@ export default function BrandDashboardPage() {
         }
     }, [isAuthenticated, user?._id]);
 
-    const handleSaveProfile = async () => {
-        if (!user?._id) return;
-        setIsSaving(true);
-        try {
-            let profilePhotoUrl = brand?.profilePhoto || undefined;
-            let coverPhotoUrl = brand?.coverPhoto || undefined;
+    // Saving lives in CreateCreatorModal now. The handler that was here posted to
+    // brandsApi.create() rather than update(), so "Save Changes" asked the server
+    // to create a second profile, and it dropped cities, primaryCity and members
+    // from the payload - blanking them on every save.
 
-            // Upload photos if changed
-            if (profilePhotoFile) {
-                const result = await uploadApi.single(profilePhotoFile, 'brands');
-                profilePhotoUrl = result.url;
-            }
-            if (coverPhotoFile) {
-                const result = await uploadApi.single(coverPhotoFile, 'brands');
-                coverPhotoUrl = result.url;
-            }
-
-            await brandsApi.create({
-                userId: user._id,
-                name: editForm.name,
-                bio: editForm.bio,
-                address: editForm.address,
-                profilePhoto: profilePhotoUrl,
-                coverPhoto: coverPhotoUrl,
-                socialLinks: {
-                    instagram: editForm.instagram || null,
-                    twitter: editForm.twitter || null,
-                    facebook: editForm.facebook || null,
-                    website: editForm.website || null,
-                    spotify: editForm.spotify || null,
-                    youtube: editForm.youtube || null,
-                },
-            });
-            // Reset photo states
-            setProfilePhotoFile(null);
-            setCoverPhotoFile(null);
-            setProfilePreview('');
-            setCoverPreview('');
-            // Refresh data
-            await fetchBrand();
-            setIsEditing(false);
-        } catch (err) {
-            setError('Failed to update profile');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setProfilePhotoFile(file);
-            setProfilePreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleCoverPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setCoverPhotoFile(file);
-            setCoverPreview(URL.createObjectURL(file));
-        }
-    };
+    // Refetch when the shared modal reports a save.
+    useEffect(() => {
+        const refresh = () => fetchBrand();
+        window.addEventListener(CREATOR_SAVED, refresh);
+        return () => window.removeEventListener(CREATOR_SAVED, refresh);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?._id]);
 
     // Fetch brand posts
     const fetchPosts = async () => {
@@ -309,7 +231,7 @@ export default function BrandDashboardPage() {
         return (
             <DashboardLayout>
                 <div className="min-h-screen flex items-center justify-center">
-                    <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+                    <div className="animate-spin w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full" />
                 </div>
             </DashboardLayout>
         );
@@ -371,9 +293,7 @@ export default function BrandDashboardPage() {
                         </svg>
                         <h3 className="text-xl font-semibold text-white mb-2">No Brand Profile</h3>
                         <p className="text-gray-300 mb-6">Create your brand profile to build your presence.</p>
-                        <Link href="/create/creator">
-                            <Button>Create Brand Profile</Button>
-                        </Link>
+                        <Button onClick={openCreateCreator}>Create Brand Profile</Button>
                     </div>
                 </div>
             </DashboardLayout>
@@ -394,16 +314,12 @@ export default function BrandDashboardPage() {
                             <Link href={`/brands/${brand._id}`}>
                                 <Button variant="secondary">View Public Profile</Button>
                             </Link>
-                            {isEditing ? (
-                                <>
-                                    <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                    <Button onClick={handleSaveProfile} disabled={isSaving}>
-                                        {isSaving ? 'Saving...' : 'Save Changes'}
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
-                            )}
+                            {/* Opens the same stepper the create flow uses, prefilled
+                                with this profile. Routed through the app-root launcher
+                                (not a locally-mounted modal) so the dialog escapes the
+                                dashboard's stacking context - a modal mounted here sits
+                                below the fixed navbar and bottom nav. */}
+                            <Button onClick={() => openEditCreator(brand._id)}>Edit Profile</Button>
                         </div>
                     </div>
                 </SlideUp>
@@ -429,208 +345,63 @@ export default function BrandDashboardPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Main Info */}
                         <div className="lg:col-span-2 space-y-6">
-                            {/* Cover & Profile */}
+                            {/* Cover & Profile.
+                                Cover is aspect-video (16:9) so the uploaded banner is
+                                shown in full rather than cropped to a fixed strip, and
+                                the avatar sits inline under it instead of floating over
+                                the body with a fixed pt-20 that left a dead gap when the
+                                bio was short. */}
                             <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
-                                {/* Cover Photo */}
-                                <div className="relative h-48 bg-gradient-to-br from-cyan-500/30 to-blue-500/30">
+                                {/* Cover. No dark overlay: the name and bio sit BELOW
+                                    the banner here (unlike the public page, where they
+                                    overlay it), so an overlay only dulls the image. */}
+                                <div className="relative w-full aspect-video bg-gradient-to-br from-violet-500/20 to-pink-500/20">
                                     {brand.coverPhoto && (
-                                        <img src={brand.coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+                                        <img src={brand.coverPhoto} alt="Cover" className="absolute inset-0 w-full h-full object-cover" />
                                     )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                                 </div>
 
-                                <div className="relative px-6 pb-6">
-                                    {/* Profile Photo */}
-                                    <div className="absolute -top-16 left-6">
-                                        <div className="w-32 h-32 rounded-full border-4 border-[#0a0a0a] overflow-hidden bg-gray-800">
-                                            {brand.profilePhoto ? (
-                                                <img src={brand.profilePhoto} alt={brand.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-500 text-white text-3xl font-bold">
-                                                    {brand.name.charAt(0)}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-20">
-                                        {isEditing ? (
-                                            <div className="space-y-4">
-                                                {/* Tabs */}
-                                                <div className="flex gap-2 border-b border-white/10 pb-3">
-                                                    {['basic', 'social', 'photos'].map((tab) => (
-                                                        <button
-                                                            key={tab}
-                                                            onClick={() => setEditTab(tab as 'basic' | 'social' | 'photos')}
-                                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${editTab === tab
-                                                                ? 'bg-cyan-500/20 text-cyan-400'
-                                                                : 'text-gray-400 hover:text-white'
-                                                                }`}
-                                                        >
-                                                            {tab === 'basic' ? 'Basic Info' : tab === 'social' ? 'Social Links' : 'Photos'}
-                                                        </button>
-                                                    ))}
-                                                </div>
-
-                                                {/* Basic Info Tab */}
-                                                {editTab === 'basic' && (
-                                                    <>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Name</label>
-                                                            <input
-                                                                type="text"
-                                                                value={editForm.name}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Bio</label>
-                                                            <textarea
-                                                                value={editForm.bio}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                                                                rows={3}
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Location</label>
-                                                            <input
-                                                                type="text"
-                                                                value={editForm.address}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white"
-                                                            />
-                                                        </div>
-                                                    </>
-                                                )}
-
-                                                {/* Social Links Tab */}
-                                                {editTab === 'social' && (
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Instagram</label>
-                                                            <input
-                                                                type="url"
-                                                                value={editForm.instagram}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, instagram: e.target.value }))}
-                                                                placeholder="https://instagram.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Twitter</label>
-                                                            <input
-                                                                type="url"
-                                                                value={editForm.twitter}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, twitter: e.target.value }))}
-                                                                placeholder="https://twitter.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Facebook</label>
-                                                            <input
-                                                                type="url"
-                                                                value={editForm.facebook}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, facebook: e.target.value }))}
-                                                                placeholder="https://facebook.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Website</label>
-                                                            <input
-                                                                type="url"
-                                                                value={editForm.website}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))}
-                                                                placeholder="https://..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">Spotify</label>
-                                                            <input
-                                                                type="url"
-                                                                value={editForm.spotify}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, spotify: e.target.value }))}
-                                                                placeholder="https://open.spotify.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-1">YouTube</label>
-                                                            <input
-                                                                type="url"
-                                                                value={editForm.youtube}
-                                                                onChange={(e) => setEditForm(prev => ({ ...prev, youtube: e.target.value }))}
-                                                                placeholder="https://youtube.com/..."
-                                                                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white placeholder:text-gray-300"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Photos Tab */}
-                                                {editTab === 'photos' && (
-                                                    <div className="space-y-4">
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-2">Profile Photo</label>
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
-                                                                    {profilePreview || brand.profilePhoto ? (
-                                                                        <img src={profilePreview || brand.profilePhoto || ''} alt="Profile" className="w-full h-full object-cover" />
-                                                                    ) : (
-                                                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-500 text-white text-2xl font-bold">
-                                                                            {brand.name.charAt(0)}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <label className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white cursor-pointer hover:bg-white/10 transition-colors">
-                                                                    Choose File
-                                                                    <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="hidden" />
-                                                                </label>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-gray-300 mb-2">Cover Photo</label>
-                                                            <div className="relative h-32 rounded-lg overflow-hidden bg-gray-800">
-                                                                {coverPreview || brand.coverPhoto ? (
-                                                                    <img src={coverPreview || brand.coverPhoto || ''} alt="Cover" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500/30 to-blue-500/30">
-                                                                        <span className="text-gray-300">No cover photo</span>
-                                                                    </div>
-                                                                )}
-                                                                <label className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-lg text-white text-sm cursor-pointer hover:bg-black/80 transition-colors">
-                                                                    Change Cover
-                                                                    <input type="file" accept="image/*" onChange={handleCoverPhotoChange} className="hidden" />
-                                                                </label>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
+                                {/* Identity: avatar overlaps the cover edge, text flows
+                                    beside it, so the row height follows the content.
+                                    relative z-10: the cover above is positioned, and a
+                                    positioned sibling paints over static content
+                                    regardless of DOM order - without this the banner
+                                    covered the avatar and name where -mt-12 overlaps. */}
+                                <div className="relative z-10 px-6 pb-6">
+                                    {/* Only the avatar overlaps the banner (-mt-12). The
+                                        name row sits in normal flow below it, so the text
+                                        never rides up against the cover image. */}
+                                    <div className="-mt-12 w-24 h-24 rounded-2xl border-4 border-[#0a0a0a] overflow-hidden bg-gray-800">
+                                        {brand.profilePhoto ? (
+                                            <img src={brand.profilePhoto} alt={brand.name} className="w-full h-full object-cover" />
                                         ) : (
-                                            <>
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <h2 className="text-2xl font-bold text-white">{brand.name}</h2>
-                                                    <span className="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium capitalize">
-                                                        {brand.type}
-                                                    </span>
-                                                </div>
-                                                <p className="text-gray-300 mb-4">{brand.bio || 'No bio yet'}</p>
-                                                {brand.address && (
-                                                    <div className="flex items-center gap-2 text-gray-300 text-sm">
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        </svg>
-                                                        {brand.address}
-                                                    </div>
-                                                )}
-                                            </>
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 text-white text-3xl font-bold">
+                                                {brand.name.charAt(0)}
+                                            </div>
                                         )}
                                     </div>
+
+                                    <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
+                                        <h2 className="text-2xl font-bold text-white">{brand.name}</h2>
+                                        {brand.status === 'approved' && (
+                                            <svg className="w-5 h-5 flex-shrink-0 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                        <span className="px-2.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium capitalize">
+                                            {brand.type}
+                                        </span>
+                                    </div>
+
+                                    <p className="text-gray-300 mt-3">{brand.bio || 'No bio yet'}</p>
+                                    {brand.address && (
+                                        <div className="flex items-center gap-2 text-gray-300 text-sm mt-3">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            </svg>
+                                            {brand.address}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

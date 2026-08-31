@@ -609,6 +609,60 @@ const adminService = {
         return brand;
     },
 
+    /**
+     * Hard-delete a creator profile so its owner can apply fresh.
+     *
+     * This is the escape hatch for "reset this account's creator identity", so it
+     * has to undo everything applying created, or the user lands back in the dead
+     * end the /create/creator guard describes: a profile they can no longer see but
+     * that still blocks a new application.
+     *
+     *   - The BrandProfile document itself.
+     *   - The owner's badge and verified flag. updateBrandStatus grants these on
+     *     approval; nothing else clears them, so a delete that skipped this would
+     *     leave a verified account with no profile behind the tick.
+     *   - The brand's posts. Post.brand is a hard ref; orphaned posts would 500 any
+     *     feed that populates it.
+     *   - The brand from every follower's followingBrands array, so no user carries
+     *     a dangling follow to a profile that no longer exists.
+     *
+     * Events the owner organised are deliberately left alone: they belong to the
+     * user account, not the brand profile, and deleting a brand should not cancel
+     * live events and refund ticket holders as a side effect.
+     */
+    async deleteBrand(brandId, adminUserId) {
+        // Read before deleting: after the cascade there is no document left to name
+        // in the audit entry, and the owner id is needed to reset the account.
+        const brand = await BrandProfile.findById(brandId).select('name type user').lean();
+        if (!brand) throw new Error('Brand not found');
+
+        const Post = require('../models/Post');
+
+        await Promise.all([
+            BrandProfile.findByIdAndDelete(brandId),
+            Post.deleteMany({ brand: brandId }),
+            User.updateMany(
+                { followingBrands: brandId },
+                { $pull: { followingBrands: brandId } }
+            ),
+            brand.user
+                ? User.findByIdAndUpdate(brand.user, {
+                    $set: { verificationBadge: 'none', isVerified: false },
+                })
+                : Promise.resolve(),
+        ]);
+
+        await adminService.recordAdminAction({
+            adminUser: adminUserId,
+            action: 'delete',
+            entityType: 'creator',
+            entityId: brandId,
+            metadata: { name: brand.name, type: brand.type },
+        });
+
+        return { success: true };
+    },
+
     // ================== AUDIT TRAIL ==================
 
     /** Largest page the audit endpoint will serve, whatever the caller asks for. */

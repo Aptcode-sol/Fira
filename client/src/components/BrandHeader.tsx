@@ -27,15 +27,17 @@ interface BrandHeaderProps {
 export default function BrandHeader({ brand, onFollow, isFollowing, isOwnProfile }: BrandHeaderProps) {
     return (
         <div className="relative mb-8">
-            {/* Cover Photo */}
-            <div className="relative w-full h-64 md:h-80 lg:h-96 rounded-b-3xl overflow-hidden">
-                <Image
-                    src={brand.coverPhoto || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=2000&q=80'}
-                    alt={`${brand.name} Cover`}
-                    fill
-                    className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* Cover Photo - 16:9 aspect ratio maintained on all screen sizes, matching event page */}
+            <div className="max-w-7xl mx-auto px-4 md:px-8">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden">
+                    <Image
+                        src={brand.coverPhoto || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=2000&q=80'}
+                        alt={`${brand.name} Cover`}
+                        fill
+                        className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                </div>
             </div>
 
             <div className="px-4 md:px-8 max-w-7xl mx-auto relative -mt-16 md:-mt-20 z-10">

@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import CreateVenueLauncher from '@/components/modals/CreateVenueLauncher';
 import CreateEventLauncher from '@/components/modals/CreateEventLauncher';
+import CreateCreatorLauncher from '@/components/modals/CreateCreatorLauncher';
 import RouteGuard from '@/components/RouteGuard';
 import { useSSENotifications } from '@/hooks/useSSENotifications';
 import { useFocusOnRouteChange } from '@/hooks/useFocusOnRouteChange';
@@ -34,6 +35,7 @@ export default function ClientLayout({
                 dismissing them leaves the user on the page they started from. */}
             <CreateVenueLauncher />
             <CreateEventLauncher />
+            <CreateCreatorLauncher />
             {!isVenuePortal && <Footer />}
         </>
     );

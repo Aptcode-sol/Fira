@@ -205,6 +205,19 @@ router.put('/brands/:id/status', async (req, res) => {
     }
 });
 
+// Hard delete, gated to admins: it removes the profile and resets the owner's
+// verified badge so they can re-apply. Destructive and irreversible, so it is not
+// left open to every authenticated staff role the way the status change is.
+router.delete('/brands/:id', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.deleteBrand(req.params.id, req.user._id);
+        res.json(result);
+    } catch (error) {
+        const status = error.message === 'Brand not found' ? 404 : 500;
+        res.status(status).json({ error: error.message });
+    }
+});
+
 // ================== FEATURED TOGGLE ==================
 router.patch('/events/:id/featured', roleGuard(['super_admin', 'admin']), async (req, res) => {
     try {

@@ -238,6 +238,7 @@ const dashboardService = {
                 type: brandProfile.type,
                 status: brandProfile.status,
                 profilePhoto: brandProfile.profilePhoto,
+                coverPhoto: brandProfile.coverPhoto,
                 followers: brandProfile.stats?.followers || 0,
                 events: brandProfile.stats?.events || 0
             } : null

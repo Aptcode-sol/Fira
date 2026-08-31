@@ -613,14 +613,14 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                     {/* The only way off this page was the browser's own back gesture.
                         Falls back to the venues list when opened from a shared link.
                         Share sits opposite it, same as the event and creator pages. */}
-                    <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center justify-between gap-3 mb-4 relative z-30">
                         <BackButton fallbackHref="/venues" label="Back to Venues" />
                         <ShareButton title={venue.name} text={`Check out ${venue.name} on FIRA`} />
                     </div>
 
-                    {/* Image Gallery */}
+                    {/* Image Gallery - 16:9 aspect ratio maintained on all screen sizes */}
                     <div className="mb-8">
-                        <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-4">
+                        <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-4">
                             {venue.images && venue.images.length > 0 ? (
                                 <img
                                     src={venue.images[selectedImage]}
@@ -643,7 +643,7 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                     <button
                                         key={index}
                                         onClick={() => setSelectedImage(index)}
-                                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index ? 'border-violet-500' : 'border-transparent opacity-60 hover:opacity-100'
+                                        className={`flex-shrink-0 w-28 aspect-video rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index ? 'border-violet-500' : 'border-transparent opacity-60 hover:opacity-100'
                                             }`}
                                     >
                                         <img src={image} alt="" className="w-full h-full object-cover" />

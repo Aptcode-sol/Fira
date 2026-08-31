@@ -254,11 +254,15 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
         // Field-level messages here too, rather than one toast per rejected file.
         if (picked.length > room) {
             setErrors(prev => ({ ...prev, images: `You can add up to ${MAX_IMAGES} photos` }));
+            // Reset input so same file can be selected again
+            e.target.value = '';
             return;
         }
         const oversized = picked.find(f => f.size > MAX_IMAGE_BYTES);
         if (oversized) {
             setErrors(prev => ({ ...prev, images: `${oversized.name} is over 2MB` }));
+            // Reset input so same file can be selected again
+            e.target.value = '';
             return;
         }
 
@@ -270,6 +274,8 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
         const files = [...imageFiles, ...picked];
         setImageFiles(files);
         setImagePreviews(files.map(f => URL.createObjectURL(f)));
+        // Reset input so same file can be selected again after removal
+        e.target.value = '';
     };
 
     const removeImage = (index: number) => {
@@ -516,11 +522,14 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
                         when editing the venue. */}
                     <Input
                         label="Maximum Guests *"
-                        type="number"
-                        min={1}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={form.capacityMax}
-                        onChange={(e) => set('capacityMax', parseInt(e.target.value) || 0)}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            set('capacityMax', val === '' ? 0 : parseInt(val));
+                        }}
                         error={errors.capacityMax}
                         helperText="The most people this space can hold"
                     />
@@ -529,11 +538,14 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
                         could not compare venues at a glance. */}
                     <Input
                         label="Price Per Day (₹) *"
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={form.pricePerDay}
-                        onChange={(e) => set('pricePerDay', parseInt(e.target.value) || 0)}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            set('pricePerDay', val === '' ? 0 : parseInt(val));
+                        }}
                         error={errors.pricePerDay}
                         helperText="A booking is charged this much for each day it covers"
                     />
@@ -545,15 +557,18 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
             content: (
                 <>
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Photos <span className="text-gray-500">(up to {MAX_IMAGES}, 2MB each)</span>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                            Venue Photos <span className="text-violet-400">(Multiple • Landscape)</span>
                         </label>
+                        <p className="text-xs text-gray-400 mb-3">
+                            Upload up to <span className="text-white">{MAX_IMAGES} landscape images</span> (16:9 ratio). Recommended: 1200 × 675 px. JPG or PNG, up to 2MB each. First image becomes the cover.
+                        </p>
                         {/* Current photos, when editing. The first is the cover, so the
                             arrows are the useful control here, not just delete. */}
                         {savedImages.length > 0 && (
                             <div className="grid grid-cols-3 gap-3 mb-3">
                                 {savedImages.map((src, index) => (
-                                    <div key={src} className="relative rounded-xl overflow-hidden aspect-square group">
+                                    <div key={src} className="relative rounded-xl overflow-hidden aspect-video">
                                         <img src={src} alt="" className="w-full h-full object-cover" />
                                         {index === 0 && (
                                             <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-violet-500 text-white text-[10px] font-medium">
@@ -564,9 +579,9 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
                                             type="button"
                                             onClick={() => removeSavedImage(index)}
                                             aria-label={`Remove photo ${index + 1}`}
-                                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black"
+                                            className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 text-white text-sm font-bold flex items-center justify-center shadow-lg"
                                         >
-                                            ✕
+                                            ×
                                         </button>
                                         <div className="absolute bottom-1 inset-x-1 flex justify-between">
                                             <button
@@ -592,26 +607,34 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
                                 ))}
                             </div>
                         )}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleImageSelect}
-                            className="w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-violet-500/20 file:text-violet-300 hover:file:bg-violet-500/30"
-                        />
+                        <label className="flex flex-col items-center justify-center h-32 rounded-xl border border-dashed border-white/20 bg-black/40 cursor-pointer hover:border-violet-500/50 transition-colors">
+                            <svg className="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span className="text-sm text-gray-400">
+                                {savedImages.length + imageFiles.length > 0 ? 'Add more photos' : 'Click to upload venue photos'}
+                            </span>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleImageSelect}
+                                className="hidden"
+                            />
+                        </label>
                         {fieldError('images')}
                         {imagePreviews.length > 0 && (
                             <div className="grid grid-cols-3 gap-3 mt-3">
                                 {imagePreviews.map((src, index) => (
-                                    <div key={src} className="relative rounded-xl overflow-hidden aspect-square">
+                                    <div key={src} className="relative rounded-xl overflow-hidden aspect-video">
                                         <img src={src} alt="" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
                                             onClick={() => removeImage(index)}
                                             aria-label="Remove photo"
-                                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black"
+                                            className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 text-white text-sm font-bold flex items-center justify-center shadow-lg"
                                         >
-                                            ✕
+                                            ×
                                         </button>
                                     </div>
                                 ))}
@@ -640,31 +663,40 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
                 <>
                     <Input
                         label="Free Cancellation Until (hours before) *"
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={form.freeCancellationHours}
-                        onChange={(e) => set('freeCancellationHours', parseInt(e.target.value) || 0)}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            set('freeCancellationHours', val === '' ? 0 : parseInt(val));
+                        }}
                         error={errors.freeCancellationHours}
                     />
                     <Input
                         label="Partial Refund (%) *"
-                        type="number"
-                        min={0}
-                        max={100}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={form.partialRefundPercentage}
-                        onChange={(e) => set('partialRefundPercentage', parseInt(e.target.value) || 0)}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            const num = val === '' ? 0 : Math.min(100, parseInt(val));
+                            set('partialRefundPercentage', num);
+                        }}
                         error={errors.partialRefundPercentage}
                         helperText="Refunded between the two windows below"
                     />
                     <Input
                         label="No Cancellation Within (hours before) *"
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={form.noCancellationHours}
-                        onChange={(e) => set('noCancellationHours', parseInt(e.target.value) || 0)}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            set('noCancellationHours', val === '' ? 0 : parseInt(val));
+                        }}
                         error={errors.noCancellationHours}
                     />
                 </>

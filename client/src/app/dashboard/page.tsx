@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,8 +11,9 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { Pagination } from '@/components/ui';
 import { usePaged } from '@/hooks/usePaged';
-import { X, Users } from 'lucide-react';
+import { X, Users, Calendar } from 'lucide-react';
 import CreatorStatusButton from '@/components/dashboard/CreatorStatusButton';
+import { CREATOR_SAVED } from '@/components/modals/CreateCreatorModal';
 
 interface FollowingBrand {
     _id: string;
@@ -50,25 +51,36 @@ export default function DashboardPage() {
         }
     }, [isLoading, isAuthenticated, router]);
 
+    const fetchDashboardData = useCallback(async () => {
+        if (!user?._id) return;
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await dashboardApi.getOverview(user._id);
+            setDashboardData(data);
+        } catch (err) {
+            console.error('Failed to fetch dashboard data:', err);
+            setError('Failed to load dashboard data');
+        } finally {
+            setLoading(false);
+        }
+    }, [user?._id]);
+
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            if (!user?._id) return;
-            try {
-                setLoading(true);
-                setError(null);
-                const data = await dashboardApi.getOverview(user._id);
-                setDashboardData(data);
-            } catch (err) {
-                console.error('Failed to fetch dashboard data:', err);
-                setError('Failed to load dashboard data');
-            } finally {
-                setLoading(false);
-            }
-        };
         if (isAuthenticated && user?._id) {
             fetchDashboardData();
         }
-    }, [isAuthenticated, user?._id]);
+    }, [isAuthenticated, user?._id, fetchDashboardData]);
+
+    // Refetch when a creator application is submitted or edited from the shared
+    // modal. Without this the CreatorStatusButton keeps reading the stale profile
+    // and still shows "Apply as Creator" right after the user applied, instead of
+    // flipping to "Applied".
+    useEffect(() => {
+        const refresh = () => fetchDashboardData();
+        window.addEventListener(CREATOR_SAVED, refresh);
+        return () => window.removeEventListener(CREATOR_SAVED, refresh);
+    }, [fetchDashboardData]);
 
     // Fetch following brands
     useEffect(() => {
@@ -204,6 +216,31 @@ export default function DashboardPage() {
         };
     };
 
+    // Creator status + the follow shortcut, defined once and rendered in two
+    // places: on the title row from `sm` up, and (on mobile only) between the
+    // brand card and the stat tiles - so a phone reads title, brand, then these,
+    // matching where the account's own identity should sit.
+    const overviewActions = (
+        <>
+            <CreatorStatusButton
+                status={dashboardData?.brandProfile?.status}
+                className="w-full sm:w-auto"
+            />
+            <button
+                onClick={() => setShowFollowingModal(true)}
+                className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl transition-all duration-200 group"
+            >
+                <span className="flex items-center gap-2 min-w-0">
+                    <Users className="w-5 h-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-white font-medium truncate">Creators You Follow</span>
+                </span>
+                <span className="flex-shrink-0 px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-sm font-semibold">
+                    {followingCount}
+                </span>
+            </button>
+        </>
+    );
+
     return (
         <DashboardLayout>
             <div className="p-4 sm:p-6 lg:p-8 overflow-x-hidden">
@@ -214,58 +251,125 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* Quick Stats + follow shortcut.
+                {/* Page heading + follow shortcut.
                     The "Welcome back" heading and its "here's what's happening"
                     subtitle are gone: they repeated what the rest of the page
                     already shows and pushed the numbers below the fold on a
-                    phone. One flex column holds both blocks so `order` alone can
-                    put the follow shortcut above the stats on desktop and below
-                    them on mobile, without rendering the button twice. */}
-                <div className="mb-8 flex flex-col gap-4">
-                    <SlideUp className="order-2 sm:order-1">
-                        {/* Title on the left, follow shortcut on the right. The page had
-                            no heading at all, so on a phone it opened straight into
-                            numbers with nothing naming what you were looking at. */}
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <h1 className="text-2xl sm:text-3xl font-bold text-white">Overview</h1>
-                            {/* Creator status sits to the LEFT of the follow shortcut at
-                                both breakpoints - it was buried in Quick Actions further
-                                down, which is the wrong place for the account's own
-                                standing. Same order stacked on mobile. */}
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                {/* `status` comes from the brand profile, the document the
-                                    admin decision is recorded on. Undefined while the
-                                    payload loads, which the button reads as "fall back to
-                                    the badge" rather than "never applied". */}
-                                <CreatorStatusButton
-                                    status={dashboardData?.brandProfile?.status}
-                                    className="w-full sm:w-auto"
-                                />
-                                <button
-                                    onClick={() => setShowFollowingModal(true)}
-                                    // justify-between with the count last pushes it to
-                                    // the right edge of the button instead of sitting
-                                    // against the label. On desktop the button is only
-                                    // as wide as its content, so the two read as one
-                                    // balanced row.
-                                    className="w-full sm:w-auto flex items-center justify-between sm:justify-center gap-3 px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl transition-all duration-200 group"
-                                >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        <Users className="w-5 h-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform" />
-                                        <span className="text-white font-medium truncate">Creators You Follow</span>
-                                    </span>
-                                    <span className="flex-shrink-0 px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-sm font-semibold">
-                                        {followingCount}
-                                    </span>
-                                </button>
-                            </div>
+                    phone. */}
+                <SlideUp>
+                    <div className="flex sm:items-center sm:justify-between gap-3 mb-6">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white">Overview</h1>
+                        {/* From `sm` up the actions sit on the title row's right. On a
+                            phone they move below the brand card instead (rendered again
+                            there), so the card is the first thing under the heading. */}
+                        <div className="hidden sm:flex sm:items-center gap-3">
+                            {overviewActions}
                         </div>
-                    </SlideUp>
+                    </div>
+                </SlideUp>
 
-                    <FadeIn delay={0.1} className="order-1 sm:order-2">
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Brand card and the two stat tiles share one row on desktop - the card
+                    on the left half, Attending/Organizing on the right - instead of the
+                    card spanning the full width and pushing the numbers down a screen.
+                    Below `lg` they stack in DOM order: the card first, directly under the
+                    heading, because the creator identity is what the page is about. */}
+                <div className={`mb-8 flex flex-col gap-4 ${dashboardData?.brandProfile ? 'lg:grid lg:grid-cols-2 lg:gap-6 lg:items-stretch' : ''}`}>
+                    {/* Brand Profile Card. Avatar only - no cover strip. This card sits
+                        beside the stat tiles as a compact identity summary; the banner
+                        belongs on My Brand and the public profile, where the creator is
+                        the subject of the page rather than one tile in a row.
+
+                        One layout at every width, not a narrow/wide pair. The identity
+                        block sits on top, the numbers and the CTA on a separated footer
+                        row, so nothing has to be duplicated behind a breakpoint and the
+                        card fills the height it is stretched to instead of leaving a
+                        void under top-aligned content. */}
+                    {dashboardData?.brandProfile && (
+                        <SlideUp>
+                            <div className="h-full flex flex-col justify-between gap-6 p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08]">
+                                {/* Identity */}
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] flex-shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500 to-pink-500">
+                                        {dashboardData.brandProfile.profilePhoto ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                                src={dashboardData.brandProfile.profilePhoto}
+                                                alt={dashboardData.brandProfile.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-white">
+                                                {dashboardData.brandProfile.name.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <h3 className="text-lg sm:text-xl font-semibold text-white truncate">
+                                                {dashboardData.brandProfile.name}
+                                            </h3>
+                                            {/* Same violet tick the creator profile and
+                                                creator cards use. */}
+                                            {dashboardData.brandProfile.status === 'approved' && (
+                                                <svg className="w-[18px] h-[18px] flex-shrink-0 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-400">
+                                            <span className="capitalize">{dashboardData.brandProfile.type}</span>
+                                            {dashboardData.brandProfile.status !== 'approved' && (
+                                                <>
+                                                    <span className="w-1 h-1 rounded-full bg-gray-600 flex-shrink-0" />
+                                                    <span className={`capitalize truncate ${dashboardData.brandProfile.status === 'pending' ? 'text-yellow-400' : 'text-red-400'}`}>
+                                                        {dashboardData.brandProfile.status === 'pending' ? 'Pending review' : dashboardData.brandProfile.status}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Numbers + CTA */}
+                                <div className="flex items-center justify-between gap-4 pt-5 border-t border-white/[0.06]">
+                                    <div className="flex gap-8">
+                                        <div>
+                                            <div className="text-xl font-semibold text-white tabular-nums leading-tight">
+                                                {dashboardData.brandProfile.followers.toLocaleString()}
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-0.5">Followers</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xl font-semibold text-white tabular-nums leading-tight">
+                                                {dashboardData.brandProfile.events.toLocaleString()}
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-0.5">Events</div>
+                                        </div>
+                                    </div>
+                                    <Link href={`/creators/${dashboardData.brandProfile._id}`} className="flex-shrink-0">
+                                        <Button variant="secondary" size="sm">View Profile</Button>
+                                    </Link>
+                                </div>
+                            </div>
+                        </SlideUp>
+                    )}
+
+                    {/* Mobile-only actions. sm:hidden keeps them off the grid at every
+                        larger width (where they live on the title row), so this does not
+                        occupy a second column on desktop. Sits after the brand card and
+                        before the stats, which is the order the phone should read. */}
+                    <div className="flex flex-col gap-3 sm:hidden">
+                        {overviewActions}
+                    </div>
+
+                    <FadeIn delay={0.1}>
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 h-full">
                             {quickStats.map((stat) => (
-                                <Link key={stat.label} href={stat.href}>
+                                // h-full on the anchor too: without it the tile's own
+                                // h-full measures against an auto-height link and the
+                                // tiles stop short of the brand card beside them.
+                                <Link key={stat.label} href={stat.href} className="h-full">
                                     <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300 group cursor-pointer h-full">
                                         <div className={`w-12 h-12 rounded-xl ${colorClasses[stat.color]} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
                                             {getIcon(stat.icon)}
@@ -288,58 +392,6 @@ export default function DashboardPage() {
                         </div>
                     </FadeIn>
                 </div>
-
-                {/* Creator Profile Card.
-                    Moved up from the very bottom of the page, below the activity feed,
-                    where it needed a deliberate scroll past everything else to reach.
-                    The creator identity is what the account IS, so it belongs with the
-                    account summary at the top rather than after the transactional lists. */}
-                {dashboardData?.brandProfile && (
-                    <FadeIn>
-                        <div className="mb-8 bg-gradient-to-r from-violet-500/10 to-pink-500/10 backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 flex-shrink-0 rounded-xl bg-gradient-to-br from-violet-500/30 to-pink-500/30 overflow-hidden">
-                                    {dashboardData.brandProfile.profilePhoto ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                            src={dashboardData.brandProfile.profilePhoto}
-                                            alt={dashboardData.brandProfile.name}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-2xl text-white">
-                                            {dashboardData.brandProfile.name.charAt(0)}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="text-lg font-semibold text-white">{dashboardData.brandProfile.name}</h3>
-                                        <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs capitalize">
-                                            {dashboardData.brandProfile.type}
-                                        </span>
-                                        {/* Anything other than approved is named here too. The
-                                            card looked identical for a live profile and one
-                                            still in the review queue, so a pending applicant
-                                            read it as "I'm a creator now". */}
-                                        {dashboardData.brandProfile.status !== 'approved' && (
-                                            <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${CREATOR_STATUS_CHIP[dashboardData.brandProfile.status] ?? 'bg-white/10 text-gray-300'}`}>
-                                                {dashboardData.brandProfile.status === 'pending' ? 'Pending review' : dashboardData.brandProfile.status}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
-                                        <span>{dashboardData.brandProfile.followers.toLocaleString()} followers</span>
-                                        <span>{dashboardData.brandProfile.events} events</span>
-                                    </div>
-                                </div>
-                                <Link href={`/creators/${dashboardData.brandProfile._id}`} className="flex-shrink-0">
-                                    <Button variant="secondary" size="sm">View Profile</Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </FadeIn>
-                )}
 
                 {/* Quick Actions */}
                 <FadeIn delay={0.2}>

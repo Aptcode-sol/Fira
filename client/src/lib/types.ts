@@ -142,6 +142,9 @@ export interface Event {
     booking: string | null;
     name: string;
     description: string;
+    /** Portrait poster image (3:4) for cards. Falls back to images[0]. */
+    coverPhoto?: string | null;
+    /** Landscape images for the detail page banner and gallery. */
     images: string[];
     startDateTime: string;
     endDateTime: string;
