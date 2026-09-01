@@ -511,12 +511,42 @@ const adminService = {
             .populate('user', 'name email')
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const total = await BrandProfile.countDocuments(filter);
 
+        // Live events count per brand, batched into ONE aggregation keyed by
+        // organiser rather than a count per row. stats.events on the document is
+        // never maintained (approving an event does not bump it), so the admin
+        // list read 0 for everyone; this reflects the real number.
+        const ownerIds = brands.map(b => b.user?._id).filter(Boolean);
+        const counts = ownerIds.length
+            ? await Event.aggregate([
+                {
+                    $match: {
+                        organizer: { $in: ownerIds },
+                        isDeleted: { $ne: true },
+                        status: { $in: ['approved', 'upcoming', 'ongoing', 'completed'] },
+                    },
+                },
+                { $group: { _id: '$organizer', count: { $sum: 1 } } },
+            ])
+            : [];
+        const countByOwner = new Map(counts.map(c => [String(c._id), c.count]));
+
+        const shaped = brands.map(b => ({
+            ...b,
+            // Flattened aliases the admin table reads directly, so the column does
+            // not have to reach through `.user`/`.stats` (and previously read the
+            // wrong field names, showing N/A and 0).
+            owner: b.user,
+            followersCount: b.stats?.followers || 0,
+            eventsCount: countByOwner.get(String(b.user?._id)) || 0,
+        }));
+
         return {
-            brands,
+            brands: shaped,
             totalPages: Math.ceil(total / parseInt(limit)),
             currentPage: parseInt(page),
             total
@@ -711,6 +741,25 @@ const adminService = {
             // is falsy - a coincidence, not a contract.
             pages: Math.max(1, Math.ceil(total / parsedLimit)),
         };
+    },
+
+    /**
+     * Delete audit entries.
+     *
+     * With an id, drops that one entry. With no id, clears the whole trail. This is
+     * housekeeping for a table that only grows - it is not itself audited, because
+     * an audit OF deleting the audit log, written to the same log, is the first
+     * thing a bad actor would delete next. Gated to super_admin/admin at the route.
+     */
+    async deleteAuditLog(id) {
+        const res = await AuditLog.findByIdAndDelete(id);
+        if (!res) throw new Error('Audit entry not found');
+        return { success: true };
+    },
+
+    async clearAuditTrail() {
+        const { deletedCount } = await AuditLog.deleteMany({});
+        return { success: true, deleted: deletedCount };
     }
 };
 

@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import Link from 'next/link';
 import { legalContainerClass, legalHeadingClass } from '../legalStyles';
+import { SUPPORT_EMAIL } from '@/lib/siteConfig';
 
 export default function HelpSupport() {
     return (
@@ -72,8 +73,8 @@ export default function HelpSupport() {
                                 <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-cyan-500/50 transition-colors">
                                     <h3 className="text-lg font-medium text-white mb-2">Email Support</h3>
                                     <p className="text-sm text-gray-300 mb-4">For general inquiries and account help.</p>
-                                    <a href="mailto:support@letsfira.com" className="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center gap-2">
-                                        support@letsfira.com
+                                    <a href={`mailto:${SUPPORT_EMAIL}`} className="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center gap-2">
+                                        {SUPPORT_EMAIL}
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                         </svg>
@@ -83,8 +84,8 @@ export default function HelpSupport() {
                                 <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-blue-500/50 transition-colors">
                                     <h3 className="text-lg font-medium text-white mb-2">Partner Support</h3>
                                     <p className="text-sm text-gray-300 mb-4">For venue owners and event organizers.</p>
-                                    <a href="mailto:support@letsfira.com" className="text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-2">
-                                        support@letsfira.com
+                                    <a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-2">
+                                        {SUPPORT_EMAIL}
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                         </svg>
@@ -97,7 +98,7 @@ export default function HelpSupport() {
                             <h2 className="text-xl font-semibold text-white mb-4">3. Report an Issue</h2>
                             <p>
                                 If you encounter a technical issue or bug, please report it to our engineering team at
-                                <a href="mailto:support@letsfira.com" className="text-cyan-400 hover:text-cyan-300 ml-1">support@letsfira.com</a>.
+                                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-cyan-400 hover:text-cyan-300 ml-1">{SUPPORT_EMAIL}</a>.
                             </p>
                         </section>
 

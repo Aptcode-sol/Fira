@@ -207,13 +207,15 @@ export default function BrandProfilePage() {
                     <div className="flex-1">
                         {activeTab === 'about' && (
                             <div className="space-y-6">
-                                {/* Bio Section */}
-                                <div className="bg-white/5 rounded-xl p-6 border border-white/5">
-                                    <h3 className="text-lg font-semibold text-white mb-4">About</h3>
-                                    <p className="text-gray-300 whitespace-pre-line leading-relaxed">
-                                        {brand.bio || 'No bio available.'}
-                                    </p>
-                                </div>
+                                {/* Bio Section - only when there is a bio. */}
+                                {brand.bio && (
+                                    <div className="bg-white/5 rounded-xl p-6 border border-white/5">
+                                        <h3 className="text-lg font-semibold text-white mb-4">About</h3>
+                                        <p className="text-gray-300 whitespace-pre-line leading-relaxed">
+                                            {brand.bio}
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* 14.1: The "Get in Touch" block was removed here as a
                                     duplicate of the Socials block. The in-app enquiry CTA

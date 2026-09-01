@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
+import { SUPPORT_EMAIL } from '@/lib/siteConfig';
 
 export const metadata: Metadata = {
     title: 'Contact Us - FIRA',
@@ -27,10 +28,10 @@ export default function ContactPage() {
                     <div className="bg-white/5 p-6 rounded-xl border border-white/10">
                         <p className="text-sm text-gray-400 mb-2">Email</p>
                         <a
-                            href="mailto:support@letsfira.com"
+                            href={`mailto:${SUPPORT_EMAIL}`}
                             className="text-cyan-400 hover:text-cyan-300 text-lg font-medium transition-colors"
                         >
-                            support@letsfira.com
+                            {SUPPORT_EMAIL}
                         </a>
                     </div>
                 </div>

@@ -88,6 +88,9 @@ export const SITE_SHORT_DESCRIPTION =
 
 export const SITE_EMAIL = 'no-reply@letsfira.com';
 
+/** Where users are told to reach a human. Distinct from the no-reply sender. */
+export const SUPPORT_EMAIL = 'Support.fira@letsfira.com';
+
 export const SITE_LOCALE = 'en_IN';
 
 export const SITE_COUNTRY = 'IN';

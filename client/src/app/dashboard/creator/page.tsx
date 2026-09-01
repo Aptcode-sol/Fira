@@ -360,7 +360,7 @@ export default function BrandDashboardPage() {
                                                         {brand.type}
                                                     </span>
                                                 </div>
-                                                <p className="text-gray-300 mb-4">{brand.bio || 'No bio yet'}</p>
+                                                {brand.bio && <p className="text-gray-300 mb-4">{brand.bio}</p>}
                                                 {brand.address && (
                                                     <div className="flex items-center gap-2 text-gray-300 text-sm">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

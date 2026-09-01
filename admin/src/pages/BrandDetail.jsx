@@ -179,7 +179,7 @@ export default function BrandDetail() {
                     <div className="lg:col-span-2 space-y-8">
                         <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
                             <h2 className="text-lg font-semibold text-white mb-4">Creator Information</h2>
-                            <p className="text-gray-300 leading-relaxed mb-6">{brand.bio || 'No bio available'}</p>
+                            {brand.bio && <p className="text-gray-300 leading-relaxed mb-6">{brand.bio}</p>}
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-white/[0.05]">
                                 <div>
@@ -222,9 +222,13 @@ export default function BrandDetail() {
                                                 <div>
                                                     <h3 className="text-lg font-medium text-white group-hover:text-violet-400 transition-colors mb-1">{event.name}</h3>
                                                     <div className="flex items-center gap-3 text-sm text-gray-300">
-                                                        <span>{event.venue?.name || 'N/A'}</span>
+                                                        {/* Custom-venue events carry the name on customVenue, not
+                                                            the venue ref. */}
+                                                        <span>{event.venue?.name || event.customVenue?.name || 'Custom venue'}</span>
                                                         <span className="w-1 h-1 rounded-full bg-gray-600"></span>
-                                                        <span>{new Date(event.date).toLocaleDateString()}</span>
+                                                        {/* startDateTime, not `date`: the Event schema has no
+                                                            `date` path, so new Date(undefined) was "Invalid Date". */}
+                                                        <span>{event.startDateTime ? new Date(event.startDateTime).toLocaleDateString() : 'Date TBD'}</span>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-6">

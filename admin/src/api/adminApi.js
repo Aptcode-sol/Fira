@@ -19,12 +19,17 @@ function authHeaders(extra = {}) {
 /**
  * Single place where responses are turned into data or errors.
  *
- * A 401/403 means the session is gone or the account is not an admin; clearing
- * the token and reloading drops the user back to the login screen instead of
- * leaving a dashboard full of silently failing panels.
+ * ONLY a 401 clears the session. 401 means the token is missing, invalid or
+ * expired - the session genuinely has to be re-established. A 403 means the
+ * token is fine but this account's role is not allowed to do THIS one action
+ * (e.g. a moderator hitting an admin-only delete, or a settlement route that
+ * needs an explicit adminRole). Treating 403 as "session expired" - clearing the
+ * token and reloading the whole page - logged admins out mid-session on any
+ * forbidden action and made every such action look like a full-page reload.
+ * A 403 now surfaces as a normal error the caller can show inline, session intact.
  */
 async function handle(res, fallbackMessage) {
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
         localStorage.removeItem(ADMIN_TOKEN_KEY);
         localStorage.removeItem('fira_admin_auth');
         if (typeof window !== 'undefined') window.location.reload();
@@ -218,6 +223,22 @@ const adminApi = {
         const query = new URLSearchParams(params).toString();
         const res = await fetch(`${API_BASE}/audit-trail?${query}`, { headers: authHeaders() });
         return handle(res, 'Failed to fetch audit trail');
+    },
+
+    async deleteAuditEntry(id) {
+        const res = await fetch(`${API_BASE}/audit-trail/${id}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to delete audit entry');
+    },
+
+    async clearAuditTrail() {
+        const res = await fetch(`${API_BASE}/audit-trail/all`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to clear audit trail');
     },
 
     // ================== EARNINGS & PAYOUTS (read-only) ==================

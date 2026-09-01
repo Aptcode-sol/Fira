@@ -32,6 +32,21 @@ const scanningCodeSchema = new mongoose.Schema({
         maxlength: 50,
         default: ''
     },
+    /**
+     * An intentional "admits every tier" scanner, distinct from a legacy unscoped
+     * link.
+     *
+     * Both carry ticketTier '', so on their own they are indistinguishable - and
+     * listScanningCodes deactivates unscoped links to close the hole where an old
+     * link bypassed tier scoping. This flag marks the ONE combined link the
+     * organiser is meant to have, so it survives that sweep while stray unscoped
+     * links (allTiers !== true) are still retired. Nothing outside that sweep reads
+     * it: the door still admits on `ticketTier === '' → any tier`.
+     */
+    allTiers: {
+        type: Boolean,
+        default: false
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

@@ -181,6 +181,39 @@ export default function AuditTrail() {
         setCurrentPage(1);
     };
 
+    const [deletingId, setDeletingId] = useState(null);
+    const [clearing, setClearing] = useState(false);
+
+    // Delete one entry. The trail is housekeeping data, not itself audited, so a
+    // removal does not write a new log (which would be the next thing to delete).
+    const handleDeleteEntry = async (id) => {
+        if (!window.confirm('Delete this audit entry? This cannot be undone.')) return;
+        try {
+            setDeletingId(id);
+            await adminApi.deleteAuditEntry(id);
+            // Refetch rather than splice: keeps the page count and pagination honest.
+            fetchAuditTrail();
+        } catch (err) {
+            alert(err.message || 'Failed to delete entry');
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleClearAll = async () => {
+        if (!window.confirm(`Clear the ENTIRE audit trail (${total} entries)? This permanently deletes every recorded admin action and cannot be undone.`)) return;
+        try {
+            setClearing(true);
+            await adminApi.clearAuditTrail();
+            setCurrentPage(1);
+            fetchAuditTrail();
+        } catch (err) {
+            alert(err.message || 'Failed to clear audit trail');
+        } finally {
+            setClearing(false);
+        }
+    };
+
     return (
         <div className="p-6 lg:p-8">
             <FadeIn>
@@ -203,6 +236,19 @@ export default function AuditTrail() {
                             )}
                         </div>
                     </div>
+                    {total > 0 && (
+                        <button
+                            type="button"
+                            onClick={handleClearAll}
+                            disabled={clearing}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors text-sm font-medium disabled:opacity-50 w-fit"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            {clearing ? 'Clearing...' : 'Clear all'}
+                        </button>
+                    )}
                 </div>
 
                 {/* Filters. Fixed-width on desktop so two short dropdowns don't stretch
@@ -235,12 +281,13 @@ export default function AuditTrail() {
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">What changed</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">By</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">When</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {logs.length === 0 ? (
                                         <tr>
-                                            <td colSpan="4" className="px-6 py-12 text-center">
+                                            <td colSpan="5" className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <span className="text-2xl">📋</span>
                                                     <span className="text-gray-300">No audit logs found</span>
@@ -284,6 +331,20 @@ export default function AuditTrail() {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-gray-300 text-sm">{formatTimestamp(log.timestamp)}</div>
                                                 <div className="text-xs text-gray-500 mt-0.5">{formatRelative(log.timestamp)}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteEntry(log._id)}
+                                                    disabled={deletingId === log._id}
+                                                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                                    title="Delete entry"
+                                                    aria-label="Delete audit entry"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}

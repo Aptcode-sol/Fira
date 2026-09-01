@@ -167,8 +167,10 @@ export default function BrandCard({ brand, index = 0, onFollow }: BrandCardProps
                             )}
                         </div>
 
+                        {/* min-h keeps card heights aligned whether or not a bio
+                            exists, so the grid stays even - but no placeholder text. */}
                         <p className="text-sm text-gray-300 line-clamp-2 min-h-[40px]">
-                            {brand.bio || 'No bio available'}
+                            {brand.bio || ''}
                         </p>
 
                         <div className="pt-3 border-t border-white/5 space-y-3">

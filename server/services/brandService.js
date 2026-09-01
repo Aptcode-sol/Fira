@@ -139,7 +139,34 @@ const brandService = {
         ).populate('user', 'name email verificationBadge');
 
         if (!brand) throw new Error('Brand not found');
-        return brand;
+
+        // Live events count, overriding the denormalised stats.events.
+        //
+        // stats.events was only ever a stored number that nothing kept in step -
+        // approving an event never incremented it - so a brand with live events
+        // still read "0 Events". Counting the owner's visible events at read time
+        // is always correct and cheap (one indexed count on a single profile view).
+        // Followers stays denormalised: follow/unfollow already maintain it.
+        const brandObj = brand.toObject();
+        brandObj.stats = { ...brandObj.stats, events: await brandService.countBrandEvents(brand.user?._id || brand.user) };
+        return brandObj;
+    },
+
+    /**
+     * How many publicly visible events this brand's owner has.
+     *
+     * "Visible" = the same statuses the public events list shows, minus deleted -
+     * so the number matches what a visitor can actually click through to, not a
+     * count that includes drafts and rejected events.
+     */
+    async countBrandEvents(userId) {
+        if (!userId) return 0;
+        const Event = require('../models/Event');
+        return Event.countDocuments({
+            organizer: userId,
+            isDeleted: { $ne: true },
+            status: { $in: ['approved', 'upcoming', 'ongoing', 'completed'] },
+        });
     },
 
     // Get brand by User ID

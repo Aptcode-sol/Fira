@@ -245,6 +245,27 @@ router.get('/audit-trail', roleGuard(['super_admin', 'admin']), async (req, res)
     }
 });
 
+// Clear the entire trail. Registered before the :id route so the literal path
+// wins over being read as an id of "all".
+router.delete('/audit-trail/all', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.clearAuditTrail();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/audit-trail/:id', roleGuard(['super_admin', 'admin']), async (req, res) => {
+    try {
+        const result = await adminService.deleteAuditLog(req.params.id);
+        res.json(result);
+    } catch (error) {
+        const status = error.message === 'Audit entry not found' ? 404 : 500;
+        res.status(status).json({ error: error.message });
+    }
+});
+
 // ================== ADMIN ROLE ASSIGNMENT ==================
 router.patch('/users/:id/role', roleGuard(['super_admin']), async (req, res) => {
     try {

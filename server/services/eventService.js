@@ -152,6 +152,16 @@ const eventService = {
         else if (sort === 'top') sortOption = { currentAttendees: -1, createdAt: -1 };
         else if (sort === 'latest') sortOption = { createdAt: -1 };
 
+        // Featured events lead every public listing, whatever the secondary sort.
+        // A promoted event is worth surfacing above the chronological/popular order,
+        // but only on the public list - the organizer's own dashboard should stay in
+        // plain date order so they can find a specific event. Object key order is the
+        // tiebreak order Mongo applies, so isFeatured first means "featured, then the
+        // chosen sort within each group".
+        if (!organizer) {
+            sortOption = { isFeatured: -1, ...sortOption };
+        }
+
         const events = await Event.find(filter)
             .populate('organizer', 'name email avatar verificationBadge')
             .populate('venue', 'name address images')
@@ -953,11 +963,12 @@ const eventService = {
             throw new Error('Only the event organizer can create scanning codes');
         }
 
-        // Normalise both accepted shapes into one.
+        // Normalise both accepted shapes into one. `allTiers` marks the intentional
+        // combined link (empty tier, but kept through the unscoped-link sweep).
         const requested = (entries.length ? entries : ['']).map(entry =>
             typeof entry === 'string'
-                ? { label: entry, ticketTier: '' }
-                : { label: entry?.label || '', ticketTier: entry?.ticketTier || '' }
+                ? { label: entry, ticketTier: '', allTiers: false }
+                : { label: entry?.label || '', ticketTier: entry?.ticketTier || '', allTiers: entry?.allTiers === true }
         );
 
         // A tier that does not exist on the event would produce a scanner that
@@ -976,7 +987,7 @@ const eventService = {
         }
 
         const codes = [];
-        for (const { label, ticketTier } of requested) {
+        for (const { label, ticketTier, allTiers } of requested) {
             let code;
             let attempts = 0;
             // Ensure uniqueness — retry if collision (extremely unlikely with 12 chars)
@@ -993,9 +1004,11 @@ const eventService = {
             const scanningCode = await ScanningCode.create({
                 event: eventId,
                 code,
-                // Default the label to the tier so a per-tier link is never unnamed.
-                label: label || ticketTier || '',
+                // Default the label to the tier, or name the combined link so it is
+                // never unnamed in the list.
+                label: label || ticketTier || (allTiers ? 'All Tiers' : ''),
                 ticketTier,
+                allTiers,
                 createdBy: organizerId
             });
             codes.push(scanningCode);
@@ -1056,41 +1069,48 @@ const eventService = {
         const tierNames = (event.ticketTiers || []).map(t => t.name).filter(Boolean);
 
         /*
-         * Retire every link that is not scoped to a tier.
+         * Retire STRAY unscoped links - ones with an empty tier that are NOT the
+         * intentional combined link (allTiers !== true).
          *
-         * An unscoped link admits any tier, so one left live alongside the per-tier
-         * links is a way round all of them - whoever holds it can wave anyone in. They
-         * exist only because links generated before tier scoping carried no tier.
+         * A stray unscoped link exists only because it was generated before tier
+         * scoping, and left live it is a way round the per-tier links. The one
+         * combined link the organiser is meant to have carries allTiers:true and is
+         * excluded here, so this sweep no longer kills it.
          *
-         * `$in: ['', null]` rather than `''`: on documents written before the field
-         * existed it is absent, and a null match covers a missing field too.
+         * `$ne: true` covers both false and the absent field on legacy documents.
          */
         await ScanningCode.updateMany(
-            { event: eventId, isActive: true, ticketTier: { $in: ['', null] } },
+            { event: eventId, isActive: true, ticketTier: { $in: ['', null] }, allTiers: { $ne: true } },
             { $set: { isActive: false } }
         );
 
         const existing = await ScanningCode.find({ event: eventId });
-        const activeTiers = new Set(existing.filter(c => c.isActive).map(c => c.ticketTier));
+        const activeTiers = new Set(existing.filter(c => c.isActive && !c.allTiers).map(c => c.ticketTier));
+        const hasActiveCombined = existing.some(c => c.isActive && c.allTiers);
 
         /*
-         * Every event gets tier-scoped links and nothing else.
+         * Every event gets one combined "All Tiers" link PLUS a link per tier.
          *
-         * A tier is compulsory at creation now - an event with no tiers named one
-         * 'General' - so there is no such thing as a link that admits everything. Older
-         * events created before that carry no tiers at all, and PURCHASE_FALLBACK_TIER
-         * is the name their tickets were issued under, so scoping their link to it
-         * matches what is actually on those tickets.
+         * The combined link admits any tier (ticketTier ''), for a single door that
+         * lets everyone in; the per-tier links scope entry to one tier each. The
+         * organiser chooses which to hand out. A tier is compulsory at creation now,
+         * so tierNames is non-empty for new events; older tier-less events fall back
+         * to PURCHASE_FALLBACK_TIER, the name their tickets were actually issued under.
          */
-        const wanted = tierNames.length > 0 ? tierNames : [PURCHASE_FALLBACK_TIER];
-        const missing = wanted.filter(name => !activeTiers.has(name));
+        const wantedTiers = tierNames.length > 0 ? tierNames : [PURCHASE_FALLBACK_TIER];
 
-        if (missing.length > 0 && existing.length + missing.length <= 20) {
-            await this.createScanningCodes(
-                eventId,
-                missing.map(name => ({ label: name, ticketTier: name })),
-                organizerId
-            );
+        const toCreate = [];
+        if (!hasActiveCombined) {
+            toCreate.push({ label: 'All Tiers', ticketTier: '', allTiers: true });
+        }
+        for (const name of wantedTiers) {
+            if (!activeTiers.has(name)) {
+                toCreate.push({ label: name, ticketTier: name, allTiers: false });
+            }
+        }
+
+        if (toCreate.length > 0 && existing.length + toCreate.length <= 20) {
+            await this.createScanningCodes(eventId, toCreate, organizerId);
         }
 
         return ScanningCode.find({ event: eventId }).sort({ createdAt: -1 });
