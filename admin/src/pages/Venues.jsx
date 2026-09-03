@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Button } from '../components/ui/Button';
+import { useBulkSelection } from '../lib/useBulkSelection';
+import BulkActionBar from '../components/BulkActionBar';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -43,6 +45,8 @@ export default function Venues() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const bulk = useBulkSelection();
 
     useEffect(() => {
         fetchVenues();
@@ -73,6 +77,7 @@ export default function Venues() {
 
     const handleApprove = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Approve this venue? It will be publicly listed.')) return;
         try {
             await adminApi.updateVenueStatus(id, 'approved');
             fetchVenues();
@@ -83,6 +88,7 @@ export default function Venues() {
 
     const handleReject = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Reject this venue listing?')) return;
         try {
             await adminApi.updateVenueStatus(id, 'rejected');
             fetchVenues();
@@ -93,6 +99,7 @@ export default function Venues() {
 
     const handleBlock = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Block this venue? It will be hidden from all listings.')) return;
         try {
             await adminApi.updateVenueStatus(id, 'blocked');
             fetchVenues();
@@ -114,6 +121,28 @@ export default function Venues() {
             alert(err.message || 'Failed to delete venue');
         }
     };
+
+    const pageIds = venues.map((v) => v._id);
+    const runBulk = async (label, fn) => {
+        if (bulk.count === 0) return;
+        if (!window.confirm(`${label} ${bulk.count} selected venue${bulk.count !== 1 ? 's' : ''}?`)) return;
+        setBulkBusy(true);
+        try {
+            for (const id of bulk.selectedIds) await fn(id);
+            bulk.clear();
+            await fetchVenues();
+        } catch (err) {
+            alert(err.message || `Failed to ${label.toLowerCase()} some venues`);
+            await fetchVenues();
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+    const bulkActions = [
+        { label: 'Approve', onClick: () => runBulk('Approve', (id) => adminApi.updateVenueStatus(id, 'approved')) },
+        { label: 'Block', variant: 'danger', onClick: () => runBulk('Block', (id) => adminApi.updateVenueStatus(id, 'blocked')) },
+        { label: 'Delete', variant: 'danger', onClick: () => runBulk('Permanently delete', (id) => adminApi.deleteVenue(id)) },
+    ];
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -186,6 +215,9 @@ export default function Venues() {
                     </form>
                 </div>
 
+                {/* Bulk action bar */}
+                <BulkActionBar count={bulk.count} actions={bulkActions} onClear={bulk.clear} busy={bulkBusy} />
+
                 {/* Table */}
                 <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
                     {loading ? (
@@ -195,6 +227,15 @@ export default function Venues() {
                             <table className="w-full text-left">
                                 <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                     <tr>
+                                        <th className="px-6 py-4 w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={bulk.isPageAllSelected(pageIds)}
+                                                onChange={() => bulk.togglePage(pageIds)}
+                                                className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                aria-label="Select all on this page"
+                                            />
+                                        </th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Venue</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Owner</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Location</th>
@@ -207,7 +248,7 @@ export default function Venues() {
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {venues.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-300">
+                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-300">
                                                 No venues found matching your criteria
                                             </td>
                                         </tr>
@@ -215,8 +256,17 @@ export default function Venues() {
                                         <tr
                                             key={venue._id}
                                             onClick={() => navigate(`/venues/${venue._id}`)}
-                                            className="hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                                            className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${bulk.isSelected(venue._id) ? 'bg-violet-500/5' : ''}`}
                                         >
+                                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={bulk.isSelected(venue._id)}
+                                                    onChange={() => bulk.toggle(venue._id)}
+                                                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                    aria-label={`Select ${venue.name}`}
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 group-hover:scale-105 transition-transform">

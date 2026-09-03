@@ -23,7 +23,8 @@ const adminService = {
             pendingBrands,
             blockedUsers,
             totalTickets,
-            revenueData
+            ticketRevenue,
+            bookingRevenue
         ] = await Promise.all([
             User.countDocuments(),
             // Deleted listings are excluded here so the headline counts agree
@@ -39,9 +40,19 @@ const adminService = {
             User.countDocuments({ isBlocked: true }),
             Ticket.countDocuments(),
             Ticket.aggregate([
-                { $group: { _id: null, totalRevenue: { $sum: '$price' } } }
+                { $group: { _id: null, total: { $sum: '$price' } } }
+            ]),
+            // Venue booking revenue was missing from the dashboard headline:
+            // totalRevenue only summed ticket prices, so venue bookings (which go
+            // through Razorpay and record a Booking.totalAmount) were invisible.
+            Booking.aggregate([
+                { $match: { status: { $in: ['accepted', 'completed'] } } },
+                { $group: { _id: null, total: { $sum: '$totalAmount' } } }
             ])
         ]);
+
+        const ticketRev = ticketRevenue[0]?.total || 0;
+        const bookingRev = bookingRevenue[0]?.total || 0;
 
         return {
             totalUsers,
@@ -53,7 +64,9 @@ const adminService = {
             pendingBrands,
             blockedUsers,
             totalTickets,
-            totalRevenue: revenueData[0]?.totalRevenue || 0
+            totalRevenue: ticketRev + bookingRev,
+            ticketRevenue: ticketRev,
+            venueRevenue: bookingRev,
         };
     },
 

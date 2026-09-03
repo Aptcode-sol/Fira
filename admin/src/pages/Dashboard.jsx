@@ -146,7 +146,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h2 className="text-lg font-semibold text-white mb-1">Platform Revenue</h2>
-                                <p className="text-sm text-gray-300">Total earnings from ticket sales</p>
+                                <p className="text-sm text-gray-300">Total earnings from ticket sales &amp; venue bookings</p>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,17 +161,14 @@ export default function Dashboard() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                                <div className="text-sm text-gray-300 mb-1">Tickets Sold</div>
-                                <div className="text-xl font-bold text-white">{(stats?.totalTickets || 0).toLocaleString()}</div>
+                                <div className="text-sm text-gray-300 mb-1">Ticket Revenue</div>
+                                <div className="text-xl font-bold text-white">{formatCurrency(stats?.ticketRevenue || 0)}</div>
+                                <div className="text-xs text-gray-400 mt-1">{(stats?.totalTickets || 0).toLocaleString()} tickets</div>
                             </div>
                             <div className="bg-black/20 rounded-xl p-4 border border-white/5">
-                                <div className="text-sm text-gray-300 mb-1">Avg. Ticket Price</div>
-                                <div className="text-xl font-bold text-white">
-                                    {stats?.totalTickets > 0
-                                        ? formatCurrency((stats?.totalRevenue || 0) / stats.totalTickets)
-                                        : '₹0'
-                                    }
-                                </div>
+                                <div className="text-sm text-gray-300 mb-1">Venue Revenue</div>
+                                <div className="text-xl font-bold text-white">{formatCurrency(stats?.venueRevenue || 0)}</div>
+                                <div className="text-xs text-gray-400 mt-1">from bookings</div>
                             </div>
                         </div>
                     </div>

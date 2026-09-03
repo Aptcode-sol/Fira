@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Button } from '../components/ui/Button';
+import { useBulkSelection } from '../lib/useBulkSelection';
+import BulkActionBar from '../components/BulkActionBar';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -16,6 +18,9 @@ export default function Users() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const bulk = useBulkSelection();
+    const pageIds = users.map((u) => u._id);
 
     useEffect(() => {
         fetchUsers();
@@ -46,6 +51,7 @@ export default function Users() {
 
     const handleBlock = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Block this user? They will lose access to their account.')) return;
         try {
             await adminApi.blockUser(id);
             fetchUsers();
@@ -56,6 +62,7 @@ export default function Users() {
 
     const handleUnblock = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Unblock this user? They will regain full access to their account.')) return;
         try {
             await adminApi.unblockUser(id);
             fetchUsers();
@@ -79,6 +86,32 @@ export default function Users() {
             alert(err.message || 'Failed to delete user');
         }
     };
+
+    // Run one admin call per selected id, sequentially so a mid-batch failure
+    // stops rather than firing the rest blind. Refetch + clear selection after.
+    const runBulk = async (label, fn) => {
+        if (bulk.count === 0) return;
+        if (!window.confirm(`${label} ${bulk.count} selected user${bulk.count !== 1 ? 's' : ''}?`)) return;
+        setBulkBusy(true);
+        try {
+            for (const id of bulk.selectedIds) {
+                await fn(id);
+            }
+            bulk.clear();
+            await fetchUsers();
+        } catch (err) {
+            alert(err.message || `Failed to ${label.toLowerCase()} some users`);
+            await fetchUsers();
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
+    const bulkActions = [
+        { label: 'Block', variant: 'danger', onClick: () => runBulk('Block', (id) => adminApi.blockUser(id)) },
+        { label: 'Unblock', onClick: () => runBulk('Unblock', (id) => adminApi.unblockUser(id)) },
+        { label: 'Delete', variant: 'danger', onClick: () => runBulk('Permanently delete', (id) => adminApi.deleteUser(id)) },
+    ];
 
     // The User model has no `status` field - block state lives on `isBlocked`.
     const userStatus = (user) => (user.isBlocked ? 'blocked' : 'active');
@@ -170,6 +203,14 @@ export default function Users() {
                     </form>
                 </div>
 
+                {/* Bulk action bar - appears only when rows are selected */}
+                <BulkActionBar
+                    count={bulk.count}
+                    actions={bulkActions}
+                    onClear={bulk.clear}
+                    busy={bulkBusy}
+                />
+
                 {/* Table */}
                 <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
                     {loading ? (
@@ -179,6 +220,15 @@ export default function Users() {
                             <table className="w-full text-left">
                                 <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                     <tr>
+                                        <th className="px-6 py-4 w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={bulk.isPageAllSelected(pageIds)}
+                                                onChange={() => bulk.togglePage(pageIds)}
+                                                className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                aria-label="Select all on this page"
+                                            />
+                                        </th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">User</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Badge</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Phone</th>
@@ -191,7 +241,7 @@ export default function Users() {
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {users.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-300">
+                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-300">
                                                 No users found matching your criteria
                                             </td>
                                         </tr>
@@ -199,8 +249,17 @@ export default function Users() {
                                         <tr
                                             key={user._id}
                                             onClick={() => navigate(`/users/${user._id}`)}
-                                            className="hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                                            className={`hover:bg-white/[0.02] transition-colors group cursor-pointer ${bulk.isSelected(user._id) ? 'bg-violet-500/5' : ''}`}
                                         >
+                                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={bulk.isSelected(user._id)}
+                                                    onChange={() => bulk.toggle(user._id)}
+                                                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                    aria-label={`Select ${user.name || user.email}`}
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-white font-medium border border-white/10 overflow-hidden">

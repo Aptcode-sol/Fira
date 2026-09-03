@@ -42,6 +42,8 @@ export default function DiscountCodes() {
     };
 
     const handleToggleActive = async (code) => {
+        const action = code.isActive ? 'Deactivate' : 'Activate';
+        if (!window.confirm(`${action} discount code "${code.code}"?`)) return;
         setToggling((prev) => ({ ...prev, [code._id]: true }));
         try {
             if (code.isActive) {
@@ -58,6 +60,26 @@ export default function DiscountCodes() {
             setToggling((prev) => ({ ...prev, [code._id]: false }));
         }
     };
+
+    const handleDelete = async (code) => {
+        if (!window.confirm(`Delete discount code "${code.code}"? This cannot be undone.`)) return;
+        try {
+            await adminApi.deleteDiscountCode(code._id);
+            setCodes((prev) => prev.filter((c) => c._id !== code._id));
+        } catch (err) {
+            alert(err.message || 'Failed to delete discount code');
+        }
+    };
+
+    // Group codes by event for a cleaner view
+    const groupedByEvent = codes.reduce((acc, code) => {
+        const eventName = code.event?.name || 'Unknown Event';
+        const eventId = code.event?._id || code.event || 'unknown';
+        const key = String(eventId);
+        if (!acc[key]) acc[key] = { name: eventName, codes: [] };
+        acc[key].codes.push(code);
+        return acc;
+    }, {});
 
     const handleExpand = async (codeId) => {
         if (expandedId === codeId) {
@@ -105,7 +127,23 @@ export default function DiscountCodes() {
                         </div>
                     ) : (
                         <div className="divide-y divide-white/[0.05]">
-                            {codes.map((code) => (
+                            {/* Grouped by event */}
+                            {Object.entries(groupedByEvent).map(([eventId, group]) => (
+                                <div key={eventId}>
+                                    {/* Event group header */}
+                                    <div className="px-6 py-3 bg-white/[0.02] border-b border-white/[0.05]">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth={1.5} />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 2v4M8 2v4M3 10h18" />
+                                            </svg>
+                                            <span className="text-white font-medium text-sm">{group.name}</span>
+                                            <span className="text-gray-500 text-xs">({group.codes.length} code{group.codes.length !== 1 ? 's' : ''})</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Codes under this event */}
+                                    {group.codes.map((code) => (
                                 <div key={code._id}>
                                     {/* Row */}
                                     <div
@@ -150,35 +188,41 @@ export default function DiscountCodes() {
                                                     ? `${code.discountValue}% off`
                                                     : `₹${code.discountValue} off`}
                                                 {' · '}
-                                                Event: {code.event?.name || code.event || 'N/A'}
-                                                {' · '}
                                                 Uses: {code.usedCount}/{code.maxUses || '∞'}
                                             </div>
                                             <div className="text-gray-500 text-xs mt-0.5">
                                                 Valid: {formatDate(code.validFrom)} – {formatDate(code.validUntil)}
-                                                {code.createdBy && ` · By: ${code.createdBy.name || code.createdBy.email || 'Unknown'} (${ownerKind(code)})`}
+                                                {code.createdBy && ` · By: ${code.createdBy.name || code.createdBy.email || 'Unknown'}`}
                                             </div>
                                         </div>
 
-                                        {/* Toggle button */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleActive(code);
-                                            }}
-                                            disabled={toggling[code._id]}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                                code.isActive
-                                                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                                                    : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        >
-                                            {toggling[code._id]
-                                                ? '...'
-                                                : code.isActive
-                                                ? 'Deactivate'
-                                                : 'Activate'}
-                                        </button>
+                                        {/* Action buttons */}
+                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => handleToggleActive(code)}
+                                                disabled={toggling[code._id]}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                                    code.isActive
+                                                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                                        : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                {toggling[code._id]
+                                                    ? '...'
+                                                    : code.isActive
+                                                    ? 'Deactivate'
+                                                    : 'Activate'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(code)}
+                                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                                                title="Delete discount code"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
 
                                         <span className="text-gray-500 text-xs hidden sm:block">
                                             {expandedId === code._id ? '▲' : '▼'}
@@ -248,6 +292,8 @@ export default function DiscountCodes() {
                                             ) : null}
                                         </div>
                                     )}
+                                </div>
+                            ))}
                                 </div>
                             ))}
                         </div>

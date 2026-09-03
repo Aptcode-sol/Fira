@@ -207,16 +207,23 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                 />
             )}
 
-            {/* Single hamburger button — always in DOM on mobile (req 2.3) */}
+            {/* Single hamburger / close button — always in DOM on mobile (req 2.3).
+                Shows ✕ when open so pressing it is understood as "close". */}
             {isMobile && (
                 <button
                     onClick={() => setIsExpanded(prev => !prev)}
                     className="fixed top-4 left-4 z-50 p-2.5 bg-black/80 backdrop-blur-md border border-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
                     aria-label={isExpanded ? 'Close navigation' : 'Open navigation'}
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
+                    {isExpanded ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    )}
                 </button>
             )}
 
@@ -234,20 +241,24 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                 // locked to a 68px rail with no way to expand it.
                 className={`fixed left-0 inset-y-0 bg-black/95 lg:bg-black/60 backdrop-blur-xl border-r border-white/[0.08] z-40 flex flex-col shadow-[0_0_60px_rgba(168,85,247,0.1)] transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-0 overflow-hidden lg:w-20 lg:overflow-visible'}`}
             >
-                {/* Logo + collapse toggle */}
-                <div className="p-4 border-b border-white/[0.08] flex items-center justify-center h-20 relative">
-                    <Link to="/" className="flex flex-col items-center">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
+                {/* Logo + collapse toggle — logo stacked with ADMIN below it,
+                    left-aligned. The logo uses the white version on a black bg
+                    so it reads on any theme. */}
+                <div className="p-4 border-b border-white/[0.08] flex items-center h-20 relative gap-3">
+                    <Link to="/" className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden bg-black flex-shrink-0">
                             <img src={logo} alt="Fira Logo" className="w-full h-full object-contain" />
                         </div>
-                        <span className="text-[10px] text-gray-300 font-medium tracking-wider uppercase mt-1">
-                            Admin
-                        </span>
+                        {isOpen && (
+                            <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-white leading-tight">FIRA</span>
+                                <span className="text-[9px] text-gray-400 font-medium tracking-widest uppercase">Admin</span>
+                            </div>
+                        )}
                     </Link>
 
                     {/* Desktop-only pin/collapse toggle — only visible when sidebar
-                        is expanded. In collapsed state the logo is the visual anchor
-                        and hover-to-peek opens the sidebar. */}
+                        is expanded. Shows ✕ to close, matching the mobile button. */}
                     {!isMobile && isOpen && (
                         <button
                             onClick={() => setIsExpanded(prev => !prev)}
@@ -256,7 +267,7 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                             aria-label="Collapse sidebar"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
                     )}

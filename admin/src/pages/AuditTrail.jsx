@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Select } from '../components/ui/Select';
+import Dropdown from '../components/ui/Dropdown';
 import { Pagination } from '../components/ui/Pagination';
 import { formatInr } from '../lib/formatInr';
 
@@ -254,17 +255,17 @@ export default function AuditTrail() {
                 {/* Filters. Fixed-width on desktop so two short dropdowns don't stretch
                     the full page width; full-width stacked below sm. */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:max-w-xl gap-3 mb-6">
-                    <Select
+                    <Dropdown
                         value={entityTypeFilter}
                         onChange={handleFilterChange(setEntityTypeFilter)}
                         options={ENTITY_TYPE_OPTIONS}
-                        aria-label="Filter by entity type"
+                        label="Entity Type"
                     />
-                    <Select
+                    <Dropdown
                         value={actionFilter}
                         onChange={handleFilterChange(setActionFilter)}
                         options={ACTION_OPTIONS}
-                        aria-label="Filter by action"
+                        label="Action"
                     />
                 </div>
 

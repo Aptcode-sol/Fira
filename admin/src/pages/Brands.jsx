@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Button } from '../components/ui/Button';
+import { useBulkSelection } from '../lib/useBulkSelection';
+import BulkActionBar from '../components/BulkActionBar';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -16,6 +18,9 @@ export default function Brands() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const bulk = useBulkSelection();
+    const pageIds = brands.map((b) => b._id);
 
     useEffect(() => {
         fetchBrands();
@@ -46,6 +51,7 @@ export default function Brands() {
 
     const handleApprove = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Approve this creator? They will be publicly visible and earn a verified badge.')) return;
         try {
             await adminApi.updateBrandStatus(id, 'approved');
             fetchBrands();
@@ -56,6 +62,7 @@ export default function Brands() {
 
     const handleReject = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Reject this creator application?')) return;
         try {
             await adminApi.updateBrandStatus(id, 'rejected');
             fetchBrands();
@@ -66,6 +73,7 @@ export default function Brands() {
 
     const handleBlock = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Block this creator? Their profile will be hidden and their verified badge removed.')) return;
         try {
             await adminApi.updateBrandStatus(id, 'blocked');
             fetchBrands();
@@ -92,6 +100,29 @@ export default function Brands() {
             alert(err.message || 'Failed to delete creator');
         }
     };
+
+    const runBulk = async (label, fn) => {
+        if (bulk.count === 0) return;
+        if (!window.confirm(`${label} ${bulk.count} selected creator${bulk.count !== 1 ? 's' : ''}?`)) return;
+        setBulkBusy(true);
+        try {
+            for (const id of bulk.selectedIds) await fn(id);
+            bulk.clear();
+            await fetchBrands();
+        } catch (err) {
+            alert(err.message || `Failed to ${label.toLowerCase()} some creators`);
+            await fetchBrands();
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
+    const bulkActions = [
+        { label: 'Approve', onClick: () => runBulk('Approve', (id) => adminApi.updateBrandStatus(id, 'approved')) },
+        { label: 'Reject', variant: 'danger', onClick: () => runBulk('Reject', (id) => adminApi.updateBrandStatus(id, 'rejected')) },
+        { label: 'Block', variant: 'danger', onClick: () => runBulk('Block', (id) => adminApi.updateBrandStatus(id, 'blocked')) },
+        { label: 'Delete', variant: 'danger', onClick: () => runBulk('Permanently delete', (id) => adminApi.deleteBrand(id)) },
+    ];
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -164,6 +195,9 @@ export default function Brands() {
                     </form>
                 </div>
 
+                {/* Bulk action bar */}
+                <BulkActionBar count={bulk.count} actions={bulkActions} onClear={bulk.clear} busy={bulkBusy} />
+
                 {/* Table */}
                 <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
                     {loading ? (
@@ -173,6 +207,15 @@ export default function Brands() {
                             <table className="w-full text-left">
                                 <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                     <tr>
+                                        <th className="px-6 py-4 w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={bulk.isPageAllSelected(pageIds)}
+                                                onChange={() => bulk.togglePage(pageIds)}
+                                                className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                aria-label="Select all on this page"
+                                            />
+                                        </th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Creator</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Owner</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Type</th>
@@ -185,7 +228,7 @@ export default function Brands() {
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {brands.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-300">
+                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-300">
                                                 No creators found matching your criteria
                                             </td>
                                         </tr>
@@ -193,8 +236,17 @@ export default function Brands() {
                                         <tr
                                             key={brand._id}
                                             onClick={() => navigate(`/brands/${brand._id}`)}
-                                            className="hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                                            className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${bulk.isSelected(brand._id) ? 'bg-violet-500/5' : ''}`}
                                         >
+                                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={bulk.isSelected(brand._id)}
+                                                    onChange={() => bulk.toggle(brand._id)}
+                                                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                    aria-label={`Select ${brand.name}`}
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center text-white font-medium border border-white/10 group-hover:scale-105 transition-transform overflow-hidden">

@@ -15,9 +15,10 @@ import { SITE_NAME } from '@/lib/siteConfig';
  *     not the brand's logo, which makes it the wrong fix - a favicon whose whole job
  *     is to be recognised as this company.
  *
- * This uses the actual logo artwork, composited onto an opaque dark tile. The tile
- * is what makes the white mark legible on Google's white background, on a light
- * browser theme, and in a bookmark bar. The artwork is what makes it ours.
+ * This uses the actual logo artwork, composited onto a plain opaque black tile.
+ * The tile is what makes the white mark legible on Google's white background, on a
+ * light browser theme, and in a bookmark bar. The artwork is what makes it ours.
+ * The background is deliberately plain black, not a coloured gradient.
  *
  * Also square (192x192): Google requires a square favicon in a multiple of 48px and
  * letterboxes anything else, and the source logo is 1536x1024.
@@ -47,11 +48,11 @@ export default function Icon() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    // Opaque, not transparent. Transparency is precisely what let the
-                    // original icon vanish into Google's white result background.
-                    background: '#0a0a0a',
-                    backgroundImage:
-                        'radial-gradient(circle at 28% 20%, rgba(139,92,246,0.5) 0%, transparent 60%), radial-gradient(circle at 78% 84%, rgba(236,72,153,0.38) 0%, transparent 58%)',
+                    // Plain opaque black. Opaque (not transparent) is what keeps the
+                    // white mark from vanishing into Google's white result background;
+                    // plain black (no gradient) is the simple treatment the brand wants
+                    // rather than a colourful tile.
+                    background: '#000000',
                 }}
             >
                 {/* Padded and contained rather than filling the tile: the artwork is

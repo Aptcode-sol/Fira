@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Button } from '../components/ui/Button';
+import { useBulkSelection } from '../lib/useBulkSelection';
+import BulkActionBar from '../components/BulkActionBar';
 
 // Helper to format DateTime like "30 Dec 2025 14:00"
 const formatDateTime = (dateTimeStr) => {
@@ -21,7 +23,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function Events() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'all'
+    const [activeTab, setActiveTab] = useState('all'); // 'all' (default) or 'pending'
     const [events, setEvents] = useState([]);
     const [pendingEvents, setPendingEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -34,6 +36,9 @@ export default function Events() {
     const [processingId, setProcessingId] = useState(null);
     const [rejectingEvent, setRejectingEvent] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const bulk = useBulkSelection();
+    const pageIds = events.map((e) => e._id);
 
     // Lock body scroll while the hand-rolled rejection overlay is open.
     // Inline effect mirrors client's useBodyScrollLock / <Modal> (admin is JS, not TS).
@@ -102,6 +107,9 @@ export default function Events() {
     };
 
     const handleAdminApprove = async (eventId, status, reason = '') => {
+        // Approve goes straight through (positive action). Reject opens the
+        // rejection modal which has its own confirm flow. Both are guarded.
+        if (status === 'approved' && !window.confirm('Approve this event? It will go live immediately.')) return;
         setProcessingId(eventId);
         try {
             await adminApi.adminApproveEvent(eventId, adminId, status, reason);
@@ -122,6 +130,7 @@ export default function Events() {
 
     const handleBlock = async (id, e) => {
         e.stopPropagation();
+        if (!window.confirm('Block this event? It will be hidden from all listings.')) return;
         try {
             await adminApi.updateEventStatus(id, 'blocked');
             fetchEvents();
@@ -182,11 +191,24 @@ export default function Events() {
                     )}
                 </div>
 
-                {/* Tab Navigation */}
+                {/* Tab Navigation — All Events on the left (the default view),
+                    Pending Approvals pushed to the right with ml-auto. */}
                 <div className="flex gap-4 border-b border-white/10 mb-6">
                     <button
+                        onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
+                        className={`pb-3 px-1 text-sm font-medium transition-all relative ${activeTab === 'all'
+                                ? 'text-violet-400'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        All Events
+                        {activeTab === 'all' && (
+                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-violet-400 rounded-t-full"></span>
+                        )}
+                    </button>
+                    <button
                         onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
-                        className={`pb-3 px-1 text-sm font-medium transition-all relative ${activeTab === 'pending'
+                        className={`pb-3 px-1 text-sm font-medium transition-all relative ml-auto ${activeTab === 'pending'
                                 ? 'text-violet-400'
                                 : 'text-gray-400 hover:text-white'
                             }`}
@@ -198,18 +220,6 @@ export default function Events() {
                             </span>
                         )}
                         {activeTab === 'pending' && (
-                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-violet-400 rounded-t-full"></span>
-                        )}
-                    </button>
-                    <button
-                        onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
-                        className={`pb-3 px-1 text-sm font-medium transition-all relative ${activeTab === 'all'
-                                ? 'text-violet-400'
-                                : 'text-gray-400 hover:text-white'
-                            }`}
-                    >
-                        All Events
-                        {activeTab === 'all' && (
                             <span className="absolute bottom-0 left-0 w-full h-0.5 bg-violet-400 rounded-t-full"></span>
                         )}
                     </button>
@@ -322,6 +332,30 @@ export default function Events() {
                 ) : (
                     // All Events Tab
                     <>
+                        {/* Bulk action bar for All Events */}
+                        <BulkActionBar
+                            count={bulk.count}
+                            actions={[
+                                { label: 'Approve', onClick: async () => {
+                                    if (!window.confirm(`Approve ${bulk.count} events?`)) return;
+                                    setBulkBusy(true);
+                                    try { for (const id of bulk.selectedIds) await handleAdminApprove(id, 'approved'); bulk.clear(); } catch {} finally { setBulkBusy(false); }
+                                }},
+                                { label: 'Block', variant: 'danger', onClick: async () => {
+                                    if (!window.confirm(`Block ${bulk.count} events?`)) return;
+                                    setBulkBusy(true);
+                                    try { for (const id of bulk.selectedIds) await adminApi.updateEventStatus(id, 'blocked'); bulk.clear(); fetchEvents(); } catch {} finally { setBulkBusy(false); }
+                                }},
+                                { label: 'Delete', variant: 'danger', onClick: async () => {
+                                    if (!window.confirm(`Delete ${bulk.count} events? This cannot be undone.`)) return;
+                                    setBulkBusy(true);
+                                    try { for (const id of bulk.selectedIds) await adminApi.deleteEvent(id); bulk.clear(); fetchEvents(); } catch {} finally { setBulkBusy(false); }
+                                }},
+                            ]}
+                            onClear={bulk.clear}
+                            busy={bulkBusy}
+                        />
+
                         {/* Filters & Search */}
                         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
                             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
@@ -370,6 +404,15 @@ export default function Events() {
                                     <table className="w-full text-left">
                                         <thead className="bg-white/[0.02] border-b border-white/[0.05]">
                                             <tr>
+                                                <th className="px-6 py-4 w-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={bulk.isPageAllSelected(pageIds)}
+                                                        onChange={() => bulk.togglePage(pageIds)}
+                                                        className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                        aria-label="Select all on this page"
+                                                    />
+                                                </th>
                                                 <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Event</th>
                                                 <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Organizer</th>
                                                 <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Venue</th>
@@ -397,8 +440,17 @@ export default function Events() {
                                                 <tr
                                                     key={event._id}
                                                     onClick={() => navigate(`/events/${event._id}`)}
-                                                    className="hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                                                    className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${bulk.isSelected(event._id) ? 'bg-violet-500/5' : ''}`}
                                                 >
+                                                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={bulk.isSelected(event._id)}
+                                                            onChange={() => bulk.toggle(event._id)}
+                                                            className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
+                                                            aria-label={`Select ${event.name}`}
+                                                        />
+                                                    </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">

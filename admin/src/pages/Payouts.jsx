@@ -28,6 +28,9 @@ export default function Payouts() {
     const [payoutLoading, setPayoutLoading] = useState(false);
     const [payoutError, setPayoutError] = useState(null);
 
+    // Event vs Venue tab for recipient breakdown
+    const [recipientTab, setRecipientTab] = useState('events');
+
     // Load every figure together for the main state machine. Date range applies
     // identically to all three endpoints (Req 1.8). Fails closed: on any error we
     // show the error state and no partial totals (Req 1.9).
@@ -92,25 +95,13 @@ export default function Payouts() {
         setRange({ from: '', to: '' });
     };
 
+
+
     const toggleStatus = (status) => {
         setStatuses((prev) =>
             prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
         );
     };
-
-    const recipientRows = [
-        ...(recipients.event_tickets || []),
-        ...(recipients.venue_booking || []),
-    ];
-
-    // Dashboard-level empty state: a successful load with no recipients, no
-    // payouts, and nothing collected (Req 12.2). Distinct from a filter that
-    // simply matches no payouts (handled inside the payout region, Req 3.7).
-    const isEmpty =
-        phase === 'ready' &&
-        recipientRows.length === 0 &&
-        payouts.length === 0 &&
-        !overview?.grossCollected;
 
     // ---- Loading state (mutually exclusive with empty/error) ----
     if (phase === 'loading') {
@@ -154,7 +145,7 @@ export default function Payouts() {
                 <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-white mb-2">Payouts &amp; Earnings</h1>
-                        <p className="text-gray-300">Read-only view of collected money, payables, and payout status</p>
+                        <p className="text-gray-300">Collected money, payables, and payout status</p>
                     </div>
                     <div className="flex flex-wrap items-end gap-3">
                         <div>
@@ -163,7 +154,7 @@ export default function Payouts() {
                                 type="date"
                                 value={draftRange.from}
                                 onChange={(e) => setDraftRange((r) => ({ ...r, from: e.target.value }))}
-                                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                             />
                         </div>
                         <div>
@@ -172,7 +163,7 @@ export default function Payouts() {
                                 type="date"
                                 value={draftRange.to}
                                 onChange={(e) => setDraftRange((r) => ({ ...r, to: e.target.value }))}
-                                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
                             />
                         </div>
                         <button
@@ -193,18 +184,9 @@ export default function Payouts() {
                 </div>
             </SlideUp>
 
-            {isEmpty ? (
-                <div className="max-w-lg mx-auto mt-16 text-center bg-white/[0.02] border border-white/[0.08] rounded-2xl p-10">
-                    <svg className="w-10 h-10 text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <h2 className="text-lg font-semibold text-white mb-2">No records for this scope</h2>
-                    <p className="text-sm text-gray-300">
-                        There are no earnings or payout records{(range.from || range.to) ? ' in the selected date range' : ''}.
-                    </p>
-                </div>
-            ) : (
-                <>
+            {/* Figures always render, even at zero - a ₹0 total is information,
+                not an empty state to hide. */}
+            <>
                     {/* Region 1 — six headline figures (Req 1.1) */}
                     <FadeIn delay={0.05}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -256,7 +238,7 @@ export default function Payouts() {
                         </div>
                     </FadeIn>
 
-                    {/* Region 3 — per-recipient breakdown, two sections (Req 2) */}
+                    {/* Region 3 — per-recipient breakdown with Event/Venue tabs */}
                     <FadeIn delay={0.15}>
                         <div className="mb-8">
                             <div className="flex items-center justify-between mb-4">
@@ -265,8 +247,37 @@ export default function Payouts() {
                                     Ready to pay: <span className="font-bold text-white">{formatInr(recipients.readyToPayTotal)}</span>
                                 </div>
                             </div>
-                            <RecipientSection title="Event Organizers" rows={recipients.event_tickets} />
-                            <RecipientSection title="Venue Owners" rows={recipients.venue_booking} />
+
+                            {/* Tabs */}
+                            <div className="flex gap-1 mb-4 bg-white/[0.03] rounded-xl p-1 w-fit">
+                                <button
+                                    onClick={() => setRecipientTab('events')}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        recipientTab === 'events'
+                                            ? 'bg-white text-black'
+                                            : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Events ({(recipients.event_tickets || []).length})
+                                </button>
+                                <button
+                                    onClick={() => setRecipientTab('venues')}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        recipientTab === 'venues'
+                                            ? 'bg-white text-black'
+                                            : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Venues ({(recipients.venue_booking || []).length})
+                                </button>
+                            </div>
+
+                            {recipientTab === 'events' && (
+                                <RecipientSection title="Event Organizers" rows={recipients.event_tickets} />
+                            )}
+                            {recipientTab === 'venues' && (
+                                <RecipientSection title="Venue Owners" rows={recipients.venue_booking} />
+                            )}
                         </div>
                     </FadeIn>
 
@@ -356,8 +367,7 @@ export default function Payouts() {
                             )}
                         </div>
                     </FadeIn>
-                </>
-            )}
+            </>
         </div>
     );
 }

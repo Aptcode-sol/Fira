@@ -26,6 +26,7 @@ export default function UserDetail() {
     };
 
     const handleBlock = async () => {
+        if (!window.confirm(`Block ${user?.name || 'this user'}? They will lose access to their account.`)) return;
         try {
             await adminApi.blockUser(id);
             fetchUser();
@@ -35,6 +36,7 @@ export default function UserDetail() {
     };
 
     const handleUnblock = async () => {
+        if (!window.confirm(`Unblock ${user?.name || 'this user'}? They will regain full access.`)) return;
         try {
             await adminApi.unblockUser(id);
             fetchUser();

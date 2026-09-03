@@ -42,6 +42,8 @@ export default function EventDetail() {
     const handleToggleFeatured = async () => {
         if (!canToggleFeatured || featuredLoading) return;
         const newValue = !event.isFeatured;
+        const action = newValue ? 'Feature this event? It will appear at the top of listings.' : 'Remove this event from featured?';
+        if (!window.confirm(action)) return;
         // Optimistic update
         setEvent(prev => ({ ...prev, isFeatured: newValue }));
         setFeaturedLoading(true);

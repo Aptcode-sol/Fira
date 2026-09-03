@@ -125,4 +125,23 @@ router.patch('/admin/discount-codes/:id/deactivate', adminAuth, async (req, res)
     }
 });
 
+// DELETE /admin/discount-codes/:id — admin hard-delete.
+//
+// A DISTINCT path from the owner DELETE /discount-codes/:id above, not the same
+// one: both would match, and the owner route (registered first, requiring event
+// ownership) would always win, so an admin path collision would 403. The owner
+// route only deactivates; an admin removing a code from the panel expects it
+// gone. adminAuth gates this to staff.
+router.delete('/admin/discount-codes/:id', adminAuth, async (req, res) => {
+    try {
+        const deleted = await DiscountCode.findByIdAndDelete(req.params.id);
+        if (!deleted) {
+            return res.status(404).json({ error: 'Discount code not found' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

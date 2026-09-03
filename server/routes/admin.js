@@ -267,6 +267,36 @@ router.delete('/audit-trail/:id', roleGuard(['super_admin', 'admin']), async (re
 });
 
 // ================== ADMIN ROLE ASSIGNMENT ==================
+
+// ================== DATA WIPE (development/testing) ==================
+// Wipe all Payment, Payout, and Settlement records. This zeros the Platform
+// Revenue, Payouts & Earnings page, and every per-listing settlement. Super-admin
+// only, irreversible, and intentionally NOT audited: the audit trail itself is a
+// separate wipe target (DELETE /audit-trail/all) and wiping money records is a
+// testing action that has no business in the production audit log.
+router.delete('/wipe-payment-data', roleGuard(['super_admin']), async (req, res) => {
+    try {
+        const Payment = require('../models/Payment');
+        const Payout = require('../models/Payout');
+        const Settlement = require('../models/Settlement');
+        const [p, po, s] = await Promise.all([
+            Payment.deleteMany({}),
+            Payout.deleteMany({}),
+            Settlement.deleteMany({}),
+        ]);
+        res.json({
+            success: true,
+            deleted: {
+                payments: p.deletedCount,
+                payouts: po.deletedCount,
+                settlements: s.deletedCount,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.patch('/users/:id/role', roleGuard(['super_admin']), async (req, res) => {
     try {
         const { adminRole } = req.body;
@@ -407,7 +437,11 @@ function sendSettlementError(res, error) {
 const settlementAdmin = (req) => ({ _id: req.user._id, name: req.user.name, adminRole: req.user.adminRole });
 
 // Listing_Stats + the ledger + the derived state (Requirements 1, 2, 3, 11.1).
-router.get('/listings/:kind/:id/settlement', settlementRoleGuard, async (req, res) => {
+// Read-only, so it uses the standard roleGuard (which lets legacy admins
+// without an explicit adminRole through) rather than the strict
+// settlementRoleGuard. An admin who can SEE an event but not its settlement is
+// a worse experience than one who can see it but not write entries.
+router.get('/listings/:kind/:id/settlement', roleGuard(['super_admin', 'admin']), async (req, res) => {
     try {
         const settlement = await settlementService.getListingSettlement({ kind: req.params.kind, listingId: req.params.id });
         res.json(settlement);

@@ -319,6 +319,23 @@ const adminApi = {
             headers: authHeaders()
         });
         return handle(res, 'Failed to deactivate discount code');
+    },
+
+    async deleteDiscountCode(codeId) {
+        const res = await fetch(`${MAIN_API_BASE}/discounts/admin/discount-codes/${codeId}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to delete discount code');
+    },
+
+    // ================== DATA WIPE (development/testing) ==================
+    async wipePaymentData() {
+        const res = await fetch(`${API_BASE}/wipe-payment-data`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        return handle(res, 'Failed to wipe payment data');
     }
 };
 
