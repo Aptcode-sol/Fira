@@ -44,7 +44,7 @@ const ticketService = {
 
         const tickets = await Ticket.find(filter)
             .populate('user', 'name email')
-            .populate('event', 'name date venue')
+            .populate('event', 'name date venue customVenue')
             .limit(limit * 1)
             .skip((page - 1) * limit)
             .sort({ createdAt: -1 })
@@ -65,7 +65,7 @@ const ticketService = {
         const tickets = await Ticket.find({ user: userId })
             .populate({
                 path: 'event',
-                select: 'name date startTime startDateTime endDateTime images venue',
+                select: 'name date startTime startDateTime endDateTime images venue customVenue',
                 populate: { path: 'venue', select: 'name address' }
             })
             .sort({ createdAt: -1 })

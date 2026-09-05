@@ -70,7 +70,7 @@ const dashboardService = {
             Ticket.find({ user: userId })
                 .populate({
                     path: 'event',
-                    select: 'name date startDateTime startTime endTime images status',
+                    select: 'name date startDateTime startTime endTime images status customVenue',
                     populate: { path: 'venue', select: 'name address' }
                 })
                 .sort({ createdAt: -1 })
@@ -215,6 +215,9 @@ const dashboardService = {
                 endTime: e.endTime,
                 images: e.images,
                 venue: e.venue,
+                // Custom-venue events carry their name here, not on `venue` -
+                // dropping it made the dashboard list render "TBA".
+                customVenue: e.customVenue,
                 currentAttendees: e.currentAttendees,
                 maxAttendees: e.maxAttendees,
                 ticketPrice: e.ticketPrice,

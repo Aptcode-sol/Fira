@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Button } from '../components/ui/Button';
+import { Pagination } from '../components/ui/Pagination';
 import { useBulkSelection } from '../lib/useBulkSelection';
 import BulkActionBar from '../components/BulkActionBar';
 
@@ -231,8 +232,7 @@ export default function Users() {
                                         </th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">User</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Badge</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Phone</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Followers</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Email</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Joined</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-gray-300 uppercase tracking-wider">Actions</th>
@@ -241,7 +241,7 @@ export default function Users() {
                                 <tbody className="divide-y divide-white/[0.05]">
                                     {users.length === 0 ? (
                                         <tr>
-                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-300">
+                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-300">
                                                 No users found matching your criteria
                                             </td>
                                         </tr>
@@ -283,8 +283,7 @@ export default function Users() {
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-300 text-sm">{user.phoneNumber || 'N/A'}</td>
-                                            <td className="px-6 py-4 text-gray-300 text-sm">{(user.followers?.length || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-gray-300 text-sm break-all">{user.email || 'N/A'}</td>
                                             <td className="px-6 py-4 text-gray-300 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(userStatus(user))}`}>
@@ -335,45 +334,7 @@ export default function Users() {
                     )}
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-white/[0.05] flex justify-center">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                                    let page = i + 1;
-                                    if (totalPages > 5) {
-                                        if (currentPage > 3) page = currentPage - 2 + i;
-                                        if (page > totalPages) page = totalPages - (4 - i);
-                                    }
-                                    return (
-                                        <button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-colors ${currentPage === page
-                                                ? 'bg-violet-500 text-white'
-                                                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                                                }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    );
-                                })}
-                                <button
-                                    onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
                 </div>
             </FadeIn>
         </div>

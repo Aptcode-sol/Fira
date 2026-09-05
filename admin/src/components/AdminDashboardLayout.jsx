@@ -245,15 +245,15 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                     left-aligned. The logo uses the white version on a black bg
                     so it reads on any theme. */}
                 <div className="p-4 border-b border-white/[0.08] flex items-center h-20 relative gap-3">
-                    <Link to="/" className="flex items-center gap-2">
+                    {/* Logo with ADMIN stacked directly beneath it. The logo art
+                        already reads "fira", so a separate FIRA text line was
+                        redundant - ADMIN alone under the mark now. */}
+                    <Link to="/" className="flex flex-col items-center gap-0.5">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden bg-black flex-shrink-0">
                             <img src={logo} alt="Fira Logo" className="w-full h-full object-contain" />
                         </div>
                         {isOpen && (
-                            <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-white leading-tight">FIRA</span>
-                                <span className="text-[9px] text-gray-400 font-medium tracking-widest uppercase">Admin</span>
-                            </div>
+                            <span className="text-[9px] text-gray-400 font-medium tracking-widest uppercase leading-none">Admin</span>
                         )}
                     </Link>
 

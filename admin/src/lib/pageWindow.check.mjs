@@ -10,7 +10,7 @@
  *   - the pages are DISTINCT (duplicates meant duplicate React keys)
  */
 import assert from 'node:assert/strict';
-import { pageWindow } from './pageWindow.js
+import { pageWindow } from './pageWindow.js';
 
 const show = (c, t) => `page ${c} of ${t}`;
 

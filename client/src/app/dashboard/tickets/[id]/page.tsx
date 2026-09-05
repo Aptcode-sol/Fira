@@ -9,6 +9,7 @@ import { Button } from '@/components/ui';
 import { ticketsApi } from '@/lib/api';
 import TicketDisplay from '@/components/TicketDisplay';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { venueLabel } from '@/lib/venueDisplay';
 
 interface Ticket {
     _id: string;
@@ -20,6 +21,7 @@ interface Ticket {
         startTime?: string;
         startDateTime?: string;
         venue?: { name?: string; address?: { city?: string } };
+        customVenue?: { isCustom?: boolean; name?: string; city?: string } | null;
     };
     quantity: number;
     status: string;
@@ -118,7 +120,7 @@ export default function TicketDetailPage() {
                                     {[
                                         ['Status', ticket.status === 'active' ? 'Valid' : ticket.status === 'used' ? 'Used' : 'Cancelled'],
                                         ['When', `${formatDate(ticket.event?.startDateTime || ticket.event?.date)}${ticket.event?.startDateTime ? ` · ${new Date(ticket.event.startDateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}`],
-                                        ['Venue', [ticket.event?.venue?.name, ticket.event?.venue?.address?.city].filter(Boolean).join(', ') || 'TBA'],
+                                        ['Venue', ticket.event ? venueLabel(ticket.event) : 'TBA'],
                                         ['Type', `${ticket.quantity}x ${ticket.ticketType || 'General Admission'}`],
                                     ].map(([label, value]) => (
                                         <div key={label} className="flex items-baseline justify-between gap-4">

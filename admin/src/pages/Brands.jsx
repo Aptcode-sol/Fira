@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
 import { Button } from '../components/ui/Button';
+import { Pagination } from '../components/ui/Pagination';
 import { useBulkSelection } from '../lib/useBulkSelection';
 import BulkActionBar from '../components/BulkActionBar';
 
@@ -343,45 +344,7 @@ export default function Brands() {
                     )}
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-white/[0.05] flex justify-center">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                                    let page = i + 1;
-                                    if (totalPages > 5) {
-                                        if (currentPage > 3) page = currentPage - 2 + i;
-                                        if (page > totalPages) page = totalPages - (4 - i);
-                                    }
-                                    return (
-                                        <button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-colors ${currentPage === page
-                                                    ? 'bg-violet-500 text-white'
-                                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                                                }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    );
-                                })}
-                                <button
-                                    onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
                 </div>
             </FadeIn>
         </div>

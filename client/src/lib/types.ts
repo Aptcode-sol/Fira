@@ -139,6 +139,15 @@ export interface Event {
     /** Presentation identity. `organizer` stays the real account. */
     organizerBrand?: OrganizerBrand | null;
     venue: string | Venue;
+    /** Set when the organiser typed their own venue instead of linking one. */
+    customVenue?: {
+        isCustom?: boolean;
+        name?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        locationLink?: string;
+    } | null;
     booking: string | null;
     name: string;
     description: string;

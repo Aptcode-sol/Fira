@@ -10,6 +10,7 @@ import type { Column } from '@/components/ui';
 import { eventsApi, ticketsApi } from '@/lib/api';
 import FilterDropdown from '@/components/ui/FilterDropdown';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { venueLabel } from '@/lib/venueDisplay';
 
 interface Event {
     _id: string;
@@ -21,6 +22,7 @@ interface Event {
         name: string;
         address: { city: string };
     };
+    customVenue?: { isCustom?: boolean; name?: string; city?: string } | null;
     images?: string[];
     status: string;
     currentAttendees?: number;
@@ -37,7 +39,10 @@ export default function EventsPage() {
     const router = useRouter();
     const { isAuthenticated, isLoading, user } = useAuth();
     const [activeTab, setActiveTab] = useState<'all' | 'attending' | 'organizing'>('all');
-    const [showCompleted, setShowCompleted] = useState(false);
+    // Default to showing all events, including past/completed ones - users
+    // reported their held events had vanished. The Status filter still lets
+    // them narrow to "Upcoming" on demand.
+    const [showCompleted, setShowCompleted] = useState(true);
     const [attendingEvents, setAttendingEvents] = useState<Event[]>([]);
     const [organizingEvents, setOrganizingEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,8 +70,12 @@ export default function EventsPage() {
                 // Fetch attending events (from tickets)
                 const ticketsResponse = await ticketsApi.getUserTickets(user._id) as Ticket[] | { tickets?: Ticket[]; data?: Ticket[] };
                 const tickets = Array.isArray(ticketsResponse) ? ticketsResponse : ((ticketsResponse as { tickets?: Ticket[]; data?: Ticket[] })?.tickets || (ticketsResponse as { tickets?: Ticket[]; data?: Ticket[] })?.data || []);
+                // Keep every ticket that still represents attendance, not just
+                // 'active' ones: a ticket for a past event becomes 'used' (checked
+                // in) or 'expired', and filtering to 'active' hid those attended
+                // events entirely. Only a 'cancelled' ticket means "not attending".
                 const attending = tickets
-                    .filter(t => t.status === 'active' && t.event)
+                    .filter(t => t.status !== 'cancelled' && t.event)
                     .map(t => t.event);
                 setAttendingEvents(attending);
             } catch (err) {
@@ -140,10 +149,7 @@ export default function EventsPage() {
             key: 'venue',
             header: 'Venue',
             cell: (e) => (
-                <span className="text-gray-300">
-                    {e.venue?.name || 'TBA'}
-                    {e.venue?.address?.city ? `, ${e.venue.address.city}` : ''}
-                </span>
+                <span className="text-gray-300">{venueLabel(e)}</span>
             ),
         },
         {

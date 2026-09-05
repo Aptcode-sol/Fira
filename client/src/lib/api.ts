@@ -956,6 +956,7 @@ export interface DashboardEvent {
             state: string;
         };
     };
+    customVenue?: { isCustom?: boolean; name?: string; city?: string } | null;
     currentAttendees: number;
     maxAttendees: number;
     ticketPrice: number;

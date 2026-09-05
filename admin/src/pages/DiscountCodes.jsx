@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import adminApi from '../api/adminApi';
 import { FadeIn } from '../components/animations';
+import { Pagination } from '../components/ui/Pagination';
+import { useBulkSelection } from '../lib/useBulkSelection';
+import BulkActionBar from '../components/BulkActionBar';
+
+const PAGE_SIZE = 10;
 
 const formatDate = (d) => {
     if (!d) return 'N/A';
@@ -19,10 +24,14 @@ const ownerKind = (code) => (isAdminCode(code) ? 'Admin (platform)' : 'Event own
 export default function DiscountCodes() {
     const [codes, setCodes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [expandedId, setExpandedId] = useState(null);
+    const [expandedEventId, setExpandedEventId] = useState(null);
+    const [expandedCodeId, setExpandedCodeId] = useState(null);
     const [analytics, setAnalytics] = useState({});
     const [analyticsLoading, setAnalyticsLoading] = useState({});
     const [toggling, setToggling] = useState({});
+    const [currentPage, setCurrentPage] = useState(1);
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const bulk = useBulkSelection();
 
     useEffect(() => {
         fetchCodes();
@@ -71,22 +80,56 @@ export default function DiscountCodes() {
         }
     };
 
-    // Group codes by event for a cleaner view
-    const groupedByEvent = codes.reduce((acc, code) => {
-        const eventName = code.event?.name || 'Unknown Event';
-        const eventId = code.event?._id || code.event || 'unknown';
-        const key = String(eventId);
-        if (!acc[key]) acc[key] = { name: eventName, codes: [] };
-        acc[key].codes.push(code);
-        return acc;
-    }, {});
+    // Group codes by event. Events are the top-level (paged) rows; each expands
+    // to its codes, and each code expands again to its analytics - the double
+    // dropdown the users/venues/events tables use.
+    const groups = useMemo(() => {
+        const byEvent = codes.reduce((acc, code) => {
+            const eventName = code.event?.name || 'Unknown Event';
+            const eventId = code.event?._id || code.event || 'unknown';
+            const key = String(eventId);
+            if (!acc[key]) acc[key] = { id: key, name: eventName, codes: [] };
+            acc[key].codes.push(code);
+            return acc;
+        }, {});
+        return Object.values(byEvent);
+    }, [codes]);
 
-    const handleExpand = async (codeId) => {
-        if (expandedId === codeId) {
-            setExpandedId(null);
+    const totalPages = Math.max(Math.ceil(groups.length / PAGE_SIZE), 1);
+    // Filtering/deletion can shrink the list under the current page; clamp on read
+    // so the view never goes blank (mirrors client/usePaged).
+    const page = Math.min(currentPage, totalPages);
+    const pageGroups = useMemo(
+        () => groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+        [groups, page]
+    );
+
+    // Bulk selection operates on individual codes across the whole list.
+    const pageCodeIds = pageGroups.flatMap((g) => g.codes.map((c) => c._id));
+
+    const runBulk = async (fn) => {
+        setBulkBusy(true);
+        try {
+            for (const id of bulk.selectedIds) await fn(id);
+            bulk.clear();
+            await fetchCodes();
+        } catch (err) {
+            console.error('Bulk action failed:', err);
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
+    const handleExpandEvent = (eventId) => {
+        setExpandedEventId((prev) => (prev === eventId ? null : eventId));
+    };
+
+    const handleExpandCode = async (codeId) => {
+        if (expandedCodeId === codeId) {
+            setExpandedCodeId(null);
             return;
         }
-        setExpandedId(codeId);
+        setExpandedCodeId(codeId);
         if (!analytics[codeId]) {
             setAnalyticsLoading((prev) => ({ ...prev, [codeId]: true }));
             try {
@@ -111,9 +154,31 @@ export default function DiscountCodes() {
                             <span>Manage discount codes</span>
                             <span className="w-1 h-1 rounded-full bg-gray-600"></span>
                             <span>{codes.length} total codes</span>
+                            <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                            <span>{groups.length} events</span>
                         </div>
                     </div>
                 </div>
+
+                <BulkActionBar
+                    count={bulk.count}
+                    busy={bulkBusy}
+                    onClear={bulk.clear}
+                    actions={[
+                        { label: 'Activate', onClick: () => {
+                            if (!window.confirm(`Activate ${bulk.count} codes?`)) return;
+                            runBulk(adminApi.activateDiscountCode);
+                        }},
+                        { label: 'Deactivate', onClick: () => {
+                            if (!window.confirm(`Deactivate ${bulk.count} codes?`)) return;
+                            runBulk(adminApi.deactivateDiscountCode);
+                        }},
+                        { label: 'Delete', variant: 'danger', onClick: () => {
+                            if (!window.confirm(`Delete ${bulk.count} codes? This cannot be undone.`)) return;
+                            runBulk(adminApi.deleteDiscountCode);
+                        }},
+                    ]}
+                />
 
                 <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
                     {loading ? (
@@ -126,177 +191,166 @@ export default function DiscountCodes() {
                             </div>
                         </div>
                     ) : (
-                        <div className="divide-y divide-white/[0.05]">
-                            {/* Grouped by event */}
-                            {Object.entries(groupedByEvent).map(([eventId, group]) => (
-                                <div key={eventId}>
-                                    {/* Event group header */}
-                                    <div className="px-6 py-3 bg-white/[0.02] border-b border-white/[0.05]">
-                                        <div className="flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <>
+                            {/* Select-all across the current page's codes */}
+                            <div className="flex items-center gap-3 px-6 py-3 border-b border-white/[0.05] bg-white/[0.02]">
+                                <input
+                                    type="checkbox"
+                                    checked={bulk.isPageAllSelected(pageCodeIds)}
+                                    onChange={() => bulk.togglePage(pageCodeIds)}
+                                    className="w-4 h-4 rounded accent-violet-500 cursor-pointer"
+                                    aria-label="Select all codes on this page"
+                                />
+                                <span className="text-xs text-gray-400">Select all on page</span>
+                            </div>
+
+                            <div className="divide-y divide-white/[0.05]">
+                                {/* Level 1: event rows */}
+                                {pageGroups.map((group) => (
+                                    <div key={group.id}>
+                                        <div
+                                            className="flex items-center gap-3 px-6 py-4 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                                            onClick={() => handleExpandEvent(group.id)}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleExpandEvent(group.id)}
+                                            aria-expanded={expandedEventId === group.id}
+                                        >
+                                            <svg className="w-4 h-4 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth={1.5} />
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 2v4M8 2v4M3 10h18" />
                                             </svg>
-                                            <span className="text-white font-medium text-sm">{group.name}</span>
-                                            <span className="text-gray-500 text-xs">({group.codes.length} code{group.codes.length !== 1 ? 's' : ''})</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Codes under this event */}
-                                    {group.codes.map((code) => (
-                                <div key={code._id}>
-                                    {/* Row */}
-                                    <div
-                                        className="flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-4 hover:bg-white/[0.02] transition-colors cursor-pointer"
-                                        onClick={() => handleExpand(code._id)}
-                                        role="button"
-                                        tabIndex={0}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleExpand(code._id)}
-                                        aria-expanded={expandedId === code._id}
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-white font-mono font-semibold text-sm">
-                                                    {code.code}
-                                                </span>
-                                                <span
-                                                    className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                                                        code.isActive
-                                                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                                                            : 'bg-red-500/20 text-red-400 border-red-500/30'
-                                                    }`}
-                                                >
-                                                    {code.isActive ? 'Active' : 'Inactive'}
-                                                </span>
-                                                <span
-                                                    className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                                                        isAdminCode(code)
-                                                            ? 'bg-violet-500/20 text-violet-300 border-violet-500/30'
-                                                            : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                                                    }`}
-                                                    title={
-                                                        isAdminCode(code)
-                                                            ? 'Platform code — applies across events'
-                                                            : 'Created by the event owner'
-                                                    }
-                                                >
-                                                    {ownerKind(code)}
-                                                </span>
-                                            </div>
-                                            <div className="text-gray-400 text-xs mt-1">
-                                                {code.discountType === 'percentage'
-                                                    ? `${code.discountValue}% off`
-                                                    : `₹${code.discountValue} off`}
-                                                {' · '}
-                                                Uses: {code.usedCount}/{code.maxUses || '∞'}
-                                            </div>
-                                            <div className="text-gray-500 text-xs mt-0.5">
-                                                Valid: {formatDate(code.validFrom)} – {formatDate(code.validUntil)}
-                                                {code.createdBy && ` · By: ${code.createdBy.name || code.createdBy.email || 'Unknown'}`}
-                                            </div>
+                                            <span className="text-white font-medium text-sm flex-1 min-w-0 truncate">{group.name}</span>
+                                            <span className="text-gray-500 text-xs">{group.codes.length} code{group.codes.length !== 1 ? 's' : ''}</span>
+                                            <span className="text-gray-500 text-xs">{expandedEventId === group.id ? '▲' : '▼'}</span>
                                         </div>
 
-                                        {/* Action buttons */}
-                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                            <button
-                                                onClick={() => handleToggleActive(code)}
-                                                disabled={toggling[code._id]}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                                    code.isActive
-                                                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                                                        : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                            >
-                                                {toggling[code._id]
-                                                    ? '...'
-                                                    : code.isActive
-                                                    ? 'Deactivate'
-                                                    : 'Activate'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(code)}
-                                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
-                                                title="Delete discount code"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </div>
+                                        {/* Level 2: codes under this event */}
+                                        {expandedEventId === group.id && (
+                                            <div className="bg-white/[0.01] divide-y divide-white/[0.04]">
+                                                {group.codes.map((code) => (
+                                                    <div key={code._id}>
+                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pl-10 pr-6 py-4 hover:bg-white/[0.02] transition-colors">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={bulk.isSelected(code._id)}
+                                                                onChange={() => bulk.toggle(code._id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="w-4 h-4 rounded accent-violet-500 cursor-pointer flex-shrink-0"
+                                                                aria-label={`Select ${code.code}`}
+                                                            />
+                                                            <div
+                                                                className="flex-1 min-w-0 cursor-pointer"
+                                                                onClick={() => handleExpandCode(code._id)}
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                onKeyDown={(e) => e.key === 'Enter' && handleExpandCode(code._id)}
+                                                                aria-expanded={expandedCodeId === code._id}
+                                                            >
+                                                                <div className="flex items-center gap-3 flex-wrap">
+                                                                    <span className="text-white font-mono font-semibold text-sm">{code.code}</span>
+                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${code.isActive ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
+                                                                        {code.isActive ? 'Active' : 'Inactive'}
+                                                                    </span>
+                                                                    <span
+                                                                        className={`px-2 py-0.5 rounded-full text-xs font-medium border ${isAdminCode(code) ? 'bg-violet-500/20 text-violet-300 border-violet-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}
+                                                                        title={isAdminCode(code) ? 'Platform code — applies across events' : 'Created by the event owner'}
+                                                                    >
+                                                                        {ownerKind(code)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-gray-400 text-xs mt-1">
+                                                                    {code.discountType === 'percentage' ? `${code.discountValue}% off` : `₹${code.discountValue} off`}
+                                                                    {' · '}Uses: {code.usedCount}/{code.maxUses || '∞'}
+                                                                </div>
+                                                                <div className="text-gray-500 text-xs mt-0.5">
+                                                                    Valid: {formatDate(code.validFrom)} – {formatDate(code.validUntil)}
+                                                                    {code.createdBy && ` · By: ${code.createdBy.name || code.createdBy.email || 'Unknown'}`}
+                                                                </div>
+                                                            </div>
 
-                                        <span className="text-gray-500 text-xs hidden sm:block">
-                                            {expandedId === code._id ? '▲' : '▼'}
-                                        </span>
-                                    </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => handleToggleActive(code)}
+                                                                    disabled={toggling[code._id]}
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${code.isActive ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                                >
+                                                                    {toggling[code._id] ? '...' : code.isActive ? 'Deactivate' : 'Activate'}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(code)}
+                                                                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                                                                    title="Delete discount code"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                                <span className="text-gray-500 text-xs hidden sm:block">{expandedCodeId === code._id ? '▲' : '▼'}</span>
+                                                            </div>
+                                                        </div>
 
-                                    {/* Expanded analytics */}
-                                    {expandedId === code._id && (
-                                        <div className="px-6 pb-5 bg-white/[0.01]">
-                                            {analyticsLoading[code._id] ? (
-                                                <p className="text-gray-400 text-sm py-3">Loading analytics...</p>
-                                            ) : analytics[code._id]?.error ? (
-                                                <p className="text-red-400 text-sm py-3">Failed to load analytics</p>
-                                            ) : analytics[code._id] ? (
-                                                <div>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                                                        <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
-                                                            <p className="text-gray-400 text-xs">Total Uses</p>
-                                                            <p className="text-white text-lg font-semibold">
-                                                                {analytics[code._id].totalUses}
-                                                            </p>
-                                                        </div>
-                                                        <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
-                                                            <p className="text-gray-400 text-xs">Total Revenue</p>
-                                                            <p className="text-white text-lg font-semibold">
-                                                                {formatCurrency(analytics[code._id].totalRevenue)}
-                                                            </p>
-                                                        </div>
-                                                        <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
-                                                            <p className="text-gray-400 text-xs">Purchases</p>
-                                                            <p className="text-white text-lg font-semibold">
-                                                                {analytics[code._id].purchases?.length || 0}
-                                                            </p>
-                                                        </div>
+                                                        {/* Level 3: analytics for this code */}
+                                                        {expandedCodeId === code._id && (
+                                                            <div className="pl-10 pr-6 pb-5 bg-white/[0.01]">
+                                                                {analyticsLoading[code._id] ? (
+                                                                    <p className="text-gray-400 text-sm py-3">Loading analytics...</p>
+                                                                ) : analytics[code._id]?.error ? (
+                                                                    <p className="text-red-400 text-sm py-3">Failed to load analytics</p>
+                                                                ) : analytics[code._id] ? (
+                                                                    <div>
+                                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                                                                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+                                                                                <p className="text-gray-400 text-xs">Total Uses</p>
+                                                                                <p className="text-white text-lg font-semibold">{analytics[code._id].totalUses}</p>
+                                                                            </div>
+                                                                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+                                                                                <p className="text-gray-400 text-xs">Total Revenue</p>
+                                                                                <p className="text-white text-lg font-semibold">{formatCurrency(analytics[code._id].totalRevenue)}</p>
+                                                                            </div>
+                                                                            <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+                                                                                <p className="text-gray-400 text-xs">Purchases</p>
+                                                                                <p className="text-white text-lg font-semibold">{analytics[code._id].purchases?.length || 0}</p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {analytics[code._id].purchases?.length > 0 && (
+                                                                            <div className="overflow-x-auto">
+                                                                                <table className="w-full text-left text-sm">
+                                                                                    <thead className="border-b border-white/[0.05]">
+                                                                                        <tr>
+                                                                                            <th className="pb-2 text-xs text-gray-400 font-medium">User</th>
+                                                                                            <th className="pb-2 text-xs text-gray-400 font-medium">Amount</th>
+                                                                                            <th className="pb-2 text-xs text-gray-400 font-medium">Date</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody className="divide-y divide-white/[0.03]">
+                                                                                        {analytics[code._id].purchases.map((p) => (
+                                                                                            <tr key={p._id}>
+                                                                                                <td className="py-2 text-gray-300">{p.user?.name || p.user?.email || 'Unknown'}</td>
+                                                                                                <td className="py-2 text-gray-300">{formatCurrency(p.totalAmount || p.amount)}</td>
+                                                                                                <td className="py-2 text-gray-500">{formatDate(p.createdAt)}</td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        )}
                                                     </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
 
-                                                    {/* Purchase list */}
-                                                    {analytics[code._id].purchases?.length > 0 && (
-                                                        <div className="overflow-x-auto">
-                                                            <table className="w-full text-left text-sm">
-                                                                <thead className="border-b border-white/[0.05]">
-                                                                    <tr>
-                                                                        <th className="pb-2 text-xs text-gray-400 font-medium">User</th>
-                                                                        <th className="pb-2 text-xs text-gray-400 font-medium">Amount</th>
-                                                                        <th className="pb-2 text-xs text-gray-400 font-medium">Date</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-white/[0.03]">
-                                                                    {analytics[code._id].purchases.map((p) => (
-                                                                        <tr key={p._id}>
-                                                                            <td className="py-2 text-gray-300">
-                                                                                {p.user?.name || p.user?.email || 'Unknown'}
-                                                                            </td>
-                                                                            <td className="py-2 text-gray-300">
-                                                                                {formatCurrency(p.totalAmount || p.amount)}
-                                                                            </td>
-                                                                            <td className="py-2 text-gray-500">
-                                                                                {formatDate(p.createdAt)}
-                                                                            </td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                                </div>
-                            ))}
-                        </div>
+                            {/* Pagination over event groups */}
+                            <Pagination currentPage={page} totalPages={totalPages} onChange={setCurrentPage} />
+                        </>
                     )}
                 </div>
             </FadeIn>

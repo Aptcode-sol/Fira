@@ -14,19 +14,12 @@ export default function Dashboard() {
                 setStats(data);
             } catch (err) {
                 console.error(err);
-                // Use mock data as fallback
-                setStats({
-                    pendingVenues: 5,
-                    pendingEvents: 12,
-                    pendingBrands: 3,
-                    totalUsers: 1450,
-                    totalRevenue: 450000,
-                    totalTickets: 1250,
-                    totalVenues: 45,
-                    totalEvents: 120,
-                    totalBrands: 25,
-                    blockedUsers: 2
-                });
+                // Never fabricate figures on failure. The old fallback showed
+                // ₹4,50,000 revenue / 1,250 tickets on a fresh, empty platform
+                // because these mock values rendered whenever getStats() threw.
+                // Zeros + a surfaced error tell the truth: nothing loaded.
+                setError(err?.message || 'Failed to load dashboard stats');
+                setStats(null);
             } finally {
                 setLoading(false);
             }
@@ -120,7 +113,7 @@ export default function Dashboard() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    Could not connect to server. Showing placeholder data.
+                    Could not load dashboard stats. Figures below may be incomplete.
                 </div>
             )}
 

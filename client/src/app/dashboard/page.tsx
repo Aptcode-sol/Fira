@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui';
 import { dashboardApi, DashboardOverview, usersApi } from '@/lib/api';
+import { venueName } from '@/lib/venueDisplay';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { FadeIn, SlideUp } from '@/components/animations';
 import { Pagination } from '@/components/ui';
@@ -458,7 +459,7 @@ export default function DashboardPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-white truncate">{event.name}</p>
                                                         <p className="text-xs text-gray-300">
-                                                            {event.startTime} • {event.venue?.name || 'TBA'}
+                                                            {event.startTime} • {venueName(event)}
                                                         </p>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">

@@ -8,6 +8,7 @@ import { Button, DataTable } from '@/components/ui';
 import type { Column } from '@/components/ui';
 import { ticketsApi } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
+import { venueLabel } from '@/lib/venueDisplay';
 
 interface Ticket {
     _id: string;
@@ -25,6 +26,7 @@ interface Ticket {
                 city: string;
             };
         };
+        customVenue?: { isCustom?: boolean; name?: string; city?: string } | null;
     };
     quantity: number;
     status: string;
@@ -125,10 +127,7 @@ export default function TicketsPage() {
             key: 'venue',
             header: 'Venue',
             cell: (t) => (
-                <span className="text-gray-300">
-                    {t.event?.venue?.name || 'TBA'}
-                    {t.event?.venue?.address?.city ? `, ${t.event.venue.address.city}` : ''}
-                </span>
+                <span className="text-gray-300">{t.event ? venueLabel(t.event) : 'TBA'}</span>
             ),
         },
         {

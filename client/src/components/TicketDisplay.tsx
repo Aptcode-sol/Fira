@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui';
 import html2canvas from 'html2canvas';
+import { venueName } from '@/lib/venueDisplay';
 
 interface TicketDisplayProps {
     ticket: any;
@@ -174,7 +175,7 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <p style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>Venue</p>
-                                <p style={{ color: '#111827', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.venue?.name || 'TBA'}</p>
+                                <p style={{ color: '#111827', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venueName(event)}</p>
                             </div>
                         </div>
 
