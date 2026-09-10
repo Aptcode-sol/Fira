@@ -324,6 +324,20 @@ const eventService = {
                 const conflictEnd = new Date(conflict.endDateTime).toLocaleString();
                 throw new Error(`Time slot conflict: This venue is already booked from ${conflictStart} to ${conflictEnd} for "${conflict.name}"`);
             }
+
+            // Owner-blocked dates (offline/external bookings). The owner marks a
+            // day 'busy' on their calendar when it's taken elsewhere; the event
+            // path only checked other events, so an event could still land on a
+            // day the owner had given away offline. Reject if any day the event
+            // spans carries a busy block.
+            const Venue = require('../models/Venue');
+            const { isDayBlockedByOwner } = require('../utils/venueAvailability');
+            const venueDoc = await Venue.findById(venue).select('blockedDates');
+            for (let d = new Date(eventStart); d <= eventEnd; d.setDate(d.getDate() + 1)) {
+                if (isDayBlockedByOwner(venueDoc?.blockedDates, d)) {
+                    throw new Error('This venue is unavailable on one or more of the selected dates');
+                }
+            }
         }
 
         // Auto-approve venue for personal (custom) venue events

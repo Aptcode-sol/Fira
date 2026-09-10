@@ -508,7 +508,12 @@ export const eventsApi = {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/events/upcoming${query}`);
     },
-    getUserEvents: (userId: string) => request(`/events?organizer=${userId}`),
+    // showCompleted matters here: the backend hides events whose endDateTime has
+    // already passed unless it is explicitly told not to (see eventService
+    // .getAllEvents). Without it, an organizer's held/past events never reach
+    // this list at all, and the page's own "All (incl. Completed)" toggle - which
+    // only filters what already arrived - had nothing to include.
+    getUserEvents: (userId: string) => request(`/events?organizer=${userId}&showCompleted=true`),
     getById: (id: string) => request(`/events/${id}`),
     create: (data: unknown) =>
         request('/events', {
@@ -685,6 +690,10 @@ export const bookingsApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+    initiateBalancePayment: (id: string, userId: string) =>
+        request<{ gatewayOrderId: string; keyId: string; amount: number; currency: string; payment: { _id: string }; booking: { _id: string; venueName: string; balanceAmount: number; balanceDueAt: string | null } }>(`/bookings/${id}/initiate-balance-payment`, { method: 'POST', body: JSON.stringify({ userId }) }),
+    verifyBalancePayment: (id: string, data: { gatewayOrderId: string; gatewayPaymentId: string; gatewaySignature: string }) =>
+        request(`/bookings/${id}/verify-balance-payment`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // Tickets API

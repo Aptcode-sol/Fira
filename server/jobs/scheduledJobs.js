@@ -8,7 +8,10 @@ const Ticket = require('../models/Ticket');
 const Event = require('../models/Event');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Booking = require('../models/Booking');
+const Venue = require('../models/Venue');
 const emailService = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 
 /**
  * Event statuses that mean "live and not yet started/finished". `approved` is what
@@ -116,6 +119,187 @@ async function sendEventReminders() {
     }
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Send daily balance-payment reminders for installment bookings whose 90% balance
+ * is still pending and whose deadline has not yet passed (Req 7).
+ *
+ * `lastReminderOn` ('YYYY-MM-DD', server local date) dedupes to at most one email +
+ * one push per booking per calendar day (Req 7.1) and makes the job idempotent
+ * within a day. Bookings past their deadline are skipped here and left for
+ * enforceBalanceDeadlines (Req 7.3). Once balanceStatus leaves 'pending' the query
+ * excludes the booking, so reminders stop automatically (Req 7.4, Property 5).
+ *
+ * ponytail: mirrors sendEventReminders — batch read, per-item email in try/catch,
+ * exported for tests.
+ */
+async function sendBalanceReminders() {
+    try {
+        const now = new Date();
+        // en-CA yields YYYY-MM-DD in server local time — stable string key for once-per-day dedupe.
+        const today = now.toLocaleDateString('en-CA');
+
+        const bookings = await Booking.find({
+            'paymentSchedule.type': 'installment',
+            'paymentSchedule.balanceStatus': 'pending',
+            'paymentSchedule.balanceDueAt': { $gt: now },       // Req 7.3: skip past-deadline, leave for enforcement
+            'paymentSchedule.lastReminderOn': { $ne: today }    // Req 7.1: at most once per calendar day
+        })
+            .populate('user', 'name email')
+            .populate('venue', 'name');
+
+        if (bookings.length === 0) {
+            return;
+        }
+
+        console.log(`💰 Sending balance reminders for ${bookings.length} booking(s)`);
+
+        for (const booking of bookings) {
+            const { balanceAmount, balanceDueAt } = booking.paymentSchedule;
+            const daysLeft = Math.ceil((new Date(balanceDueAt) - now) / MS_PER_DAY); // whole days remaining (Req 7.2)
+
+            // In-app + push (Req 7.1)
+            await notificationService.createNotification({
+                userId: booking.user._id,
+                type: 'balance_due_reminder',
+                title: 'Balance payment due',
+                message: `Your remaining balance of ₹${balanceAmount} is due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Pay now to keep your booking.`,
+                data: {
+                    referenceId: booking._id,
+                    referenceModel: 'Booking',
+                    actionUrl: `/venues/${booking.venue._id}`
+                },
+                priority: 'high',
+                channel: 'all'
+            });
+
+            // Req 7.5: log and continue on email failure
+            try {
+                await emailService.sendBalanceReminderEmail(booking.user.email, booking.user.name, {
+                    venueName: booking.venue.name,
+                    daysLeft,
+                    balanceAmount,
+                    balanceDueAt,
+                    bookingId: booking._id
+                });
+            } catch (e) {
+                console.error(`  ❌ Failed to email balance reminder for booking ${booking._id}:`, e.message);
+            }
+
+            // Set after the attempt so a hard email failure doesn't suppress the whole batch (Req 7.5).
+            await Booking.updateOne(
+                { _id: booking._id },
+                { $set: { 'paymentSchedule.lastReminderOn': today } }
+            );
+        }
+
+        console.log('✅ Balance reminders job completed');
+    } catch (error) {
+        console.error('❌ Balance reminders job failed:', error.message);
+    }
+}
+
+/**
+ * Enforce balance-payment deadlines for installment bookings whose 90% balance is
+ * still pending at or past its deadline: cancel the booking, forfeit the deposit,
+ * release the venue's booked date, and notify the customer (Req 4 & 5).
+ *
+ * The claim and the state transition are ONE atomic findOneAndUpdate: the selector
+ * requires balanceStatus 'pending', and the same $set clears it to 'forfeited'. So
+ * a concurrent or subsequent run can never match the same doc — exactly one cancel
+ * and one forfeit per booking (Req 5.2, Property 6). We .populate user+venue so the
+ * (pre-update) returned doc carries the email/name/venue name for notification.
+ *
+ * ponytail: mirrors sendBalanceReminders/sendEventReminders — atomic claim loop,
+ * side-effects in try/catch that never undo the cancel (Req 5.3), exported for tests.
+ */
+async function enforceBalanceDeadlines() {
+    try {
+        const now = new Date();
+
+        while (true) {
+            const claimed = await Booking.findOneAndUpdate(
+                {
+                    'paymentSchedule.type': 'installment',
+                    'paymentSchedule.balanceStatus': 'pending',
+                    'paymentSchedule.balanceDueAt': { $lte: now }
+                },
+                {
+                    $set: {
+                        status: 'cancelled',
+                        'paymentSchedule.balanceStatus': 'forfeited',
+                        cancellationReason: 'missed_payment_deadline' // Req 4.1; never touches cancellationPolicy (Req 4.3, Property 4)
+                    }
+                },
+                { new: false } // pre-update doc; its 'pending' claim predicate is what we just cleared → no double-process (Property 6)
+            )
+                .populate('user', 'name email')
+                .populate('venue', 'name');
+
+            if (!claimed) break;
+
+            // Req 4.4: release the venue's booked date so others can book it.
+            // Match the exact slot bookingService.updateBookingStatus pushed: same
+            // UTC date string + this booking's start/end + type 'booked'.
+            try {
+                const bookingDateStr = new Date(claimed.bookingDate).toISOString().split('T')[0];
+                const venueId = claimed.venue?._id || claimed.venue;
+                const venue = await Venue.findById(venueId);
+                if (venue && Array.isArray(venue.blockedDates)) {
+                    const dateEntry = venue.blockedDates.find(d => d.date === bookingDateStr);
+                    if (dateEntry && Array.isArray(dateEntry.slots)) {
+                        dateEntry.slots = dateEntry.slots.filter(s => !(
+                            s.type === 'booked' &&
+                            s.startTime === claimed.startTime &&
+                            s.endTime === claimed.endTime
+                        ));
+                        // Drop the date entry entirely once it holds no slots.
+                        if (dateEntry.slots.length === 0) {
+                            venue.blockedDates = venue.blockedDates.filter(d => d !== dateEntry);
+                        }
+                        await venue.save();
+                    }
+                }
+            } catch (e) {
+                console.error(`  ❌ Failed to release venue date for booking ${claimed._id}:`, e.message);
+            }
+
+            // Req 4.5: notify the customer (in-app + push + email). Req 5.3: on
+            // failure, log only — the cancellation/forfeiture is already committed
+            // and must NOT be undone or retried.
+            try {
+                const depositAmount = claimed.paymentSchedule?.depositAmount;
+                await notificationService.createNotification({
+                    userId: claimed.user?._id || claimed.user,
+                    type: 'booking_forfeited',
+                    title: 'Booking cancelled — deposit forfeited',
+                    message: `Your booking was cancelled and your ₹${depositAmount} deposit forfeited because the remaining balance was not paid by the deadline.`,
+                    data: {
+                        referenceId: claimed._id,
+                        referenceModel: 'Booking',
+                        actionUrl: '/dashboard/bookings'
+                    },
+                    priority: 'high',
+                    channel: 'all'
+                });
+
+                await emailService.sendBalanceForfeitEmail(claimed.user?.email, claimed.user?.name, {
+                    venueName: claimed.venue?.name,
+                    depositAmount,
+                    bookingId: claimed._id
+                });
+            } catch (e) {
+                console.error(`  ❌ Failed to notify forfeiture for booking ${claimed._id}:`, e.message);
+            }
+        }
+
+        console.log('✅ Balance deadline enforcement job completed');
+    } catch (error) {
+        console.error('❌ Balance deadline enforcement job failed:', error.message);
+    }
+}
+
 /**
  * Initialize all scheduled jobs
  */
@@ -133,14 +317,32 @@ function initScheduledJobs() {
     // was down (or before this job existed) stays mislabelled until the next tick.
     syncEventLifecycle();
 
+    // Daily balance-payment reminders at 09:00 server time
+    cron.schedule('0 9 * * *', () => {
+        console.log('🔄 Running balance reminders job...');
+        sendBalanceReminders();
+    });
+
+    // Hourly balance-deadline enforcement at :05 of every hour. No on-boot run:
+    // that would risk surprising cancellations right at deploy; the next tick is
+    // at most an hour away, well within a deadline measured in days.
+    cron.schedule('5 * * * *', () => {
+        console.log('🔄 Running balance deadline enforcement job...');
+        enforceBalanceDeadlines();
+    });
+
     console.log('✅ Scheduled jobs initialized:');
     console.log('   - Event reminders: Every 10 minutes');
     console.log('   - Event lifecycle (ongoing/completed): Every 10 minutes + on boot');
+    console.log('   - Balance reminders: Daily at 09:00');
+    console.log('   - Balance deadline enforcement: Hourly at :05');
 }
 
 module.exports = {
     initScheduledJobs,
     sendEventReminders, // Export for manual testing
+    sendBalanceReminders, // Export for manual testing
+    enforceBalanceDeadlines, // Export for manual testing
     syncEventLifecycle,
     // Exported so the filters can be checked without a database.
     LIVE_EVENT_STATUSES,

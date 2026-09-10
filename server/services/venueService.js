@@ -3,6 +3,7 @@ const Booking = require('../models/Booking');
 const VenueReview = require('../models/VenueReview');
 const { citySlug } = require('../utils/citySlug');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { roundMoney } = require('../utils/money');
 
 const DEFAULT_CANCELLATION_POLICY = {
     freeCancellationHours: 48,
@@ -256,6 +257,26 @@ const venueService = {
         return review;
     },
 
+    // Pure: the refund base and refund amount for a booking under the
+    // Cancellation_Policy (Req 6.1/6.2, Property 7). Kept separate from
+    // processCancellation so it is the single source of truth for the refund
+    // math and is unit-testable without a DB round-trip.
+    //
+    // amountPaid = deposit + balance when the balance is paid, deposit alone
+    // otherwise (installment); for a full schedule it is deposit (or, for legacy
+    // bookings with no recorded deposit, the total). refundAmount is that base
+    // times the applicable refund percentage, rounded to paise.
+    computeRefund(paymentSchedule, totalAmount, refundPercentage) {
+        const s = paymentSchedule || {};
+        const amountPaid = s.type === 'installment'
+            ? roundMoney((s.depositAmount || 0) + (s.balanceStatus === 'paid' ? (s.balanceAmount || 0) : 0))
+            : roundMoney(s.depositAmount || totalAmount);
+        return {
+            amountPaid,
+            refundAmount: roundMoney(amountPaid * refundPercentage / 100),
+        };
+    },
+
     // Validate cancellation policy constraints
     validateCancellationPolicy(policy) {
         const { freeCancellationHours, noCancellationHours } = policy;
@@ -269,6 +290,12 @@ const venueService = {
         const booking = await Booking.findById(bookingId);
         if (!booking) {
             throw new Error('Booking not found');
+        }
+
+        // Req 6.4 — a booking cancelled for non-payment (deposit forfeited) is
+        // outside the Cancellation_Policy and cannot be voluntarily cancelled again.
+        if (booking.paymentSchedule && booking.paymentSchedule.balanceStatus === 'forfeited') {
+            throw new Error('This booking was cancelled for non-payment and cannot be cancelled again');
         }
 
         const venue = await Venue.findById(booking.venue);
@@ -303,6 +330,15 @@ const venueService = {
             // noCancellationHours < hoursRemaining <= freeCancellationHours
             result = { refundType: 'partial', refundPercentage: partialRefundPercentage };
         }
+
+        // Req 6.1/6.2 — refund is a percentage of the amount actually paid:
+        // deposit + balance when the balance is paid, otherwise the deposit alone
+        // (or the full total for legacy/full bookings). Single source of truth.
+        const { amountPaid, refundAmount } = venueService.computeRefund(
+            booking.paymentSchedule, booking.totalAmount, result.refundPercentage
+        );
+        result.amountPaid = amountPaid;
+        result.refundAmount = refundAmount;
 
         // Update booking status to cancelled
         await Booking.findByIdAndUpdate(bookingId, { $set: { status: 'cancelled' } });

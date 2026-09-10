@@ -62,6 +62,66 @@ const bookingService = {
         const Venue = require('../models/Venue');
         const User = require('../models/User');
         const emailService = require('./emailService');
+        const paymentSchedule = require('../utils/paymentSchedule');
+
+        // A same-day booking with startTime >= endTime is zero-duration (or
+        // inverted) - nothing on the client enforced this, so a booking naming
+        // e.g. 14:00-14:00 could reach here and be "confirmed" as valid. Only
+        // rejected when start and end fall on the same calendar day: a multi-day
+        // booking's end time is a different day, so any end time is legitimate.
+        if (data.bookingDate && data.startTime && data.endTime) {
+            const bookingDay = new Date(data.bookingDate).toISOString().split('T')[0];
+            const endDay = data.endDate
+                ? new Date(data.endDate).toISOString().split('T')[0]
+                : bookingDay;
+            if (endDay < bookingDay) {
+                throw new Error('End date must be on or after the start date');
+            }
+            if (endDay === bookingDay && data.endTime <= data.startTime) {
+                throw new Error('End time must be after start time');
+            }
+        }
+
+        // Booking here is day-rate, not per-slot (see venuePricing.js), so any
+        // other non-terminal booking on the same venue+day blocks the whole day -
+        // regardless of the times either one names. This used to be entirely
+        // unchecked: createBooking went straight to Booking.create, so two guests
+        // could each get a 201 for the same date and only find out they'd both
+        // been "confirmed" when the owner accepted the second one too.
+        if (data.venue && data.bookingDate) {
+            const dayStart = new Date(data.bookingDate);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(dayStart);
+            dayEnd.setDate(dayEnd.getDate() + 1);
+
+            const existing = await Booking.findOne({
+                venue: data.venue,
+                bookingDate: { $gte: dayStart, $lt: dayEnd },
+                status: { $in: ['pending', 'accepted'] }
+            });
+
+            if (existing) {
+                throw new Error('This date is no longer available for this venue');
+            }
+
+            // Owner-blocked dates (offline/external bookings). The owner marks a
+            // day 'busy' on their calendar (blockedDates, type 'busy') when it's
+            // taken elsewhere - a phone/walk-in or another site. Without this
+            // check the UI showed the day as unavailable but the server still
+            // accepted a booking on it, so a direct submit could double-book a
+            // date the owner had already given away offline. Same day-rate model
+            // as above: any busy slot on the day blocks the whole day.
+            const { isDayBlockedByOwner } = require('../utils/venueAvailability');
+            const venueDoc = await Venue.findById(data.venue).select('blockedDates');
+            if (isDayBlockedByOwner(venueDoc?.blockedDates, dayStart)) {
+                throw new Error('This date is no longer available for this venue');
+            }
+        }
+
+        // Freeze the date-aware payment schedule at submission time (Req 10.3):
+        // > 168h to event ⇒ 10% deposit now + 90% balance due 168h before start;
+        // ≤ 168h ⇒ full amount now. Decided once here and never recomputed.
+        data.paymentSchedule = paymentSchedule.build(new Date(), data.bookingDate, data.startTime, data.totalAmount);
 
         console.log('📝 Creating booking for venue:', data.venue);
         const booking = await Booking.create(data);
@@ -304,13 +364,17 @@ const bookingService = {
             throw new Error('Advance already paid');
         }
 
-        // Calculate 10% advance payment, then route it through the single money
-        // source (calculateBilling) so the advance is charged and recorded with a
-        // full breakdown: advance is the subtotal, qty 1. Fail closed — if billing
-        // throws, we abort before any Razorpay order is created.
-        const advanceAmount = roundMoney(booking.totalAmount * 0.10); // 10% advance preserved
+        // The charge at booking time is driven by the frozen payment schedule:
+        // installment ⇒ deposit only (10%); full (or legacy docs) ⇒ whole total
+        // (Req 2.1/2.2). Route it through the single money source (calculateBilling)
+        // so it is charged and recorded with a full breakdown: subtotal, qty 1.
+        // Fail closed — if billing throws, we abort before any Razorpay order.
+        const schedule = booking.paymentSchedule || {};
+        const chargeSubtotal = schedule.type === 'installment'
+            ? roundMoney(schedule.depositAmount)
+            : roundMoney(booking.totalAmount); // 'full' or legacy → whole total (Req 2.2)
         const feePct = booking.venue?.platformFeePercentage ?? 5; // config, not hardcoded
-        const billing = paymentService.calculateBilling(advanceAmount, 1, feePct);
+        const billing = paymentService.calculateBilling(chargeSubtotal, 1, feePct);
 
         // Initiate payment via Razorpay for the ADVANCE billing breakdown.
         const paymentData = await paymentService.initiatePayment({
@@ -336,8 +400,12 @@ const bookingService = {
                 _id: booking._id,
                 venueName: booking.venue?.name,
                 totalAmount: booking.totalAmount,
-                advanceAmount: advanceAmount,
-                remainingAmount: roundMoney(booking.totalAmount - advanceAmount),
+                paymentScheduleType: schedule.type || 'full',
+                depositAmount: schedule.depositAmount ?? chargeSubtotal,
+                balanceAmount: schedule.balanceAmount ?? 0,
+                balanceDueAt: schedule.balanceDueAt ?? null,
+                advanceAmount: chargeSubtotal, // backward compat: amount charged now
+                remainingAmount: roundMoney(booking.totalAmount - chargeSubtotal),
                 bookingDate: booking.bookingDate
             }
         };
@@ -380,6 +448,121 @@ const bookingService = {
             await booking.save();
 
             return { success: true, booking, payment: result.payment };
+        }
+
+        throw new Error('Payment verification failed');
+    },
+
+    // Initiate payment for the outstanding balance of an installment booking.
+    // Mirrors initiateBookingPayment, but charges exactly the frozen
+    // balanceAmount (Req 3.4 — no partials; the amount comes from the booking,
+    // never from the client).
+    async initiateBalancePayment(bookingId, userId) {
+        const paymentService = require('./paymentService');
+
+        const booking = await Booking.findById(bookingId)
+            .populate('venue', 'name platformFeePercentage');
+
+        if (!booking) {
+            throw new Error('Booking not found');
+        }
+
+        if (booking.user.toString() !== userId.toString()) {
+            throw new Error('Unauthorized: This booking belongs to another user');
+        }
+
+        // Only an installment booking with a still-pending balance can be paid
+        // (Req 3.3). Anything else — full schedule, already paid, or forfeited —
+        // has no balance due.
+        const s = booking.paymentSchedule || {};
+        if (s.type !== 'installment' || s.balanceStatus !== 'pending') {
+            throw new Error('No balance payment is currently due');
+        }
+
+        // Charge exactly the balance, routed through the single money source so it
+        // is recorded with a full breakdown (subtotal, qty 1). Fail closed — if
+        // billing throws, we abort before any Razorpay order.
+        const chargeSubtotal = roundMoney(s.balanceAmount);
+        const feePct = booking.venue?.platformFeePercentage ?? 5;
+        const billing = paymentService.calculateBilling(chargeSubtotal, 1, feePct);
+
+        const paymentData = await paymentService.initiatePayment({
+            userId,
+            type: 'venue_booking',
+            referenceId: bookingId,
+            referenceModel: 'Booking',
+            amount: billing.totalAmount,
+            subtotal: billing.subtotal,
+            platformFee: billing.platformFee,
+            platformFeePercentage: feePct,
+            gstAmount: billing.gstAmount,
+            totalAmount: billing.totalAmount
+        });
+
+        return {
+            ...paymentData,
+            booking: {
+                _id: booking._id,
+                venueName: booking.venue?.name,
+                balanceAmount: s.balanceAmount,
+                balanceDueAt: s.balanceDueAt,
+                bookingDate: booking.bookingDate
+            }
+        };
+    },
+
+    // Complete a balance payment after Razorpay verification. Mirrors
+    // completeBookingPayment.
+    async completeBalancePayment(bookingId, { gatewayOrderId, gatewayPaymentId, gatewaySignature }) {
+        const paymentService = require('./paymentService');
+        const Payment = require('../models/Payment');
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            throw new Error('Booking not found');
+        }
+
+        // Find the pending payment record for this booking's balance charge.
+        const payment = await Payment.findOne({
+            referenceId: bookingId,
+            referenceModel: 'Booking',
+            status: 'pending'
+        });
+
+        if (!payment) {
+            throw new Error('Payment record not found');
+        }
+
+        const result = await paymentService.verifyPayment({
+            paymentId: payment._id,
+            gatewayOrderId,
+            gatewayPaymentId,
+            gatewaySignature
+        });
+
+        if (result.success) {
+            // Re-check the guard so a race with the enforcement job can't
+            // double-apply: only flip to paid if the balance is still pending and
+            // the deadline hasn't passed. If enforcement already forfeited it (or
+            // the deadline lapsed), leave the status untouched and surface it for
+            // manual handling rather than reviving a cancelled booking.
+            const s = booking.paymentSchedule || {};
+            const notPastDeadline = s.balanceDueAt == null
+                || Date.now() < new Date(s.balanceDueAt).getTime();
+
+            if (s.balanceStatus === 'pending' && notPastDeadline) {
+                booking.paymentSchedule.balanceStatus = 'paid';
+                booking.paymentSchedule.balancePayment = payment._id;
+                await booking.save();
+                return { success: true, booking, payment: result.payment };
+            }
+
+            return {
+                success: true,
+                booking,
+                payment: result.payment,
+                note: 'balance status unchanged'
+            };
         }
 
         throw new Error('Payment verification failed');

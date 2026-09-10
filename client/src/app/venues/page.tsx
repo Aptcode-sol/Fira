@@ -559,7 +559,12 @@ export default function VenuesPage() {
                                             <p className="text-gray-300 mb-8 max-w-xl mx-auto text-lg">
                                                 Partner with us and reach thousands of event organizers.
                                             </p>
-                                            <Link href="/signin">
+                                            {/* /create/venue-owner routes itself by auth state:
+                                                signed-out -> signin (returns here), signed-in
+                                                non-owner -> the become-a-host form, existing owner
+                                                -> dashboard. So one link covers every case and a
+                                                logged-in user is never bounced to the login form. */}
+                                            <Link href="/create/venue-owner">
                                                 <Button size="lg" className="bg-white text-black hover:bg-gray-200 font-bold px-8">
                                                     List Your Venue
                                                 </Button>

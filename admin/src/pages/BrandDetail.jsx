@@ -73,8 +73,9 @@ export default function BrandDetail() {
     return (
         <div className="p-6 lg:p-8">
             <FadeIn>
-                {/* Header */}
-                <div className="flex flex-col gap-6 mb-8">
+                {/* Header — pl on mobile so the fixed hamburger (top-4 left-4)
+                    doesn't overlap the Back link / title. */}
+                <div className="flex flex-col gap-6 mb-8 pl-12 lg:pl-0">
                     <Link to="/brands" className="text-gray-400 hover:text-white flex items-center gap-2 transition-colors w-fit">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -186,13 +187,13 @@ export default function BrandDetail() {
                                     <div className="text-xs text-gray-300 mb-1">Owner</div>
                                     <div className="text-white font-medium">{brand.user?.name || 'N/A'}</div>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <div className="text-xs text-gray-300 mb-1">Email</div>
-                                    <div className="text-white">{brand.user?.email || 'N/A'}</div>
+                                    <div className="text-white break-words">{brand.user?.email || 'N/A'}</div>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <div className="text-xs text-gray-300 mb-1">Phone</div>
-                                    <div className="text-white">{brand.user?.phone || 'N/A'}</div>
+                                    <div className="text-white break-words">{brand.user?.phone || 'N/A'}</div>
                                 </div>
                             </div>
 

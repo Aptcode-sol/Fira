@@ -97,7 +97,7 @@ const brandService = {
             const total = await BrandProfile.countDocuments(filter);
 
             return {
-                brands,
+                brands: await brandService.withLiveEventCounts(brands),
                 totalPages: Math.ceil(total / limitNum),
                 currentPage: parseInt(page),
                 total
@@ -122,11 +122,43 @@ const brandService = {
         const total = await BrandProfile.countDocuments(filter);
 
         return {
-            brands,
+            brands: await brandService.withLiveEventCounts(brands),
             totalPages: Math.ceil(total / limitNum),
             currentPage: parseInt(page),
             total
         };
+    },
+
+    /**
+     * Overrides each brand's denormalised `stats.events` with a live count.
+     *
+     * `getBrandById` already did this one profile at a time; list/section reads
+     * (Top Organizers, /brands, /creators) went through `getBrands` instead and
+     * never got the fix, so every card on those pages still showed "0 Events"
+     * even for organisers with plenty of approved events. One batched aggregation
+     * for the whole page, same statuses `countBrandEvents` uses.
+     */
+    async withLiveEventCounts(brands) {
+        const Event = require('../models/Event');
+        const ownerIds = brands.map(b => b.user?._id).filter(Boolean);
+        const counts = ownerIds.length
+            ? await Event.aggregate([
+                {
+                    $match: {
+                        organizer: { $in: ownerIds },
+                        isDeleted: { $ne: true },
+                        status: { $in: ['approved', 'upcoming', 'ongoing', 'completed'] },
+                    },
+                },
+                { $group: { _id: '$organizer', count: { $sum: 1 } } },
+            ])
+            : [];
+        const countByOwner = new Map(counts.map(c => [String(c._id), c.count]));
+
+        return brands.map(b => ({
+            ...b,
+            stats: { ...b.stats, events: countByOwner.get(String(b.user?._id)) || 0 },
+        }));
     },
 
     // Get brand by ID
@@ -140,33 +172,11 @@ const brandService = {
 
         if (!brand) throw new Error('Brand not found');
 
-        // Live events count, overriding the denormalised stats.events.
-        //
-        // stats.events was only ever a stored number that nothing kept in step -
-        // approving an event never incremented it - so a brand with live events
-        // still read "0 Events". Counting the owner's visible events at read time
-        // is always correct and cheap (one indexed count on a single profile view).
-        // Followers stays denormalised: follow/unfollow already maintain it.
-        const brandObj = brand.toObject();
-        brandObj.stats = { ...brandObj.stats, events: await brandService.countBrandEvents(brand.user?._id || brand.user) };
+        // Live events count, overriding the denormalised stats.events - see
+        // withLiveEventCounts. Followers stays denormalised: follow/unfollow
+        // already maintain it.
+        const [brandObj] = await brandService.withLiveEventCounts([brand.toObject()]);
         return brandObj;
-    },
-
-    /**
-     * How many publicly visible events this brand's owner has.
-     *
-     * "Visible" = the same statuses the public events list shows, minus deleted -
-     * so the number matches what a visitor can actually click through to, not a
-     * count that includes drafts and rejected events.
-     */
-    async countBrandEvents(userId) {
-        if (!userId) return 0;
-        const Event = require('../models/Event');
-        return Event.countDocuments({
-            organizer: userId,
-            isDeleted: { $ne: true },
-            status: { $in: ['approved', 'upcoming', 'ongoing', 'completed'] },
-        });
     },
 
     // Get brand by User ID

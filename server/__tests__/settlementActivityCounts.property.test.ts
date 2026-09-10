@@ -224,12 +224,17 @@ describe('Property 18 — activity counts match the underlying records', () => {
                 const guest = await makeUser();
                 const venue = await makeVenue(owner._id);
 
+                // Each booking gets its own day: (venue, bookingDate) is unique for
+                // pending/accepted bookings (double-booking fix), and the date has
+                // no bearing on what this property checks (activity counts by
+                // status), so distinct days keep the fixture valid without
+                // changing what's under test.
                 const bookingDocs = bookings.length
                     ? await Booking.insertMany(
-                        bookings.map((b) => ({
+                        bookings.map((b, i) => ({
                             user: guest._id,
                             venue: venue._id,
-                            bookingDate: new Date(NOW + 3 * 24 * 3600 * 1000),
+                            bookingDate: new Date(NOW + (3 + i) * 24 * 3600 * 1000),
                             startTime: '10:00',
                             endTime: '12:00',
                             status: b.status,

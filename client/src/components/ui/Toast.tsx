@@ -64,8 +64,14 @@ function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
         // navbar z-50 / drawer z-[60] / modal z-[70] / toast z-[100]. Toast sits on top
         // so it stays visible above an open modal (CC-4). If a portal ever needs to sit
         // above the toast, bump this ceiling here — do not introduce a competing token.
+        //
+        // Modal footers (Cancel/Submit) live at the bottom of the screen on mobile,
+        // where the modal panel is nearly full-height. A bottom-right toast there sat
+        // directly on top of those buttons and the fields above them. Top-of-screen
+        // + full width on mobile clears that zone entirely; bottom-right stacking
+        // returns from `sm` up, where modals are centered with room to spare below.
         <div
-            className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
+            className="fixed inset-x-4 top-4 sm:inset-x-auto sm:top-auto sm:bottom-4 sm:right-4 z-[100] flex flex-col gap-2 sm:items-end"
             aria-live="polite"
             aria-atomic="false"
             role="status"
@@ -117,7 +123,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         <div
             className={`
         flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-xl
-        animate-slide-up min-w-[300px] max-w-md
+        animate-slide-up w-full sm:w-auto sm:min-w-[300px] max-w-md
         ${colors[toast.type]}
       `}
         >

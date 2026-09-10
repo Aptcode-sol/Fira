@@ -187,6 +187,7 @@ export interface Booking {
     specialRequests: string | null;
     status: 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
     rejectionReason: string | null;
+    cancellationReason?: string | null;
     totalAmount: number;
     platformFee: number;
     paymentStatus: 'pending' | 'paid' | 'refunded' | 'failed';
@@ -198,6 +199,15 @@ export interface Booking {
             startTime: string | null;
             endTime: string | null;
         };
+    };
+    paymentSchedule?: {
+        type: 'full' | 'installment';
+        depositAmount: number;
+        balanceAmount: number;
+        balanceDueAt: string | null;
+        balanceStatus: 'not_applicable' | 'pending' | 'paid' | 'forfeited';
+        balancePayment?: string | null;
+        lastReminderOn?: string | null;
     };
     createdAt: string;
     updatedAt: string;

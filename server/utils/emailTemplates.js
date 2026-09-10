@@ -3,6 +3,8 @@
  * Branded email templates with black dominant theme
  */
 
+const { formatInr } = require('./formatInr');
+
 const emailTemplates = {
   /**
    * OTP Verification Email Template
@@ -584,6 +586,134 @@ const emailTemplates = {
     </div>
     <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
       <p style="color: #444; font-size: 12px; margin: 0;">Have a great time! 🎉</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  },
+
+  /**
+   * Balance Payment Reminder Template (venue booking balance due)
+   * @param {string} name - Customer's name
+   * @param {object} details - { venueName, daysLeft, balanceAmount, balanceDueAt, bookingId }
+   * @returns {string} - HTML email template
+   */
+  balanceReminder(name, { venueName, daysLeft, balanceAmount, balanceDueAt }) {
+    const dueDate = new Date(balanceDueAt).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const dayLabel = daysLeft === 1 ? 'day' : 'days';
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balance Payment Due - FIRA</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
+  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">⏳ Balance Due</h1>
+      <p style="margin: 10px 0 0; font-size: 16px; font-weight: bold;">${daysLeft} ${dayLabel} left to pay</p>
+    </div>
+    <div style="padding: 30px;">
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${name}, this is a friendly reminder to pay the remaining balance for your booking at <strong style="color: #8b5cf6;">${venueName}</strong>.
+      </p>
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 30px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #888; font-size: 14px;">Venue</td>
+            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${venueName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #888; font-size: 14px;">Balance due</td>
+            <td style="padding: 8px 0; color: #8b5cf6; text-align: right; font-size: 18px; font-weight: bold;">${formatInr(balanceAmount)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #888; font-size: 14px;">Days remaining</td>
+            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${daysLeft} ${dayLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #888; font-size: 14px;">Pay by</td>
+            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${dueDate}</td>
+          </tr>
+        </table>
+      </div>
+      <p style="color: #a0a0a0; text-align: center; font-size: 14px; margin-bottom: 25px;">
+        If the balance isn't paid by the deadline, your booking will be automatically cancelled and the deposit forfeited.
+      </p>
+      <div style="text-align: center;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/bookings" 
+           style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">
+          Pay Now
+        </a>
+      </div>
+    </div>
+    <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
+      <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  },
+
+  /**
+   * Balance Forfeit Template (booking auto-cancelled, deposit forfeited)
+   * @param {string} name - Customer's name
+   * @param {object} details - { venueName, depositAmount, bookingId }
+   * @returns {string} - HTML email template
+   */
+  balanceForfeit(name, { venueName, depositAmount }) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Cancelled - FIRA</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #000000; color: #ffffff;">
+  <div style="max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">Booking Cancelled</h1>
+      <p style="margin: 10px 0 0; font-size: 16px; font-weight: bold;">Balance not paid by the deadline</p>
+    </div>
+    <div style="padding: 30px;">
+      <p style="color: #a0a0a0; text-align: center; margin-bottom: 30px;">
+        Hey ${name}, your booking at <strong style="color: #8b5cf6;">${venueName}</strong> has been automatically cancelled because the remaining balance was not paid by the deadline.
+      </p>
+      <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; padding: 20px; margin-bottom: 30px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #888; font-size: 14px;">Venue</td>
+            <td style="padding: 8px 0; color: #fff; text-align: right; font-size: 14px;">${venueName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #888; font-size: 14px;">Deposit forfeited</td>
+            <td style="padding: 8px 0; color: #ef4444; text-align: right; font-size: 18px; font-weight: bold;">${formatInr(depositAmount)}</td>
+          </tr>
+        </table>
+      </div>
+      <p style="color: #a0a0a0; text-align: center; font-size: 14px; margin-bottom: 25px;">
+        As per the payment schedule, the 10% deposit is non-refundable when the balance isn't paid on time. The venue's date has been released for other customers.
+      </p>
+      <div style="text-align: center;">
+        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/venues" 
+           style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">
+          Browse Venues
+        </a>
+      </div>
+    </div>
+    <div style="background: #000; padding: 20px; text-align: center; border-top: 1px solid #222;">
+      <p style="color: #444; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} FIRA. All rights reserved.</p>
     </div>
   </div>
 </body>

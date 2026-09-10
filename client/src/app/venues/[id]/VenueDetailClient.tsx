@@ -6,12 +6,13 @@ import Navbar from '@/components/Navbar';
 import PartyBackground from '@/components/PartyBackground';
 import { BackButton, ShareButton, Button, Modal } from '@/components/ui';
 import { venuesApi, bookingsApi } from '@/lib/api';
-import { venueDayRate, venueBookingTotal, billableDays, bookingAdvance } from '@/lib/venuePricing';
-import { formatInr } from '@/lib/formatInr';
+import { venueDayRate, venueBookingTotal, billableDays, bookingAdvance, DEFAULT_PLATFORM_FEE_PERCENTAGE } from '@/lib/venuePricing';
+import { formatInr, roundMoney } from '@/lib/formatInr';
 import { Venue } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import InquiryForm from '@/components/InquiryForm';
+import PaymentDueWidgets from '@/components/PaymentDueWidgets';
 
 /**
  * How long the success state stays on screen before we navigate to the
@@ -153,9 +154,17 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
             });
         }
 
-        // Determine overall color
+        // Determine overall color.
+        //
+        // This used to only turn a date red when the blocked slot's times matched
+        // the venue's default weekly hours exactly. An accepted personal booking
+        // almost never does - the guest picks their own start/end time - so it fell
+        // through to orange, which the calendar below still lets people click.
+        // Booking here is day-rate (billableDays), not per-slot: any 'booked' slot
+        // means the whole day is spoken for, regardless of which hours it names.
+        const hasBookedSlot = slots.some(s => s.type === 'booked');
         let color = 'green';
-        if (daySlot?.isBooked || (slots.length > 0 && slots.some(s => s.startTime === defaultStart && s.endTime === defaultEnd))) {
+        if (daySlot?.isBooked || hasBookedSlot) {
             color = 'red';
         } else if (slots.length > 0) {
             color = 'orange';
@@ -271,6 +280,19 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
         }
         if (!bookingData.endTime) {
             errors.endTime = 'Please select an end time';
+        }
+        // Same-day bookings need a real (non-zero) duration; a multi-day booking's
+        // end time is on a different calendar day so any end time is valid there.
+        const finalEndDate = bookingData.endDate || finalStartDate;
+        if (
+            !errors.startTime && !errors.endTime && !errors.date &&
+            finalEndDate === finalStartDate &&
+            bookingData.endTime <= bookingData.startTime
+        ) {
+            errors.endTime = 'End time must be after start time';
+        }
+        if (!errors.date && finalEndDate && finalEndDate < (finalStartDate || '')) {
+            errors.endDate = 'End date must be on or after the start date';
         }
         if (!bookingData.purpose.trim()) {
             errors.purpose = 'Please describe the purpose / event type';
@@ -607,6 +629,7 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
         <>
             <PartyBackground />
             <Navbar />
+            <PaymentDueWidgets venueId={venue._id} userId={user?._id} venueName={venue.name} />
 
             <main className="relative z-20 min-h-screen pt-28 pb-16 px-4">
                 <div className="max-w-6xl mx-auto">
@@ -940,7 +963,7 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                 </button>
 
                                 <p className="text-xs text-gray-300 text-center mt-4">
-                                    A 10% advance payment is required to secure your booking
+                                    A 10% deposit secures bookings more than 7 days out; within 7 days the full amount is due
                                 </p>
                             </div>
                         </div>
@@ -1033,8 +1056,9 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                 value={bookingData.endDate}
                                 onChange={(e) => setBookingData({ ...bookingData, endDate: e.target.value })}
                                 min={bookingData.date || new Date().toISOString().split('T')[0]}
-                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark]"
+                                className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.endDate ? 'border-red-500' : 'border-white/10'}`}
                             />
+                            {bookingErrors.endDate && <p role="alert" className="mt-2 text-sm text-red-400">{bookingErrors.endDate}</p>}
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1097,19 +1121,26 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                 const dayRate = venueDayRate(venue);
                                 const days = billableDays(startDate, bookingData.endDate);
                                 const totalAmount = dayRate * days;
-                                // Itemised the same way the server bills it. This used to
-                                // show a bare `totalAmount * 0.10` and stop there, while
-                                // the server put that advance through calculateBilling and
-                                // added a platform fee plus GST - so a ₹166 booking said
-                                // ₹17 here and Razorpay asked for ₹18. The gateway was the
-                                // first place the guest saw the real figure.
-                                const bill = bookingAdvance(
-                                    totalAmount,
-                                    (venue as { platformFeePercentage?: number }).platformFeePercentage
-                                );
+                                const feePct = (venue as { platformFeePercentage?: number }).platformFeePercentage
+                                    ?? DEFAULT_PLATFORM_FEE_PERCENTAGE;
 
-                                return (
-                                    <div className="space-y-2 text-sm">
+                                // Mirror the server's schedule decision (paymentSchedule.build)
+                                // so the guest sees, BEFORE confirming, exactly what they'll be
+                                // charged (Req 1.6). The booking doesn't exist yet, so we compute
+                                // the same 168h decision client-side using the SAME date combine:
+                                // new Date(startDate) then setHours(startHour, startMin). Event
+                                // more than 168h out ⇒ installment (10% now, 90% balance due 7
+                                // days before); exactly 168h or nearer ⇒ full amount now.
+                                const INSTALLMENT_THRESHOLD_HOURS = 168;
+                                const MS_PER_HOUR = 3_600_000;
+                                const eventStart = new Date(startDate);
+                                const [startHour, startMin] = String(bookingData.startTime).split(':').map(Number);
+                                eventStart.setHours(startHour || 0, startMin || 0, 0, 0);
+                                const hoursUntilEvent = (eventStart.getTime() - Date.now()) / MS_PER_HOUR;
+                                const isInstallment = hoursUntilEvent > INSTALLMENT_THRESHOLD_HOURS;
+
+                                const totalRow = (
+                                    <>
                                         <div className="flex justify-between gap-3 text-gray-300">
                                             <span>Day rate</span>
                                             <span className="whitespace-nowrap">{formatPrice(dayRate)}</span>
@@ -1122,28 +1153,87 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                             <span>Total Price</span>
                                             <span className="whitespace-nowrap">{formatPrice(totalAmount)}</span>
                                         </div>
+                                    </>
+                                );
 
-                                        <div className="flex justify-between gap-3 text-gray-300 pt-2 border-t border-white/10">
-                                            <span>10% advance</span>
-                                            <span className="whitespace-nowrap">{formatPrice(bill.advance)}</span>
+                                if (isInstallment) {
+                                    // Charge is the 10% deposit put through billing, exactly as
+                                    // bookingAdvance already models the server's calculateBilling.
+                                    const bill = bookingAdvance(totalAmount, feePct);
+                                    const balanceDueAt = new Date(
+                                        eventStart.getTime() - INSTALLMENT_THRESHOLD_HOURS * MS_PER_HOUR
+                                    );
+                                    const balanceDueText = balanceDueAt.toLocaleDateString('en-IN', {
+                                        day: 'numeric', month: 'short', year: 'numeric',
+                                    });
+
+                                    return (
+                                        <div className="space-y-2 text-sm">
+                                            {totalRow}
+                                            <div className="flex justify-between gap-3 text-gray-300 pt-2 border-t border-white/10">
+                                                <span>10% deposit</span>
+                                                <span className="whitespace-nowrap">{formatPrice(bill.advance)}</span>
+                                            </div>
+                                            {/* Amount only - the commission rate is not published
+                                                at checkout. Same as BillingCard. */}
+                                            <div className="flex justify-between gap-3 text-gray-300">
+                                                <span>Platform fee</span>
+                                                <span className="whitespace-nowrap">{formatPrice(bill.platformFee)}</span>
+                                            </div>
+                                            <div className="flex justify-between gap-3 text-gray-300">
+                                                <span>GST (18%)</span>
+                                                <span className="whitespace-nowrap">{formatPrice(bill.gstAmount)}</span>
+                                            </div>
+                                            <div className="flex justify-between gap-3 text-violet-400 font-bold pt-2 border-t border-white/10">
+                                                <span>Payable now</span>
+                                                <span className="whitespace-nowrap">{formatPrice(bill.payableNow)}</span>
+                                            </div>
+                                            <div className="flex justify-between gap-3 text-gray-300 pt-2 border-t border-white/10">
+                                                <span>Balance (90%)</span>
+                                                <span className="whitespace-nowrap">{formatPrice(bill.remaining)}</span>
+                                            </div>
+                                            <div className="flex justify-between gap-3 text-gray-300">
+                                                <span>Balance due by</span>
+                                                <span className="whitespace-nowrap">{balanceDueText}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-300 mt-2 block">
+                                                * Only the 10% deposit and its fees are charged today to secure this booking.
+                                                The remaining {formatPrice(bill.remaining)} balance is due by {balanceDueText} (7 days before your event).
+                                                If it is not paid by then, the booking is cancelled and the deposit forfeited.
+                                            </p>
                                         </div>
-                                        {/* Amount only - the commission rate is not published
-                                            at checkout. Same as BillingCard. */}
+                                    );
+                                }
+
+                                // Full schedule: event is 7 days away or nearer, so the whole
+                                // amount is due now. bookingAdvance charges 10%, so here we
+                                // compute fee + GST on the FULL total instead (same step order
+                                // and paise rounding as the server's calculateBilling).
+                                const platformFee = roundMoney((totalAmount * feePct) / 100);
+                                const gstAmount = roundMoney(platformFee * 0.18);
+                                const payableNow = roundMoney(totalAmount + platformFee + gstAmount);
+
+                                return (
+                                    <div className="space-y-2 text-sm">
+                                        {totalRow}
+                                        <div className="flex justify-between gap-3 text-gray-300 pt-2 border-t border-white/10">
+                                            <span>Full amount</span>
+                                            <span className="whitespace-nowrap">{formatPrice(totalAmount)}</span>
+                                        </div>
                                         <div className="flex justify-between gap-3 text-gray-300">
                                             <span>Platform fee</span>
-                                            <span className="whitespace-nowrap">{formatPrice(bill.platformFee)}</span>
+                                            <span className="whitespace-nowrap">{formatPrice(platformFee)}</span>
                                         </div>
                                         <div className="flex justify-between gap-3 text-gray-300">
                                             <span>GST (18%)</span>
-                                            <span className="whitespace-nowrap">{formatPrice(bill.gstAmount)}</span>
+                                            <span className="whitespace-nowrap">{formatPrice(gstAmount)}</span>
                                         </div>
                                         <div className="flex justify-between gap-3 text-violet-400 font-bold pt-2 border-t border-white/10">
                                             <span>Payable now</span>
-                                            <span className="whitespace-nowrap">{formatPrice(bill.payableNow)}</span>
+                                            <span className="whitespace-nowrap">{formatPrice(payableNow)}</span>
                                         </div>
                                         <p className="text-xs text-gray-300 mt-2 block">
-                                            * Only the non-refundable advance and its fees are charged today to secure this booking.
-                                            The remaining {formatPrice(bill.remaining)} is settled with the venue owner directly.
+                                            * Your event is within 7 days, so the full amount is due now to secure this booking.
                                         </p>
                                     </div>
                                 );

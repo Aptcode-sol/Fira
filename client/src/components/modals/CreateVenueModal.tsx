@@ -20,6 +20,17 @@ const MAX_IMAGES = 5;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 /**
+ * Platform-wide cancellation policy. Fixed for every venue, not per-venue
+ * customizable — owners were editing these before, which let refund terms drift
+ * venue to venue. One policy, shown read-only in the stepper.
+ */
+const CANCELLATION_POLICY = {
+    freeCancellationHours: 48,
+    partialRefundPercentage: 50,
+    noCancellationHours: 24,
+} as const;
+
+/**
  * Fired after a venue is created or edited.
  *
  * The pages that show venues are client components holding their own fetched copy,
@@ -41,9 +52,7 @@ const EMPTY_FORM = {
     capacityMax: 100,
     pricePerDay: 0,
     rules: '',
-    freeCancellationHours: 48,
-    partialRefundPercentage: 50,
-    noCancellationHours: 24,
+    ...CANCELLATION_POLICY,
 };
 
 /** The subset of a venue this form reads when editing. */
@@ -129,9 +138,9 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
             // Falls back to the legacy flat fee for venues saved before pricePerDay.
             pricePerDay: venue.pricing?.pricePerDay ?? venue.pricing?.basePrice ?? 0,
             rules: (venue.rules ?? []).join('\n'),
-            freeCancellationHours: venue.cancellationPolicy?.freeCancellationHours ?? 48,
-            partialRefundPercentage: venue.cancellationPolicy?.partialRefundPercentage ?? 50,
-            noCancellationHours: venue.cancellationPolicy?.noCancellationHours ?? 24,
+            // Policy is platform-fixed — ignore whatever the venue stored and
+            // always use the current constant, so editing normalizes old drift.
+            ...CANCELLATION_POLICY,
         };
     };
 
@@ -218,16 +227,8 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
             if (!form.pricePerDay || form.pricePerDay <= 0) found.pricePerDay = 'Set a day rate above 0';
         }
 
-        if (index === 4) {
-            if (form.freeCancellationHours < 0) found.freeCancellationHours = 'Cannot be negative';
-            if (form.noCancellationHours < 0) found.noCancellationHours = 'Cannot be negative';
-            if (form.noCancellationHours >= form.freeCancellationHours) {
-                found.noCancellationHours = 'Must be fewer hours than free cancellation';
-            }
-            if (form.partialRefundPercentage < 0 || form.partialRefundPercentage > 100) {
-                found.partialRefundPercentage = 'Must be between 0 and 100';
-            }
-        }
+        // Step 4 (Cancellation Policy) is platform-fixed and read-only — nothing
+        // to validate.
 
         if (index === 5) {
             // The creation gate: a venue that takes bookings needs somewhere to be
@@ -361,11 +362,8 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
                     country: 'India',
                 },
                 locationLink: form.locationLink.trim(),
-                cancellationPolicy: {
-                    freeCancellationHours: form.freeCancellationHours,
-                    partialRefundPercentage: form.partialRefundPercentage,
-                    noCancellationHours: form.noCancellationHours,
-                },
+                // Fixed platform policy — send the constant, not editable state.
+                cancellationPolicy: { ...CANCELLATION_POLICY },
                 payoutAccount: payoutAccountId,
             };
 
@@ -659,47 +657,38 @@ export default function CreateVenueModal({ isOpen, onClose, venue = null }: Crea
         },
         {
             label: 'Cancellation Policy',
+            // Fixed platform policy, shown read-only. Not editable per venue.
             content: (
-                <>
-                    <Input
-                        label="Free Cancellation Until (hours before) *"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={form.freeCancellationHours}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '');
-                            set('freeCancellationHours', val === '' ? 0 : parseInt(val));
-                        }}
-                        error={errors.freeCancellationHours}
-                    />
-                    <Input
-                        label="Partial Refund (%) *"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={form.partialRefundPercentage}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '');
-                            const num = val === '' ? 0 : Math.min(100, parseInt(val));
-                            set('partialRefundPercentage', num);
-                        }}
-                        error={errors.partialRefundPercentage}
-                        helperText="Refunded between the two windows below"
-                    />
-                    <Input
-                        label="No Cancellation Within (hours before) *"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={form.noCancellationHours}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '');
-                            set('noCancellationHours', val === '' ? 0 : parseInt(val));
-                        }}
-                        error={errors.noCancellationHours}
-                    />
-                </>
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-400">
+                        FIRA applies one cancellation policy to every venue. These terms are fixed and cannot be changed.
+                    </p>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] divide-y divide-white/10">
+                        <div className="flex items-center justify-between px-4 py-3">
+                            <span className="text-sm text-gray-300">Free cancellation until</span>
+                            <span className="text-sm font-medium text-white">
+                                {CANCELLATION_POLICY.freeCancellationHours} hours before
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3">
+                            <span className="text-sm text-gray-300">Partial refund</span>
+                            <span className="text-sm font-medium text-white">
+                                {CANCELLATION_POLICY.partialRefundPercentage}%
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3">
+                            <span className="text-sm text-gray-300">No cancellation within</span>
+                            <span className="text-sm font-medium text-white">
+                                {CANCELLATION_POLICY.noCancellationHours} hours before
+                            </span>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                        Bookings cancelled between {CANCELLATION_POLICY.noCancellationHours} and{' '}
+                        {CANCELLATION_POLICY.freeCancellationHours} hours before are refunded{' '}
+                        {CANCELLATION_POLICY.partialRefundPercentage}%.
+                    </p>
+                </div>
             ),
         },
         {

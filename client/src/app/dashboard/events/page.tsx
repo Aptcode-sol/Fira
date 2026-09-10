@@ -25,8 +25,39 @@ interface Event {
     customVenue?: { isCustom?: boolean; name?: string; city?: string } | null;
     images?: string[];
     status: string;
+    venueApproval?: { status?: string };
+    adminApproval?: { status?: string };
     currentAttendees?: number;
     maxAttendees?: number;
+}
+
+/**
+ * Events need BOTH venueApproval and adminApproval before the top-level
+ * `status` flips to 'approved' - see eventService.venueApproveEvent /
+ * adminApproveEvent. Reading only `status` while that is pending means an
+ * event the venue owner just approved shows the exact same bare "Pending" it
+ * showed before the approval - the organizer has no way to tell anything
+ * happened. This surfaces which half is still outstanding.
+ */
+function eventStatusLabel(e: Event): { text: string; tone: 'green' | 'yellow' | 'red' | 'gray' } {
+    if (['approved', 'upcoming', 'ongoing', 'completed'].includes(e.status)) {
+        return { text: e.status, tone: 'green' };
+    }
+    if (e.status === 'rejected' || e.venueApproval?.status === 'rejected' || e.adminApproval?.status === 'rejected') {
+        return { text: 'Rejected', tone: 'red' };
+    }
+    if (e.status === 'cancelled' || e.status === 'blocked') {
+        return { text: e.status, tone: 'gray' };
+    }
+    if (e.status === 'draft') {
+        return { text: 'Draft', tone: 'gray' };
+    }
+    // status is 'pending' here - report which approval is still outstanding.
+    const venueDone = !e.venueApproval || e.venueApproval.status === 'approved';
+    const adminDone = e.adminApproval?.status === 'approved';
+    if (venueDone && !adminDone) return { text: 'Awaiting admin approval', tone: 'yellow' };
+    if (!venueDone && adminDone) return { text: 'Awaiting venue approval', tone: 'yellow' };
+    return { text: 'Pending review', tone: 'yellow' };
 }
 
 interface Ticket {
@@ -177,16 +208,20 @@ export default function EventsPage() {
             key: 'status',
             header: 'Status',
             align: 'center',
-            cell: (e) => (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${e.status === 'published'
-                    ? 'bg-green-500/20 text-green-400'
-                    : e.status === 'draft'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-gray-500/20 text-gray-300'
-                    }`}>
-                    {e.status || 'active'}
-                </span>
-            ),
+            cell: (e) => {
+                const { text, tone } = eventStatusLabel(e);
+                const toneClass = {
+                    green: 'bg-green-500/20 text-green-400',
+                    yellow: 'bg-yellow-500/20 text-yellow-400',
+                    red: 'bg-red-500/20 text-red-400',
+                    gray: 'bg-gray-500/20 text-gray-300',
+                }[tone];
+                return (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap ${toneClass}`}>
+                        {text}
+                    </span>
+                );
+            },
         },
     ];
 

@@ -126,4 +126,30 @@ router.post('/:id/verify-payment', /** @param {AuthenticatedRequest} req @param 
     }
 });
 
+// POST /api/bookings/:id/initiate-balance-payment - Initiate Razorpay balance payment
+router.post('/:id/initiate-balance-payment', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        // Enforce using authenticated user
+        const result = await bookingService.initiateBalancePayment(req.params.id, req.user._id);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// POST /api/bookings/:id/verify-balance-payment - Verify balance payment after Razorpay callback
+router.post('/:id/verify-balance-payment', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        const { gatewayOrderId, gatewayPaymentId, gatewaySignature } = req.body;
+        const result = await bookingService.completeBalancePayment(req.params.id, {
+            gatewayOrderId,
+            gatewayPaymentId,
+            gatewaySignature
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;

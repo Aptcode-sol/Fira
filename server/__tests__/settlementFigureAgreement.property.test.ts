@@ -152,10 +152,16 @@ async function seed(spec: ListingSpec, ownerId: any, adminId: any) {
     } else {
         await db.collection('venues').insertOne({ _id: listingId, name: 'Generated Venue', owner: ownerId });
         referenceModel = 'Booking';
-        const bookings = spec.units.map((u) => ({
+        // Each booking needs its own bookingDate: (venue, bookingDate) is unique
+        // for pending/accepted bookings (double-booking fix) and a missing date
+        // indexes as null for every row alike, so two pending/accepted rows with
+        // no date collided under the new index. The date has no bearing on what
+        // this property checks (figures derived from status/amount).
+        const bookings = spec.units.map((u, i) => ({
             _id: new ObjectId(),
             user: ownerId,
             venue: listingId,
+            bookingDate: new Date(Date.now() + i * 24 * 3600 * 1000),
             status: BOOKING_STATUSES[u.statusIndex % BOOKING_STATUSES.length],
             totalAmount: 5000,
         }));

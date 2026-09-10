@@ -409,6 +409,74 @@ class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send venue balance payment reminder email
+   * @param {string} to - Recipient email
+   * @param {string} name - Customer's name
+   * @param {object} details - { venueName, daysLeft, balanceAmount, balanceDueAt, bookingId }
+   * @returns {Promise<boolean>} - Success status
+   */
+  async sendBalanceReminderEmail(to, name, details) {
+    try {
+      if (!this.transporter) {
+        console.warn('⚠️ Email service not initialized, skipping balance reminder email.');
+        return false;
+      }
+
+      const { venueName, daysLeft, balanceAmount, balanceDueAt } = details;
+      const dayLabel = daysLeft === 1 ? 'day' : 'days';
+      const dueDate = new Date(balanceDueAt).toLocaleDateString();
+
+      const mailOptions = {
+        from: `"${process.env.SMTP_FROM_NAME || 'Fira - Let\'s Celebrate'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+        to,
+        subject: `⏳ Balance due in ${daysLeft} ${dayLabel} for ${venueName}`,
+        html: emailTemplates.balanceReminder(name, details),
+        text: `Hey ${name}!\n\nA friendly reminder: the remaining balance for your booking at ${venueName} is due in ${daysLeft} ${dayLabel} (by ${dueDate}).\n\nAmount due: ₹${balanceAmount}\n\nPlease pay before the deadline to keep your booking - otherwise it will be cancelled and the deposit forfeited.\n\nPay now: ${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/bookings\n\n- FIRA Team`
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Balance reminder email sent successfully:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send balance reminder email:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Send venue booking forfeiture email (auto-cancelled, deposit forfeited)
+   * @param {string} to - Recipient email
+   * @param {string} name - Customer's name
+   * @param {object} details - { venueName, depositAmount, bookingId }
+   * @returns {Promise<boolean>} - Success status
+   */
+  async sendBalanceForfeitEmail(to, name, details) {
+    try {
+      if (!this.transporter) {
+        console.warn('⚠️ Email service not initialized, skipping balance forfeit email.');
+        return false;
+      }
+
+      const { venueName, depositAmount } = details;
+
+      const mailOptions = {
+        from: `"${process.env.SMTP_FROM_NAME || 'Fira - Let\'s Celebrate'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+        to,
+        subject: `Your booking at ${venueName} was cancelled`,
+        html: emailTemplates.balanceForfeit(name, details),
+        text: `Hey ${name}!\n\nYour booking at ${venueName} has been automatically cancelled because the remaining balance was not paid by the deadline.\n\nThe 10% deposit of ₹${depositAmount} has been forfeited and is non-refundable, as per the payment schedule. The venue's date has been released for other customers.\n\n- FIRA Team`
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Balance forfeit email sent successfully:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send balance forfeit email:', error.message);
+      return false;
+    }
+  }
 }
 
 // Create singleton instance
