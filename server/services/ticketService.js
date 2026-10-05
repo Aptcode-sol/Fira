@@ -35,6 +35,23 @@ async function requirePaymentFor(priceUnit, quantity, feePct, discountAmount, { 
     });
 }
 
+/**
+ * Re-validate a discount code server-side and price it against the order's
+ * total payable (ticket subtotal + platform fee + GST). The client's amount is
+ * never trusted. Throws for invalid/expired/exhausted codes, rejecting the
+ * purchase before any charge (fail closed). No code ⇒ no discount.
+ */
+async function resolveDiscount(discountCode, eventId, unitPrice, quantity, feePct) {
+    if (!discountCode) return { discountAmount: 0, discountBearer: null, appliedCode: null };
+    const { totalAmount: grossTotal } = paymentService.calculateBilling(unitPrice, quantity, feePct, 0);
+    const { discountAmount, discountBearer } = await discountService.validateAndApplyDiscount(
+        discountCode,
+        eventId,
+        grossTotal
+    );
+    return { discountAmount, discountBearer, appliedCode: discountCode.toUpperCase() };
+}
+
 const ticketService = {
     // Get all tickets
     async getAllTickets(query = {}) {
@@ -165,28 +182,51 @@ const ticketService = {
         // unitPrice, not event.ticketPrice: on a tiered event the flat field is the
         // base price and says nothing about what a VIP ticket costs. Charging off it
         // sold every tier at the cheapest one's price.
+        let pendingCharge = null;
         if (unitPrice > 0 && !paymentId) {
             // Charge the SAME total the buyer sees in the billing summary -
             // ticket price plus platform fee plus GST, minus any discount.
             // calculateBilling is the shared source of truth for both sides.
             const platformFeePercentage = event.platformFeePercentage ?? 5;
 
-            // Re-validate the discount server-side (trust boundary): a
-            // client-supplied amount is never trusted. validateAndApplyDiscount
-            // throws for invalid/expired/exhausted codes, which propagates and
-            // rejects the purchase before any charge (fail closed). No code =>
-            // no discount.
-            let discountAmount = 0;
-            let appliedCode = null;
-            let discountBearer = null;
-            if (discountCode) {
-                ({ discountAmount, discountBearer } = await discountService.validateAndApplyDiscount(
-                    discountCode,
-                    eventId,
-                    unitPrice * quantity
-                ));
-                appliedCode = discountCode.toUpperCase();
+            // Re-validate the discount server-side (trust boundary), priced on
+            // the total payable.
+            const { discountAmount, discountBearer, appliedCode } = await resolveDiscount(
+                discountCode, eventId, unitPrice, quantity, platformFeePercentage
+            );
+
+            // A code that covers the whole bill leaves nothing to charge, and the
+            // gateway refuses a ₹0 order. Record the ₹0 sale (so the redemption
+            // shows in discount analytics and settlement) and fall through to
+            // issue the ticket against it.
+            const billing = paymentService.calculateBilling(unitPrice, quantity, platformFeePercentage, discountAmount);
+            pendingCharge = { platformFeePercentage, discountAmount, discountBearer, appliedCode };
+            if (billing.totalAmount <= 0) {
+                const Payment = require('../models/Payment');
+                const zeroPayment = await Payment.create({
+                    user: userId,
+                    type: 'ticket',
+                    referenceId: eventId,
+                    referenceModel: 'Event',
+                    amount: 0,
+                    subtotal: billing.subtotal,
+                    platformFee: billing.platformFee,
+                    platformFeePercentage,
+                    gstAmount: billing.gstAmount,
+                    totalAmount: 0,
+                    discountCode: appliedCode,
+                    discountAmount: billing.discountAmount,
+                    discountBearer,
+                    listedPrice: billing.subtotal,
+                    status: 'success',
+                    paidAt: new Date()
+                });
+                paymentId = zeroPayment._id;
             }
+        }
+
+        if (unitPrice > 0 && !paymentId) {
+            const { platformFeePercentage, discountAmount, discountBearer, appliedCode } = pendingCharge;
 
             const paymentResult = await requirePaymentFor(
                 unitPrice,
@@ -496,17 +536,9 @@ const ticketService = {
             if (!(unitPrice > 0) || paymentId) return null;
 
             const feePct = event.platformFeePercentage ?? 5;
-            let discountAmount = 0;
-            let appliedCode = null;
-            let discountBearer = null;
-            if (discountCode) {
-                ({ discountAmount, discountBearer } = await discountService.validateAndApplyDiscount(
-                    discountCode,
-                    eventId,
-                    unitPrice * quantity
-                ));
-                appliedCode = discountCode.toUpperCase();
-            }
+            const { discountAmount, discountBearer, appliedCode } = await resolveDiscount(
+                discountCode, eventId, unitPrice, quantity, feePct
+            );
 
             const paymentData = await requirePaymentFor(
                 unitPrice,

@@ -103,7 +103,10 @@ const earningsService = {
      * attribution that mirrors the processPayout owner-gross contract exactly
      * (Requirement 8, design Property 13/14):
      *   - discountBearer 'platform'      → listedPrice (platform absorbs discount)
-     *   - discountBearer 'owner'         → listedPrice − discountAmount (owner absorbs)
+     *   - discountBearer 'owner'         → listedPrice − discountAmount (owner absorbs),
+     *                                      floored at 0: a discount taken off the
+     *                                      total payable can exceed the listed price
+     *                                      by the fee + GST, which the owner never had
      *   - discountBearer null/undefined  → listedPrice (no discount)
      *   - any other discountBearer       → excluded, error indication
      *
@@ -136,15 +139,16 @@ const earningsService = {
         }
 
         // Owner absorbs the discount: gross = listedPrice − discountAmount.
-        // Reject a missing, negative, or over-listedPrice discount so the result
-        // is never negative and never corrupts the payee's accumulated gross.
+        // Reject a missing or negative discount so the result never corrupts the
+        // payee's accumulated gross. Discounts come off the total payable, so one
+        // may exceed listedPrice (by the fee + GST); the owner absorbs at most
+        // their listed price and the excess is the platform's.
         if (discountBearer === 'owner') {
             const discountAmount = payment.discountAmount;
-            if (typeof discountAmount !== 'number' || !Number.isFinite(discountAmount) ||
-                discountAmount < 0 || discountAmount > listedPrice) {
-                return { error: 'discountAmount is missing, negative, or exceeds listedPrice', field: 'discountAmount' };
+            if (typeof discountAmount !== 'number' || !Number.isFinite(discountAmount) || discountAmount < 0) {
+                return { error: 'discountAmount is missing or negative', field: 'discountAmount' };
             }
-            return { gross: roundMoney(listedPrice - discountAmount) };
+            return { gross: roundMoney(Math.max(0, listedPrice - discountAmount)) };
         }
 
         // Any other bearer value is not one of platform | owner | null.

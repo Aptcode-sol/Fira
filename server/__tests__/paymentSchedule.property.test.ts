@@ -17,7 +17,7 @@
  *   Property 1 — split invariant: deposit + balance === total, deposit is 10%.
  *   Property 2 — type threshold: installment iff hours > 168 (with the 168 and
  *                just-over-168 boundaries asserted explicitly).
- *   Property 3 — deadline: balanceDueAt === eventStart − 168h.
+ *   Property 3 — deadline: balanceDueAt === eventStart − 24h.
  *
  * Validates: Requirements 1.2, 1.3, 1.4, 10.2 — Correctness Properties 1, 2, 3.
  */
@@ -31,6 +31,7 @@ const {
   eventStartAt,
   hoursUntilEvent,
   INSTALLMENT_THRESHOLD_HOURS,
+  BALANCE_DUE_HOURS_BEFORE,
   DEPOSIT_RATE,
 } = paymentSchedule;
 
@@ -154,7 +155,7 @@ describe('Property 2 — type is installment iff Hours_Until_Event > 168', () =>
 
 // --- Property 3: balance deadline -----------------------------------------
 
-describe('Property 3 — balanceDueAt === eventStart − 168h for installments', () => {
+describe('Property 3 — balanceDueAt === eventStart − 24h for installments', () => {
   it('holds for random installment bookings', () => {
     fc.assert(
       fc.property(
@@ -169,7 +170,7 @@ describe('Property 3 — balanceDueAt === eventStart − 168h for installments',
           expect(s.type).toBe('installment');
           expect(s.balanceDueAt).toBeInstanceOf(Date);
           expect(s.balanceDueAt.getTime()).toBe(
-            eventStartAt(date, time).getTime() - THRESHOLD * MS_PER_HOUR
+            eventStartAt(date, time).getTime() - BALANCE_DUE_HOURS_BEFORE * MS_PER_HOUR
           );
         }
       ),

@@ -97,6 +97,8 @@ export interface Venue {
         date: string;
         reason: string;
     }[];
+    /** 'YYYY-MM-DD' days held by active bookings (public venue detail only). */
+    unavailableDates?: string[];
     cancellationPolicy?: {
         freeCancellationHours: number;
         partialRefundPercentage: number;
@@ -180,6 +182,8 @@ export interface Booking {
     venue: string | Venue;
     event: string | Event | null;
     bookingDate: string;
+    /** Last day of a multi-day booking (inclusive); null for a single day. */
+    endDate?: string | null;
     startTime: string;
     endTime: string;
     purpose: string | null;

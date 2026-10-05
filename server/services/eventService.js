@@ -331,12 +331,22 @@ const eventService = {
             // day the owner had given away offline. Reject if any day the event
             // spans carries a busy block.
             const Venue = require('../models/Venue');
-            const { isDayBlockedByOwner } = require('../utils/venueAvailability');
+            const { isDayBlockedByOwner, overlappingBookingFilter, dayKey } = require('../utils/venueAvailability');
             const venueDoc = await Venue.findById(venue).select('blockedDates');
             for (let d = new Date(eventStart); d <= eventEnd; d.setDate(d.getDate() + 1)) {
                 if (isDayBlockedByOwner(venueDoc?.blockedDates, d)) {
                     throw new Error('This venue is unavailable on one or more of the selected dates');
                 }
+            }
+
+            // Personal (day-rate) bookings hold whole days; an event must not land
+            // on a day a guest has already booked.
+            const Booking = require('../models/Booking');
+            const bookingClash = await Booking.findOne(
+                overlappingBookingFilter(venue, dayKey(eventStart), dayKey(eventEnd))
+            ).select('_id').lean();
+            if (bookingClash) {
+                throw new Error('This venue is unavailable on one or more of the selected dates');
             }
         }
 

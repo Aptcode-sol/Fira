@@ -6,26 +6,27 @@ describe('calculateBilling', () => {
   it('computes correct breakdown without discount', () => {
     const result = calculateBilling(500, 2, 5);
     expect(result.subtotal).toBe(1000);
-    expect(result.discountedSubtotal).toBe(1000);
     expect(result.platformFee).toBe(50);
     expect(result.gstAmount).toBe(9);
     expect(result.totalAmount).toBe(1059);
   });
 
-  it('applies discount before computing fees', () => {
+  it('takes the discount off the total payable, after fee + GST', () => {
     const result = calculateBilling(500, 2, 5, 200);
     expect(result.subtotal).toBe(1000);
-    expect(result.discountedSubtotal).toBe(800);
-    expect(result.platformFee).toBe(40);
-    expect(result.gstAmount).toBe(7.2);
-    expect(result.totalAmount).toBe(847.2);
+    expect(result.platformFee).toBe(50);
+    expect(result.gstAmount).toBe(9);
+    expect(result.grossTotal).toBe(1059);
+    expect(result.totalAmount).toBe(859);
   });
 
-  it('caps discount at subtotal', () => {
+  it('a ₹99 code on a ₹99 ticket leaves ₹5.84 (fee + GST) to pay', () => {
+    expect(calculateBilling(99, 1, 5, 99).totalAmount).toBe(5.84);
+  });
+
+  it('caps discount at the total payable', () => {
     const result = calculateBilling(100, 1, 5, 500);
-    expect(result.discountedSubtotal).toBe(0);
-    expect(result.platformFee).toBe(0);
-    expect(result.gstAmount).toBe(0);
+    expect(result.discountAmount).toBe(105.9);
     expect(result.totalAmount).toBe(0);
   });
 

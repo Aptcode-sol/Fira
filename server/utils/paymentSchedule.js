@@ -2,7 +2,9 @@
 
 const { roundMoney } = require('./money');
 
-const INSTALLMENT_THRESHOLD_HOURS = 168; // 7 days
+const INSTALLMENT_THRESHOLD_HOURS = 168; // 7 days: nearer than this ⇒ full payment at booking
+const BALANCE_DUE_HOURS_BEFORE = 24;     // the 90% balance is due 24h before the event starts
+const REMINDER_WINDOW_HOURS = 168;       // balance reminders start 7 days before the event
 const DEPOSIT_RATE = 0.10;
 const MS_PER_HOUR = 3600 * 1000;
 
@@ -41,6 +43,10 @@ function hoursUntilEvent(now, bookingDate, startTime) {
  * (Req 10.3). Hours_Until_Event > 168 ⇒ installment; ≤ 168 ⇒ full. Exactly 168
  * hours is treated as "not farther than 7 days" ⇒ full (Req 10.2).
  *
+ * An installment's balance is due 24h before the event, not 7 days: the guest
+ * holds the date with 10%, is reminded daily from 7 days out, and loses the
+ * booking (and the deposit) only if the balance is still unpaid the day before.
+ *
  * balanceAmount is the remainder (total − deposit), not an independent total×0.90,
  * so depositAmount + balanceAmount === totalAmount exactly under paise rounding
  * (Property 1).
@@ -66,8 +72,8 @@ function build(now, bookingDate, startTime, totalAmount) {
             depositAmount: deposit,
             balanceAmount: roundMoney(totalAmount - deposit), // remainder ⇒ deposit+balance===total (Property 1)
             balanceDueAt: new Date(
-                eventStartAt(bookingDate, startTime).getTime() - INSTALLMENT_THRESHOLD_HOURS * MS_PER_HOUR
-            ), // Req 1.4 / Property 3: exactly 168h before event start
+                eventStartAt(bookingDate, startTime).getTime() - BALANCE_DUE_HOURS_BEFORE * MS_PER_HOUR
+            ), // Property 3: exactly 24h before event start
             balanceStatus: 'pending',
         };
     }
@@ -80,4 +86,12 @@ function build(now, bookingDate, startTime, totalAmount) {
     };
 }
 
-module.exports = { build, hoursUntilEvent, eventStartAt, INSTALLMENT_THRESHOLD_HOURS, DEPOSIT_RATE };
+module.exports = {
+    build,
+    hoursUntilEvent,
+    eventStartAt,
+    INSTALLMENT_THRESHOLD_HOURS,
+    BALANCE_DUE_HOURS_BEFORE,
+    REMINDER_WINDOW_HOURS,
+    DEPOSIT_RATE,
+};

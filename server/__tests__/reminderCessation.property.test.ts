@@ -7,7 +7,7 @@
  *   Booking.find({
  *     'paymentSchedule.type': 'installment',
  *     'paymentSchedule.balanceStatus': 'pending',
- *     'paymentSchedule.balanceDueAt': { $gt: now },       // skip past-deadline
+ *     'paymentSchedule.balanceDueAt': { $gt: now, $lte: remindFrom }, // within the 7-day window
  *     'paymentSchedule.lastReminderOn': { $ne: today }    // once per calendar day
  *   })
  *
@@ -34,6 +34,7 @@ type BalanceStatus = 'not_applicable' | 'pending' | 'paid' | 'forfeited';
 
 interface Booking {
     type: 'full' | 'installment';
+    paymentStatus?: 'pending' | 'paid';
     balanceStatus: BalanceStatus;
     balanceDueAt: number; // ms epoch
     lastReminderOn: string | null; // 'YYYY-MM-DD'
@@ -44,11 +45,17 @@ interface Booking {
  * conjuncts of the real query: installment type, pending status, deadline still in
  * the future (> now), and not-yet-reminded-today.
  */
+// Reminders start 7 days before the event; the deadline is 24h before it, so the
+// window on balanceDueAt is (now, now + 144h].
+const REMIND_WINDOW_MS = (168 - 24) * 3600 * 1000;
+
 function qualifiesForReminder(booking: Booking, now: number, today: string): boolean {
     return (
         booking.type === 'installment' &&
         booking.balanceStatus === 'pending' &&
+        (booking.paymentStatus ?? 'paid') === 'paid' &&
         booking.balanceDueAt > now &&
+        booking.balanceDueAt <= now + REMIND_WINDOW_MS &&
         booking.lastReminderOn !== today
     );
 }
@@ -78,7 +85,7 @@ const nonPendingBooking: fc.Arbitrary<Booking> = fc.record({
 // A booking that DOES currently qualify: installment, pending, future deadline,
 // not yet reminded today. Used to prove the once-per-day cessation.
 const qualifyingBooking: fc.Arbitrary<Booking> = fc
-    .integer({ min: 1, max: 24 * 365 }) // hours until deadline (strictly future)
+    .integer({ min: 1, max: 168 - 24 }) // hours until deadline (strictly future, inside the window)
     .chain((hoursFuture) =>
         fc.constantFrom<string | null>(null, '2023-11-13', '2020-01-01').map((last) => ({
             type: 'installment' as const,
@@ -117,6 +124,25 @@ describe('Property 5 — a reminder sent today suppresses further reminders that
                 expect(qualifiesForReminder(after, NOW, TODAY)).toBe(false);
             }),
             { numRuns: 400 }
+        );
+    });
+});
+
+// --- reminders do not start before the 7-day window -------------------------
+
+describe('reminders start only once the event is within 7 days', () => {
+    it('never qualifies a pending booking whose deadline is more than 144h away', () => {
+        fc.assert(
+            fc.property(fc.integer({ min: 168 - 24 + 1, max: 24 * 365 }), (hoursFuture) => {
+                const booking: Booking = {
+                    type: 'installment',
+                    balanceStatus: 'pending',
+                    balanceDueAt: NOW + hoursFuture * HOUR,
+                    lastReminderOn: null,
+                };
+                expect(qualifiesForReminder(booking, NOW, TODAY)).toBe(false);
+            }),
+            { numRuns: 300 }
         );
     });
 });

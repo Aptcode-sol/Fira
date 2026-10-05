@@ -58,14 +58,22 @@ router.post('/calculate-billing', requireAuth('user'), /** @param {Authenticated
     }
 });
 
-// POST /api/payments/apply-discount - Validate and apply discount code (user)
+// POST /api/payments/apply-discount - Preview a discount code (user)
+//
+// Validates the code and prices it against the order's total payable. It does
+// NOT redeem the code - that happens once, at purchase, where the server
+// re-validates and re-prices it from the event's own prices.
 router.post('/apply-discount', requireAuth('user'), /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
-        const { code, eventId, subtotal } = req.body;
-        if (!code || !eventId || subtotal == null) {
-            return res.status(400).json({ error: 'code, eventId, and subtotal are required' });
+        // `amount` is the total payable; `subtotal` is accepted from older clients.
+        const { code, eventId } = req.body;
+        const amount = req.body.amount ?? req.body.subtotal;
+        if (!code || !eventId || amount == null) {
+            return res.status(400).json({ error: 'code, eventId, and amount are required' });
         }
-        const result = await discountService.validateAndApplyDiscount(code, eventId, subtotal);
+        const { discountBearer, ...result } = await discountService.validateAndApplyDiscount(
+            code, eventId, Number(amount), { consume: false }
+        );
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

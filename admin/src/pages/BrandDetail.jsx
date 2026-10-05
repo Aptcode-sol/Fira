@@ -71,7 +71,7 @@ export default function BrandDetail() {
     }
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <FadeIn>
                 {/* Header — pl on mobile so the fixed hamburger (top-4 left-4)
                     doesn't overlap the Back link / title. */}

@@ -705,7 +705,7 @@ export const ticketsApi = {
     getUserTickets: (userId: string) => request(`/tickets/user/${userId}`),
     getEventTickets: (eventId: string) => request(`/tickets/event/${eventId}`),
     getById: (id: string) => request(`/tickets/${id}`),
-    purchase: (data: { eventId: string; quantity: number; ticketType?: string; userId: string; paymentId?: string }) =>
+    purchase: (data: { eventId: string; quantity: number; ticketType?: string; userId: string; paymentId?: string; discountCode?: string }) =>
         request<{
             success?: boolean;
             ticket?: any;
@@ -773,8 +773,9 @@ export const paymentsApi = {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';
         return request(`/payments/payouts/all${query}`);
     },
-    applyDiscount: (data: { code: string; eventId: string; subtotal: number }) =>
-        request<{ discountAmount: number; discountType: string; discountValue: number; code: string }>(
+    /** Preview a code against the order's total payable. Does not redeem it. */
+    applyDiscount: (data: { code: string; eventId: string; amount: number }) =>
+        request<{ discountAmount: number; discountType: 'percentage' | 'flat'; discountValue: number; code: string }>(
             '/payments/apply-discount',
             { method: 'POST', body: JSON.stringify(data) }
         ),

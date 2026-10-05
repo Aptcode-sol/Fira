@@ -41,23 +41,32 @@ const isValidBankDetails = (b) =>
     /^[A-Z]{4}0[A-Z0-9]{6}$/.test(b.ifscCode || '');
 
 const paymentService = {
-    // Pure billing calculation with GST breakdown
+    // Pure billing calculation with GST breakdown.
+    //
+    // A discount comes off the TOTAL PAYABLE (ticket + platform fee + GST), not
+    // off the ticket price. Taking it off the ticket price first shrank the fee
+    // and GST with it, so a ₹99 code on a ₹99 ticket zeroed the whole bill
+    // instead of leaving the buyer to pay the ₹5.84 of fee + GST - and a
+    // percentage code was worth less than its label on every order.
+    // Fee and GST are always charged on the full ticket subtotal.
     calculateBilling(ticketPrice, quantity, platformFeePercentage, discountAmount = 0) {
         // Rounded to paise at each step, in this order. Rounding the sum instead
         // would let the displayed lines disagree with the total by a paise.
         const subtotal = roundMoney(ticketPrice * quantity);
-        const discountedSubtotal = roundMoney(Math.max(0, subtotal - discountAmount));
-        const platformFee = roundMoney(discountedSubtotal * platformFeePercentage / 100);
+        const platformFee = roundMoney(subtotal * platformFeePercentage / 100);
         const gstAmount = roundMoney(platformFee * 0.18);
-        const totalAmount = roundMoney(discountedSubtotal + platformFee + gstAmount);
+        const grossTotal = roundMoney(subtotal + platformFee + gstAmount);
+        // Never more than the bill, never negative.
+        const appliedDiscount = roundMoney(Math.min(Math.max(0, Number(discountAmount) || 0), grossTotal));
+        const totalAmount = roundMoney(grossTotal - appliedDiscount);
 
         return {
             subtotal,
-            discountAmount,
-            discountedSubtotal,
+            discountAmount: appliedDiscount,
             platformFee,
             platformFeePercentage,
             gstAmount,
+            grossTotal,
             totalAmount
         };
     },

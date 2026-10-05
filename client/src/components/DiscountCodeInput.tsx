@@ -2,26 +2,35 @@
 
 import { useState } from 'react';
 import { paymentsApi } from '@/lib/api';
+import { formatInr } from '@/lib/formatInr';
+import type { AppliedDiscount } from '@/lib/discount';
 
 interface DiscountCodeInputProps {
   eventId: string;
-  subtotal: number;
-  onApplied: (discount: { code: string; amount: number }) => void;
+  /** The order's total payable (ticket + platform fee + GST) the code is priced against. */
+  amount: number;
+  onApplied: (discount: AppliedDiscount) => void;
   onRemoved: () => void;
   appliedCode: string | null;
+  /**
+   * What the applied code is worth on the CURRENT order. Passed in rather than
+   * remembered from Apply time so the "You save" line follows tier and quantity
+   * changes instead of quoting the order the code was applied to.
+   */
+  appliedSavings?: number;
 }
 
 export default function DiscountCodeInput({
   eventId,
-  subtotal,
+  amount,
   onApplied,
   onRemoved,
   appliedCode,
+  appliedSavings = 0,
 }: DiscountCodeInputProps) {
   const [code, setCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleApply = async () => {
     const trimmed = code.trim();
@@ -29,18 +38,18 @@ export default function DiscountCodeInput({
 
     setIsApplying(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       const result = await paymentsApi.applyDiscount({
         code: trimmed,
         eventId,
-        subtotal,
+        amount,
       });
-      onApplied({ code: trimmed.toUpperCase(), amount: result.discountAmount });
-      setSuccessMessage(
-        `Code applied! You save ₹${result.discountAmount.toFixed(2)}`
-      );
+      onApplied({
+        code: (result.code || trimmed).toUpperCase(),
+        type: result.discountType,
+        value: result.discountValue,
+      });
     } catch (err: any) {
       const message = err?.message || 'Invalid discount code';
       setError(message);
@@ -53,12 +62,11 @@ export default function DiscountCodeInput({
     onRemoved();
     setCode('');
     setError(null);
-    setSuccessMessage(null);
   };
 
   return (
     <div className="space-y-2">
-      <label className="text-sm text-gray-300">Discount Code</label>
+      <label htmlFor="discount-code" className="text-sm text-gray-300">Discount Code</label>
       <div className="flex gap-2">
         {/* min-w-0 is what stops this row overflowing its container.
             A bare `flex-1` sets flex-basis to 0 but leaves `min-width: auto`, and an
@@ -68,14 +76,24 @@ export default function DiscountCodeInput({
             looked fine on iOS and broke on Android only because the wider default font
             pushed the button over the line first. */}
         <input
+          id="discount-code"
           type="text"
-          value={code}
+          value={appliedCode ?? code}
           onChange={(e) => {
             setCode(e.target.value.toUpperCase());
             setError(null);
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (!appliedCode) handleApply();
+            }
+          }}
           placeholder="Enter code"
+          autoCapitalize="characters"
+          autoComplete="off"
           disabled={!!appliedCode || isApplying}
+          aria-invalid={!!error}
           className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 disabled:opacity-50"
         />
         {appliedCode ? (
@@ -97,8 +115,12 @@ export default function DiscountCodeInput({
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
-      {successMessage && <p className="text-xs text-green-400">{successMessage}</p>}
+      {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
+      {appliedCode && (
+        <p className="text-xs text-green-400" aria-live="polite">
+          Code applied! You save {formatInr(appliedSavings)}
+        </p>
+      )}
     </div>
   );
 }

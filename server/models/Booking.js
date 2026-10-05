@@ -25,6 +25,11 @@ const bookingSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    // Last day of a multi-day booking (inclusive). null ⇒ single day on bookingDate.
+    endDate: {
+        type: Date,
+        default: null
+    },
     startTime: {
         type: String,
         required: true

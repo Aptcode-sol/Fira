@@ -43,15 +43,9 @@ describe('Booking routes integration', () => {
     app.use('/api/v1/bookings', bookingRoutes);
   });
 
-  it('GET /api/v1/bookings — returns 200 with booking list', async () => {
-    const bookingService = (await import('../../services/bookingService')).default || (await import('../../services/bookingService'));
-    bookingService.getAllBookings.mockResolvedValue([]);
-
+  it('GET /api/v1/bookings — returns 401 without auth token', async () => {
     const res = await request(app).get('/api/v1/bookings');
-
-    expect(res.status).toBe(200);
-    // Route returns whatever bookingService.getAllBookings resolves to
-    expect(res.body).toBeDefined();
+    expect(res.status).toBe(401);
   });
 
   it('GET /api/v1/bookings/user/:userId — returns 401 without auth token', async () => {

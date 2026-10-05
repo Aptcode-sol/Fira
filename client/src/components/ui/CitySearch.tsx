@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useFloatingList } from '@/hooks/useFloatingList';
 import { locationsApi, type CitySuggestion } from '@/lib/api';
 
 /**
@@ -84,7 +82,20 @@ export function CitySearch({
      */
     const [lookupFailed, setLookupFailed] = useState(false);
 
-    const { triggerRef, listRef, position, isMounted, listStyle } = useFloatingList(isOpen);
+    /**
+     * The suggestions render INLINE, directly under the input - not portalled to
+     * <body> through useFloatingList like Select does.
+     *
+     * A portalled list is positioned from the layout viewport. On a phone the
+     * keyboard shrinks only the visual viewport, so the "space below" check saw
+     * no room, flipped the list upwards, and iOS's panning then left it floating
+     * over the fields above the City box. A typeahead is used with the keyboard
+     * open, so it has to stay attached to its input: inside a scrolling modal an
+     * absolutely-positioned list simply extends the scroll area, and we scroll it
+     * into view when it opens.
+     */
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
 
     /** Latest query a request was issued for, so slower earlier responses lose. */
     const latestQuery = useRef('');
@@ -181,14 +192,20 @@ export function CitySearch({
     // for exactly what is typed now, so re-focusing a filled field shows nothing.
     const showList = isOpen && (isLoading || results.length > 0 || searchedFor === query.trim());
 
+    // Keep the open list on screen - above the keyboard, inside a scrolling
+    // modal - without moving the page when it already fits.
+    useEffect(() => {
+        if (!showList || !results.length) return;
+        listRef.current?.scrollIntoView({ block: 'nearest' });
+    }, [showList, results.length]);
+
     const list = (
         <div
             ref={listRef}
             id={listboxId}
             role="listbox"
             data-floating="select"
-            style={listStyle}
-            className="z-[120] flex flex-col bg-[#121212] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="absolute left-0 right-0 top-full mt-2 z-[120] max-h-60 flex flex-col bg-[#121212] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         >
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 {results.map((city, index) => (
@@ -203,10 +220,11 @@ export function CitySearch({
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${index === activeIndex ? 'bg-white/5 text-white' : 'text-gray-300'
                             }`}
                     >
-                        <span>{city.city}</span>
-                        {/* The state disambiguates the repeated names - there is an
-                            Aurangabad in Maharashtra and one in Bihar. */}
-                        <span className="text-gray-300 ml-2 text-xs">{city.state}</span>
+                        {/* Stacked so a half-width field on a phone never cuts the
+                            state off mid-word. The state disambiguates the repeated
+                            names - there is a Hyderabad in Telangana and in Sindh. */}
+                        <span className="block truncate">{city.city}</span>
+                        <span className="block truncate text-gray-400 text-xs">{city.state}</span>
                     </button>
                 ))}
 
@@ -236,7 +254,7 @@ export function CitySearch({
                 instead of the input - and when the label wraps to two lines (the
                 creator form's "Cities / Locations (Add multiple...)"), the list
                 opened two lines clear of the box it belongs to. */}
-            <div ref={triggerRef}>
+            <div ref={triggerRef} className="relative">
             <input
                 id={inputId}
                 type="text"
@@ -285,9 +303,8 @@ export function CitySearch({
                     : 'border-white/10 hover:border-violet-500/30 focus:ring-violet-500/50'
                     }`}
             />
+            {showList && list}
             </div>
-
-            {showList && isMounted && position && createPortal(list, document.body)}
 
             {error ? (
                 <p id={errorId} role="alert" className="mt-2 text-sm text-red-400">{error}</p>

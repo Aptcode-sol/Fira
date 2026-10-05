@@ -306,12 +306,13 @@ export default function TermsAndConditions() {
                 <ul className={legalListClass}>
                     <li>10% of the total booking value is due at the time of booking, to hold your date.</li>
                     <li>
-                        If your event is more than 7 days away at the time of booking, the remaining 90% is due by 7 days
-                        before the event. If it isn&apos;t paid by then, the booking is automatically cancelled and the
-                        10% advance is forfeited — this is a missed payment deadline, not a cancellation, and the refund
-                        tiers below do not apply to it.
+                        If your event is more than 7 days away at the time of booking, the remaining 90% is paid on FIRA
+                        and is due by 24 hours before the event. We send daily reminders starting 7 days before the event.
+                        If it isn&apos;t paid by then, the booking is automatically cancelled and the 10% advance is
+                        forfeited — this is a missed payment deadline, not a cancellation, and the refund tiers below do
+                        not apply to it.
                     </li>
-                    <li>If your event is less than 7 days away at the time of booking, the full amount is due upfront at booking.</li>
+                    <li>If your event is 7 days away or less at the time of booking, the full amount is due upfront at booking.</li>
                 </ul>
                 <p className={legalParagraphClass}>
                     Cancellation refunds: if you cancel a confirmed booking, your refund is calculated as a percentage

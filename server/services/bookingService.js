@@ -3,12 +3,32 @@ const whatsappService = require('./whatsappService');
 const whatsappTemplates = require('../utils/whatsappTemplates');
 const { roundMoney } = require('../utils/money');
 
+/**
+ * Mark every day `booking` covers as 'booked' on its venue's calendar.
+ * Best-effort: the booking itself is already committed, and the Booking-range
+ * check in createBooking is what actually prevents a double booking.
+ */
+async function blockVenueCalendar(booking) {
+    try {
+        const Venue = require('../models/Venue');
+        const { blockBookingDays } = require('../utils/venueAvailability');
+        const venue = await Venue.findById(booking.venue?._id || booking.venue);
+        if (!venue) return;
+        blockBookingDays(venue, booking);
+        await venue.save();
+    } catch (err) {
+        console.error(`Failed to block calendar for booking ${booking._id}:`, err.message);
+    }
+}
+
 const bookingService = {
     // Get all bookings
     async getAllBookings(query = {}) {
-        const { page = 1, limit = 10, status } = query;
+        const { page = 1, limit = 10, status, user, venue } = query;
         const filter = {};
-        if (status) filter.status = status;
+        if (status) filter.status = String(status);
+        if (user) filter.user = String(user);
+        if (venue) filter.venue = String(venue);
 
         const bookings = await Booking.find(filter)
             .populate('user', 'name email')
@@ -82,49 +102,89 @@ const bookingService = {
             }
         }
 
+        // A client must not be able to create a booking that is already
+        // accepted/paid, or carries its own schedule - those are server decisions.
+        data.status = 'pending';
+        delete data.paymentStatus;
+        delete data.payment;
+        delete data.paymentSchedule;
+        delete data.platformFee;
+        if (!data.endDate) data.endDate = null;
+
         // Booking here is day-rate, not per-slot (see venuePricing.js), so any
-        // other non-terminal booking on the same venue+day blocks the whole day -
-        // regardless of the times either one names. This used to be entirely
-        // unchecked: createBooking went straight to Booking.create, so two guests
-        // could each get a 201 for the same date and only find out they'd both
-        // been "confirmed" when the owner accepted the second one too.
+        // other non-terminal booking that touches ANY day of this one's range
+        // blocks it - regardless of the times either one names. Only the start
+        // day used to be checked, so a 21st-22nd request sailed past a booking
+        // that already held the 22nd.
         if (data.venue && data.bookingDate) {
-            const dayStart = new Date(data.bookingDate);
-            dayStart.setHours(0, 0, 0, 0);
-            const dayEnd = new Date(dayStart);
-            dayEnd.setDate(dayEnd.getDate() + 1);
+            const {
+                bookingDayKeys, isDayTaken, overlappingBookingFilter, MAX_BOOKING_DAYS,
+            } = require('../utils/venueAvailability');
 
-            const existing = await Booking.findOne({
-                venue: data.venue,
-                bookingDate: { $gte: dayStart, $lt: dayEnd },
-                status: { $in: ['pending', 'accepted'] }
-            });
-
-            if (existing) {
-                throw new Error('This date is no longer available for this venue');
+            const dayKeys = bookingDayKeys(data.bookingDate, data.endDate);
+            if (dayKeys.length === 0) {
+                throw new Error('End date must be on or after the start date');
+            }
+            const startKey = dayKeys[0];
+            const endKey = data.endDate
+                ? new Date(data.endDate).toISOString().split('T')[0]
+                : startKey;
+            if (endKey !== dayKeys[dayKeys.length - 1]) {
+                throw new Error(`A booking can cover at most ${MAX_BOOKING_DAYS} days`);
             }
 
-            // Owner-blocked dates (offline/external bookings). The owner marks a
-            // day 'busy' on their calendar (blockedDates, type 'busy') when it's
-            // taken elsewhere - a phone/walk-in or another site. Without this
-            // check the UI showed the day as unavailable but the server still
-            // accepted a booking on it, so a direct submit could double-book a
-            // date the owner had already given away offline. Same day-rate model
-            // as above: any busy slot on the day blocks the whole day.
-            const { isDayBlockedByOwner } = require('../utils/venueAvailability');
-            const venueDoc = await Venue.findById(data.venue).select('blockedDates');
-            if (isDayBlockedByOwner(venueDoc?.blockedDates, dayStart)) {
-                throw new Error('This date is no longer available for this venue');
+            const unavailable = dayKeys.length > 1
+                ? 'One or more of the selected dates is no longer available for this venue'
+                : 'This date is no longer available for this venue';
+
+            const todayKey = new Date().toISOString().split('T')[0];
+            if (startKey < todayKey) {
+                throw new Error('Bookings cannot start in the past');
+            }
+
+            const existing = await Booking.findOne(overlappingBookingFilter(data.venue, startKey, endKey));
+            if (existing) {
+                throw new Error(unavailable);
+            }
+
+            // Calendar blocks: owner 'busy' days (offline/external bookings) and
+            // system 'booked' days (events, confirmed bookings). Without this the
+            // UI showed the day as unavailable but a direct submit still went in.
+            const venueDoc = await Venue.findById(data.venue).select('blockedDates daySlots pricing');
+            const bookedDaySlot = new Set(
+                (venueDoc?.daySlots || [])
+                    .filter(s => s.isBooked)
+                    .map(s => new Date(s.date).toISOString().split('T')[0])
+            );
+            if (dayKeys.some(k => isDayTaken(venueDoc?.blockedDates, k) || bookedDaySlot.has(k))) {
+                throw new Error(unavailable);
+            }
+
+            // The amount is priced here, not taken from the request: day rate ×
+            // days covered, the same rule the client shows (venuePricing.ts).
+            const dayRate = venueDoc?.pricing?.pricePerDay ?? venueDoc?.pricing?.basePrice ?? 0;
+            if (dayRate > 0) {
+                data.totalAmount = roundMoney(dayRate * dayKeys.length);
             }
         }
 
         // Freeze the date-aware payment schedule at submission time (Req 10.3):
-        // > 168h to event ⇒ 10% deposit now + 90% balance due 168h before start;
-        // ≤ 168h ⇒ full amount now. Decided once here and never recomputed.
+        // > 7 days to event ⇒ 10% deposit now + 90% balance due 24h before start;
+        // ≤ 7 days ⇒ full amount now. Decided once here and never recomputed.
         data.paymentSchedule = paymentSchedule.build(new Date(), data.bookingDate, data.startTime, data.totalAmount);
 
         console.log('📝 Creating booking for venue:', data.venue);
-        const booking = await Booking.create(data);
+        let booking;
+        try {
+            booking = await Booking.create(data);
+        } catch (err) {
+            // The unique {venue, bookingDate} index is the race backstop for the
+            // check above; surface it as the same availability error.
+            if (err && err.code === 11000) {
+                throw new Error('This date is no longer available for this venue');
+            }
+            throw err;
+        }
         console.log('✅ Booking created:', booking._id);
 
         // Fetch venue with owner details
@@ -151,6 +211,7 @@ const bookingService = {
                     { new: true }
                 );
                 booking.status = 'accepted';
+                await blockVenueCalendar(booking);
             }
 
             // Send WhatsApp confirmation to booker if phone is available
@@ -246,8 +307,6 @@ const bookingService = {
 
     // Update booking status (accept/reject)
     async updateBookingStatus(id, { status, rejectionReason, modifiedDates }) {
-        const Venue = require('../models/Venue');
-
         const updateData = {
             status,
             'ownerResponse.respondedAt': new Date()
@@ -271,37 +330,10 @@ const bookingService = {
             throw new Error('Booking not found');
         }
 
-        // If accepted, add to venue's blockedDates
+        // If accepted, mark every day the booking covers as booked on the
+        // venue calendar.
         if (status === 'accepted' && booking.venue) {
-            const bookingDateStr = new Date(booking.bookingDate).toISOString().split('T')[0];
-            const venue = await Venue.findById(booking.venue._id || booking.venue);
-
-            if (venue) {
-                // Find existing date entry or create new one
-                let dateEntry = venue.blockedDates?.find(d => d.date === bookingDateStr);
-
-                if (dateEntry) {
-                    // Add slot to existing date
-                    dateEntry.slots.push({
-                        startTime: booking.startTime,
-                        endTime: booking.endTime,
-                        type: 'booked'
-                    });
-                } else {
-                    // Create new date entry
-                    if (!venue.blockedDates) venue.blockedDates = [];
-                    venue.blockedDates.push({
-                        date: bookingDateStr,
-                        slots: [{
-                            startTime: booking.startTime,
-                            endTime: booking.endTime,
-                            type: 'booked'
-                        }]
-                    });
-                }
-
-                await venue.save();
-            }
+            await blockVenueCalendar(booking);
         }
 
         // Tell the person who made the request what the owner decided.
@@ -446,6 +478,11 @@ const bookingService = {
             booking.status = 'accepted'; // Transition from pending to accepted
             booking.payment = payment._id;
             await booking.save();
+
+            // A paid booking holds its dates: show them as booked on the
+            // venue calendar. This path never went through updateBookingStatus,
+            // so paid bookings used to leave the calendar green.
+            await blockVenueCalendar(booking);
 
             return { success: true, booking, payment: result.payment };
         }

@@ -83,10 +83,11 @@ Every charge on the platform runs through `paymentService.calculateBilling(price
 
 ```
 subtotal           = price × qty
-discountedSubtotal = max(0, subtotal − discount)
-platformFee        = round(discountedSubtotal × feePct / 100)      // feePct default 5
-gstAmount          = round(platformFee × 0.18)                      // 18% GST on the FEE only
-totalAmount        = discountedSubtotal + platformFee + gstAmount    // what Razorpay charges
+platformFee        = round(subtotal × feePct / 100)                // feePct default 5
+gstAmount          = round(platformFee × 0.18)                     // 18% GST on the FEE only
+grossTotal         = subtotal + platformFee + gstAmount
+discountAmount     = min(discount, grossTotal)                     // discount comes off the total payable
+totalAmount        = grossTotal − discountAmount                   // what Razorpay charges
 ```
 
 Razorpay is charged `totalAmount × 100` paise. Payouts run through `processPayout`:
@@ -364,11 +365,11 @@ Create an event with tiers: `Early Bird` ₹1,000 / max 5, `VIP` ₹5,000 / max 
 |---|---|---|---|
 | TC-6.21 | Admin creates a ₹500 code on `EVENT_ID` with `discountBearer: 'platform'` | Code created and visible in the admin Discount Codes page | |
 | TC-6.22 | Buyer `POST /api/payments/apply-discount` `{code, eventId, subtotal}` | 200 with `discountAmount` and `discountBearer` | |
-| TC-6.23 | Buy 1 ticket at ₹2,000 with the ₹500 code | `subtotal 2000`, `discountAmount 500`, `discountedSubtotal 1500`, `platformFee 75`, `gstAmount 14` (`round(13.5)`), `totalAmount 1589`. `listedPrice 2000`, `discountBearer 'platform'` | |
+| TC-6.23 | Buy 1 ticket at ₹2,000 with the ₹500 code | `subtotal 2000`, `platformFee 100`, `gstAmount 18`, `grossTotal 2118`, `discountAmount 500`, `totalAmount 1618`. `listedPrice 2000`, `discountBearer 'platform'` | |
 | TC-6.24 | Send a **client-inflated** `discountAmount` in the purchase body | Ignored. The server re-validates the code and derives the amount itself (`discountService.validateAndApplyDiscount`) | |
 | TC-6.25 | Use an expired / exhausted / wrong-event code | Purchase **rejected before any charge** (throws, fails closed) | |
 | TC-6.26 | Use a code with `discountBearer: 'owner'` | `Payment.discountBearer = 'owner'`. Phase 11 must then pay the owner `listedPrice − discountAmount` | |
-| TC-6.27 | Discount larger than the subtotal | `discountedSubtotal` floors at 0; `totalAmount` = fee + GST only, never negative | |
+| TC-6.27 | Discount larger than the total payable | `discountAmount` capped at `grossTotal`; `totalAmount` 0 and the ticket is issued without a gateway order | |
 
 ### 6F. Buyer's own view
 

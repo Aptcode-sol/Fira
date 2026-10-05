@@ -30,6 +30,7 @@ import mongoose from 'mongoose';
 // back the last charged rupee amount.
 // Services + models (CommonJS).
 const paymentService = require('../services/paymentService');
+const { roundMoney } = require('../utils/money');
 const bookingService = require('../services/bookingService');
 const ticketService = require('../services/ticketService');
 const Booking = require('../models/Booking');
@@ -254,13 +255,13 @@ describe('calculateBilling — money math invariant (broad sweep)', () => {
         fc.integer({ min: 0, max: 30 }),
         fc.nat({ max: 100000 }),
         (price, qty, feePct, rawDiscount) => {
-          const subtotal = price * qty;
-          const discount = Math.min(rawDiscount, subtotal);
-          const b = paymentService.calculateBilling(price, qty, feePct, discount);
-          const discountedSubtotal = Math.max(0, subtotal - discount);
+          const b = paymentService.calculateBilling(price, qty, feePct, rawDiscount);
+          // Discount comes off the total payable, capped at it.
           return (
-            b.discountedSubtotal === discountedSubtotal &&
-            b.totalAmount === b.discountedSubtotal + b.platformFee + b.gstAmount
+            b.grossTotal === roundMoney(b.subtotal + b.platformFee + b.gstAmount) &&
+            b.discountAmount === roundMoney(Math.min(rawDiscount, b.grossTotal)) &&
+            b.totalAmount === roundMoney(b.grossTotal - b.discountAmount) &&
+            b.totalAmount >= 0
           );
         }
       ),

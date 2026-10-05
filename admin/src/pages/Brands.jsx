@@ -138,7 +138,7 @@ export default function Brands() {
     const pendingCount = brands.filter(b => b.status === 'pending').length;
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <FadeIn>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>

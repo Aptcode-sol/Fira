@@ -3,7 +3,23 @@ const Payment = require('../models/Payment');
 const Event = require('../models/Event');
 const { roundMoney } = require('../utils/money');
 
+/**
+ * The rupee value of a code against `baseAmount` (the order's total payable).
+ * Percentage codes take that share of it; flat codes are capped at it so a code
+ * can never push the bill below zero. Pure - the client mirrors it in
+ * lib/discount.ts so the preview tracks tier/quantity changes.
+ */
+function computeDiscountAmount(discountType, discountValue, baseAmount) {
+    const base = Math.max(0, Number(baseAmount) || 0);
+    if (discountType === 'percentage') {
+        return roundMoney(Math.min(base, base * discountValue / 100));
+    }
+    return roundMoney(Math.min(discountValue, base));
+}
+
 const discountService = {
+    computeDiscountAmount,
+
     /**
      * The window a discount code is usable in, derived from its event.
      *
@@ -140,10 +156,17 @@ const discountService = {
 
     /**
      * Validate and apply a discount code to a purchase.
-     * Returns { discountAmount, discountType, discountValue }.
+     * Returns { discountAmount, discountType, discountValue, discountBearer, code }.
      * Only one discount per transaction (caller enforces this).
+     *
+     * `baseAmount` is the order's total payable (ticket subtotal + platform fee
+     * + GST) - the discount comes off what the buyer actually pays.
+     *
+     * `consume: false` validates without using up a redemption. The checkout
+     * preview ("Apply") uses it: previously every Apply, Remove-and-reapply or
+     * abandoned checkout burned one of a limited code's uses.
      */
-    async validateAndApplyDiscount(code, eventId, subtotal) {
+    async validateAndApplyDiscount(code, eventId, baseAmount, { consume = true } = {}) {
         // Populate createdBy so the caller can attribute the discount bearer
         // (Flow 4) without a second query: an admin-created code is absorbed by
         // the platform, an owner-created code by the owner's settlement.
@@ -169,29 +192,24 @@ const discountService = {
             throw new Error('Discount code usage limit reached');
         }
 
-        // Compute discount amount
-        let discountAmount;
-        if (discount.discountType === 'percentage') {
-            discountAmount = roundMoney(subtotal * discount.discountValue / 100);
-        } else {
-            // flat — cap at subtotal
-            discountAmount = roundMoney(Math.min(discount.discountValue, subtotal));
-        }
+        const discountAmount = computeDiscountAmount(discount.discountType, discount.discountValue, baseAmount);
 
-        // Atomic increment usedCount with concurrency guard
-        const filter = { _id: discount._id };
-        if (discount.maxUses != null) {
-            filter.usedCount = { $lt: discount.maxUses };
-        }
+        if (consume) {
+            // Atomic increment usedCount with concurrency guard
+            const filter = { _id: discount._id };
+            if (discount.maxUses != null) {
+                filter.usedCount = { $lt: discount.maxUses };
+            }
 
-        const updated = await DiscountCode.findOneAndUpdate(
-            filter,
-            { $inc: { usedCount: 1 } },
-            { new: true }
-        );
+            const updated = await DiscountCode.findOneAndUpdate(
+                filter,
+                { $inc: { usedCount: 1 } },
+                { new: true }
+            );
 
-        if (!updated) {
-            throw new Error('Discount code usage limit reached');
+            if (!updated) {
+                throw new Error('Discount code usage limit reached');
+            }
         }
 
         // Bearer attribution (Flow 4): admin-created code => platform absorbs
@@ -200,6 +218,7 @@ const discountService = {
         const discountBearer = (discount.createdBy && discount.createdBy.adminRole) ? 'platform' : 'owner';
 
         return {
+            code: discount.code,
             discountAmount,
             discountType: discount.discountType,
             discountValue: discount.discountValue,

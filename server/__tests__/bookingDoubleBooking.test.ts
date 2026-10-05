@@ -167,3 +167,67 @@ describe('createBooking — same-day start/end time validation', () => {
         expect(booking).toBeTruthy();
     });
 });
+
+describe('createBooking — multi-day ranges', () => {
+    const day = (d: string) => new Date(`${d}T00:00:00.000Z`);
+
+    it('rejects a range whose LAST day is already booked (21st-22nd over a booked 22nd)', async () => {
+        await bookingService.createBooking(bookingInput({ user: userA, venue: venueId, bookingDate: day('2026-11-22') }));
+
+        await expect(
+            bookingService.createBooking(
+                bookingInput({ user: userB, venue: venueId, bookingDate: day('2026-11-21'), endDate: day('2026-11-22') })
+            )
+        ).rejects.toThrow('One or more of the selected dates is no longer available for this venue');
+    });
+
+    it('rejects a single day that falls inside an existing multi-day booking', async () => {
+        await bookingService.createBooking(
+            bookingInput({ user: userA, venue: venueId, bookingDate: day('2026-11-20'), endDate: day('2026-11-22') })
+        );
+
+        await expect(
+            bookingService.createBooking(bookingInput({ user: userB, venue: venueId, bookingDate: day('2026-11-21') }))
+        ).rejects.toThrow('This date is no longer available for this venue');
+    });
+
+    it('allows a range that ends the day before an existing booking', async () => {
+        await bookingService.createBooking(bookingInput({ user: userA, venue: venueId, bookingDate: day('2026-11-22') }));
+
+        const ok = await bookingService.createBooking(
+            bookingInput({ user: userB, venue: venueId, bookingDate: day('2026-11-20'), endDate: day('2026-11-21') })
+        );
+        expect(ok.endDate?.toISOString()).toBe('2026-11-21T00:00:00.000Z');
+    });
+
+    it('prices the booking server-side as day rate × days, ignoring the client total', async () => {
+        const b = await bookingService.createBooking(
+            bookingInput({
+                user: userA, venue: venueId, totalAmount: 1,
+                bookingDate: day('2026-11-20'), endDate: day('2026-11-22'),
+            })
+        );
+        expect(b.totalAmount).toBe(3000); // basePrice 1000 × 3 days
+    });
+
+    it('rejects a range that crosses an owner-blocked day', async () => {
+        await mongoose.connection.db!.collection('venues').updateOne(
+            { _id: venueId },
+            { $set: { blockedDates: [{ date: '2026-11-21', slots: [{ startTime: '09:00', endTime: '12:00', type: 'busy' }] }] } }
+        );
+
+        await expect(
+            bookingService.createBooking(
+                bookingInput({ user: userA, venue: venueId, bookingDate: day('2026-11-20'), endDate: day('2026-11-22') })
+            )
+        ).rejects.toThrow('One or more of the selected dates is no longer available for this venue');
+    });
+
+    it('ignores a client-sent status - a new booking is always pending', async () => {
+        const b = await bookingService.createBooking(
+            bookingInput({ user: userA, venue: venueId, status: 'accepted', paymentStatus: 'paid' })
+        );
+        expect(b.status).toBe('pending');
+        expect(b.paymentStatus).toBe('pending');
+    });
+});

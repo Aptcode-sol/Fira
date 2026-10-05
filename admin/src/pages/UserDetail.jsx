@@ -71,7 +71,7 @@ export default function UserDetail() {
     const { stats, bookings, tickets } = user;
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <FadeIn>
                 {/* Header */}
                 <div className="flex flex-col gap-6 mb-8">

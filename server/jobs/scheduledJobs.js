@@ -12,6 +12,8 @@ const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const emailService = require('../services/emailService');
 const notificationService = require('../services/notificationService');
+const { REMINDER_WINDOW_HOURS, BALANCE_DUE_HOURS_BEFORE } = require('../utils/paymentSchedule');
+const { releaseBookingDays } = require('../utils/venueAvailability');
 
 /**
  * Event statuses that mean "live and not yet started/finished". `approved` is what
@@ -125,6 +127,11 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * Send daily balance-payment reminders for installment bookings whose 90% balance
  * is still pending and whose deadline has not yet passed (Req 7).
  *
+ * Reminders only start once the event is within REMINDER_WINDOW_HOURS (7 days).
+ * The deadline itself is 24h before the event, so the window is expressed on
+ * balanceDueAt: due within (7 days − 24h) of now. A guest who books two months
+ * out is not nagged daily for seven weeks.
+ *
  * `lastReminderOn` ('YYYY-MM-DD', server local date) dedupes to at most one email +
  * one push per booking per calendar day (Req 7.1) and makes the job idempotent
  * within a day. Bookings past their deadline are skipped here and left for
@@ -139,11 +146,17 @@ async function sendBalanceReminders() {
         const now = new Date();
         // en-CA yields YYYY-MM-DD in server local time — stable string key for once-per-day dedupe.
         const today = now.toLocaleDateString('en-CA');
+        const remindFrom = new Date(
+            now.getTime() + (REMINDER_WINDOW_HOURS - BALANCE_DUE_HOURS_BEFORE) * 3600 * 1000
+        );
 
         const bookings = await Booking.find({
             'paymentSchedule.type': 'installment',
             'paymentSchedule.balanceStatus': 'pending',
-            'paymentSchedule.balanceDueAt': { $gt: now },       // Req 7.3: skip past-deadline, leave for enforcement
+            paymentStatus: 'paid', // the deposit was actually paid - no balance chasing for an abandoned checkout
+            // Req 7.3: skip past-deadline (left for enforcement); and not before the
+            // event is 7 days out.
+            'paymentSchedule.balanceDueAt': { $gt: now, $lte: remindFrom },
             'paymentSchedule.lastReminderOn': { $ne: today }    // Req 7.1: at most once per calendar day
         })
             .populate('user', 'name email')
@@ -239,27 +252,13 @@ async function enforceBalanceDeadlines() {
 
             if (!claimed) break;
 
-            // Req 4.4: release the venue's booked date so others can book it.
-            // Match the exact slot bookingService.updateBookingStatus pushed: same
-            // UTC date string + this booking's start/end + type 'booked'.
+            // Req 4.4: release every day the booking held so others can book them.
             try {
-                const bookingDateStr = new Date(claimed.bookingDate).toISOString().split('T')[0];
                 const venueId = claimed.venue?._id || claimed.venue;
                 const venue = await Venue.findById(venueId);
-                if (venue && Array.isArray(venue.blockedDates)) {
-                    const dateEntry = venue.blockedDates.find(d => d.date === bookingDateStr);
-                    if (dateEntry && Array.isArray(dateEntry.slots)) {
-                        dateEntry.slots = dateEntry.slots.filter(s => !(
-                            s.type === 'booked' &&
-                            s.startTime === claimed.startTime &&
-                            s.endTime === claimed.endTime
-                        ));
-                        // Drop the date entry entirely once it holds no slots.
-                        if (dateEntry.slots.length === 0) {
-                            venue.blockedDates = venue.blockedDates.filter(d => d !== dateEntry);
-                        }
-                        await venue.save();
-                    }
+                if (venue) {
+                    releaseBookingDays(venue, claimed);
+                    await venue.save();
                 }
             } catch (e) {
                 console.error(`  ❌ Failed to release venue date for booking ${claimed._id}:`, e.message);

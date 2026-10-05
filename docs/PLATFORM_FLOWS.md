@@ -20,10 +20,11 @@ All money math runs through **`paymentService.calculateBilling(price, qty, feePc
 
 ```
 subtotal           = price × qty
-discountedSubtotal = max(0, subtotal − discountAmount)
-platformFee        = round(discountedSubtotal × platformFeePercentage / 100)   // feePct config, default 5
-gstAmount          = round(platformFee × 0.18)                                 // 18% GST on the fee
-totalAmount        = discountedSubtotal + platformFee + gstAmount              // what Razorpay charges
+platformFee        = round(subtotal × platformFeePercentage / 100)   // feePct config, default 5
+gstAmount          = round(platformFee × 0.18)                       // 18% GST on the fee
+grossTotal         = subtotal + platformFee + gstAmount
+discountAmount     = min(discount, grossTotal)                       // discount comes off the total payable
+totalAmount        = grossTotal − discountAmount                     // what Razorpay charges
 ```
 
 - **Collection**: Razorpay collects the **full `totalAmount`** into the platform account. There is no Razorpay Route/split.

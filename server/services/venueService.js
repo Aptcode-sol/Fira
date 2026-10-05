@@ -127,6 +127,35 @@ const venueService = {
         return venue;
     },
 
+    /**
+     * 'YYYY-MM-DD' days from today on that active (pending/accepted) personal
+     * bookings hold at this venue. Public: day keys only, nothing about who.
+     *
+     * The calendar used to read only `blockedDates`, which a booking reaches
+     * only once accepted - so a day held by a pending or just-paid booking still
+     * showed as free, and the guest found out only when the submit was refused.
+     */
+    async getUnavailableDates(venueId) {
+        const Booking = require('../models/Booking');
+        const { bookingDayKeys } = require('../utils/venueAvailability');
+        const todayKey = new Date().toISOString().split('T')[0];
+        const today = new Date(`${todayKey}T00:00:00Z`);
+
+        const bookings = await Booking.find({
+            venue: venueId,
+            status: { $in: ['pending', 'accepted'] },
+            $or: [{ bookingDate: { $gte: today } }, { endDate: { $gte: today } }],
+        }).select('bookingDate endDate').lean();
+
+        const days = new Set();
+        for (const b of bookings) {
+            for (const key of bookingDayKeys(b.bookingDate, b.endDate)) {
+                if (key >= todayKey) days.add(key);
+            }
+        }
+        return [...days].sort();
+    },
+
     // Create venue
     async createVenue(data) {
         // Trust boundary: payoutAccount comes from the client through a

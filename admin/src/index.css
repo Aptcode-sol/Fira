@@ -48,6 +48,29 @@ body {
   overflow-x: clip;
 }
 
+/*
+ * Data tables on narrow screens: every admin table sits in an `overflow-x-auto`
+ * wrapper, but a `w-full` table just squeezes its columns to the phone's width -
+ * names wrapped a word per line and action buttons stacked. Give tables a
+ * readable floor and keep cells on one line, so the wrapper scrolls sideways
+ * instead. In a layer so a cell's own `whitespace-normal` etc. still wins.
+ */
+@layer components {
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .overflow-x-auto > table {
+    min-width: 44rem;
+  }
+
+  .overflow-x-auto > table th,
+  .overflow-x-auto > table td {
+    white-space: nowrap;
+  }
+}
+
 /* Party Lamp - Multicolor lights spreading from navbar */
 .nav-lamp-light {
   position: relative;

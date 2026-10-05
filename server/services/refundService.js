@@ -352,28 +352,14 @@ const refundService = {
         booking.rejectionReason = reason;
         await booking.save();
 
-        // Remove blocked date from venue
+        // Release every day this booking held on the venue calendar.
         if (booking.venue) {
             const Venue = require('../models/Venue');
+            const { releaseBookingDays } = require('../utils/venueAvailability');
             const venue = await Venue.findById(booking.venue._id || booking.venue);
-            
-            if (venue && venue.blockedDates) {
-                const bookingDateStr = new Date(booking.bookingDate).toISOString().split('T')[0];
-                
-                // Find and remove the booking slot
-                const dateEntry = venue.blockedDates.find(d => d.date === bookingDateStr);
-                if (dateEntry) {
-                    dateEntry.slots = dateEntry.slots.filter(
-                        slot => !(slot.startTime === booking.startTime && slot.endTime === booking.endTime)
-                    );
-                    
-                    // Remove date entry if no slots left
-                    if (dateEntry.slots.length === 0) {
-                        venue.blockedDates = venue.blockedDates.filter(d => d.date !== bookingDateStr);
-                    }
-                    
-                    await venue.save();
-                }
+            if (venue) {
+                releaseBookingDays(venue, booking);
+                await venue.save();
             }
         }
 

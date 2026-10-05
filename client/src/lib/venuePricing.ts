@@ -74,7 +74,7 @@ export interface AdvanceBreakdown {
     gstAmount: number;
     /** What the gateway actually charges today. */
     payableNow: number;
-    /** Settled with the venue owner directly, after the advance. */
+    /** The 90% balance, paid on Fira by 24 hours before the event. */
     remaining: number;
 }
 

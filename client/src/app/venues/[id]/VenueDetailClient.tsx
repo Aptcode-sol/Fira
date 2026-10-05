@@ -77,6 +77,16 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
     // In-modal booking validation errors (8.4/8.6) — keyed by field so each
     // error renders next to its input inside the modal, never behind it.
     const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
+    /** Set (string) or clear (undefined) individual booking field errors. */
+    const patchBookingErrors = (patch: Record<string, string | undefined>) =>
+        setBookingErrors(prev => {
+            const next = { ...prev };
+            for (const [key, msg] of Object.entries(patch)) {
+                if (msg) next[key] = msg;
+                else delete next[key];
+            }
+            return next;
+        });
 
     // Availability calendar is bounded to the current month + next (the copy
     // says "next 2 months"), so navigation is clamped to that 2-month window
@@ -162,12 +172,18 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
         // through to orange, which the calendar below still lets people click.
         // Booking here is day-rate (billableDays), not per-slot: any 'booked' slot
         // means the whole day is spoken for, regardless of which hours it names.
-        const hasBookedSlot = slots.some(s => s.type === 'booked');
+        //
+        // The same holds for an owner 'busy' block (the server refuses any day
+        // carrying one), and for a day held by another guest's pending or paid
+        // booking (`unavailableDates`), which never reaches blockedDates until
+        // the owner accepts it.
+        const heldByBooking = venue?.unavailableDates?.includes(dateKey) ?? false;
+        if (heldByBooking && !slots.some(s => s.type === 'booked')) {
+            slots.push({ startTime: defaultStart, endTime: defaultEnd, type: 'booked' });
+        }
         let color = 'green';
-        if (daySlot?.isBooked || hasBookedSlot) {
+        if (daySlot?.isBooked || slots.length > 0) {
             color = 'red';
-        } else if (slots.length > 0) {
-            color = 'orange';
         } else if (daySlot && !daySlot.isAvailable) {
             color = 'gray';
         } else if (!weeklySlot?.isAvailable && weeklySlot) {
@@ -181,6 +197,31 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
             color,
             isClosed: (weeklySlot && !weeklySlot.isAvailable) || (daySlot && !daySlot.isAvailable)
         };
+    };
+
+    /** True when a 'YYYY-MM-DD' day cannot be booked (taken, blocked or closed). */
+    const isDayUnavailable = (dateKey: string) => {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        const a = getDateAvailability(new Date(y, m - 1, d));
+        return a.color === 'red' || !!a.isClosed;
+    };
+
+    /**
+     * The first unavailable day in [start, end], or null when the whole range is
+     * free. Booking is day-rate, so a 21st-22nd request needs BOTH days - only the
+     * start day used to be checked, which let a range run over a booked 22nd.
+     */
+    const firstUnavailableDayInRange = (start: string, end?: string | null): string | null => {
+        if (!start) return null;
+        const last = end && end >= start ? end : start;
+        const cursor = new Date(`${start}T00:00:00Z`);
+        const stop = new Date(`${last}T00:00:00Z`);
+        while (cursor <= stop) {
+            const key = cursor.toISOString().split('T')[0];
+            if (isDayUnavailable(key)) return key;
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+        return null;
     };
 
     useEffect(() => {
@@ -294,6 +335,14 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
         if (!errors.date && finalEndDate && finalEndDate < (finalStartDate || '')) {
             errors.endDate = 'End date must be on or after the start date';
         }
+        if (!errors.date && !errors.endDate && finalStartDate) {
+            const clash = firstUnavailableDayInRange(finalStartDate, finalEndDate);
+            if (clash) {
+                const msg = `${formatDateForDisplay(clash)} is not available. Please choose different dates.`;
+                if (clash === finalStartDate) errors.date = msg;
+                else errors.endDate = msg;
+            }
+        }
         if (!bookingData.purpose.trim()) {
             errors.purpose = 'Please describe the purpose / event type';
         }
@@ -324,6 +373,9 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                 user: user._id,
                 venue: venue._id,
                 bookingDate: finalStartDate,
+                // Sent so the server checks (and holds) every day of the range,
+                // not just the first.
+                endDate: bookingData.endDate && bookingData.endDate !== finalStartDate ? bookingData.endDate : null,
                 startTime: bookingData.startTime,
                 endTime: bookingData.endTime,
                 purpose: bookingData.purpose,
@@ -469,10 +521,6 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                     <span className="text-sm text-gray-300">Booked</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-orange-500/30 border border-orange-500/50"></div>
-                    <span className="text-sm text-gray-300">Partially Booked</span>
-                </div>
-                <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded bg-gray-500/30 border border-gray-500/50"></div>
                     <span className="text-sm text-gray-300">Closed</span>
                 </div>
@@ -568,7 +616,13 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                     onClick={() => {
                                         if (!isPast && !availability.isClosed && availability.color !== 'red') {
                                             setSelectedDate(dateStr);
-                                            setBookingData((prev) => ({ ...prev, date: dateStr }));
+                                            // A new start date invalidates an end date before it.
+                                            setBookingData((prev) => ({
+                                                ...prev,
+                                                date: dateStr,
+                                                endDate: prev.endDate && prev.endDate < dateStr ? '' : prev.endDate,
+                                            }));
+                                            patchBookingErrors({ date: undefined, endDate: undefined });
                                         }
                                     }}
                                     disabled={isPast || availability.isClosed || availability.color === 'red'}
@@ -963,7 +1017,7 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                 </button>
 
                                 <p className="text-xs text-gray-300 text-center mt-4">
-                                    A 10% deposit secures bookings more than 7 days out; within 7 days the full amount is due
+                                    A 10% deposit secures bookings more than 7 days out (balance due 24 hours before); within 7 days the full amount is due
                                 </p>
                             </div>
                         </div>
@@ -1041,8 +1095,18 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                 type="date"
                                 value={bookingData.date || selectedDate || ''}
                                 onChange={(e) => {
-                                    setBookingData({ ...bookingData, date: e.target.value });
-                                    setSelectedDate(e.target.value);
+                                    const date = e.target.value;
+                                    setBookingData({
+                                        ...bookingData,
+                                        date,
+                                        endDate: bookingData.endDate && bookingData.endDate < date ? '' : bookingData.endDate,
+                                    });
+                                    setSelectedDate(date);
+                                    const clash = date ? firstUnavailableDayInRange(date) : null;
+                                    patchBookingErrors({
+                                        date: clash ? `${formatDateForDisplay(clash)} is not available. Please choose another date.` : undefined,
+                                        endDate: undefined,
+                                    });
                                 }}
                                 min={new Date().toISOString().split('T')[0]}
                                 className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.date ? 'border-red-500' : 'border-white/10'}`}
@@ -1054,7 +1118,17 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                             <input
                                 type="date"
                                 value={bookingData.endDate}
-                                onChange={(e) => setBookingData({ ...bookingData, endDate: e.target.value })}
+                                onChange={(e) => {
+                                    const endDate = e.target.value;
+                                    setBookingData({ ...bookingData, endDate });
+                                    const start = bookingData.date || selectedDate || '';
+                                    const clash = start && endDate >= start ? firstUnavailableDayInRange(start, endDate) : null;
+                                    patchBookingErrors({
+                                        endDate: clash && clash !== start
+                                            ? `${formatDateForDisplay(clash)} is already booked. Choose an end date before it.`
+                                            : undefined,
+                                    });
+                                }}
                                 min={bookingData.date || new Date().toISOString().split('T')[0]}
                                 className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 [color-scheme:dark] ${bookingErrors.endDate ? 'border-red-500' : 'border-white/10'}`}
                             />
@@ -1129,9 +1203,10 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                 // charged (Req 1.6). The booking doesn't exist yet, so we compute
                                 // the same 168h decision client-side using the SAME date combine:
                                 // new Date(startDate) then setHours(startHour, startMin). Event
-                                // more than 168h out ⇒ installment (10% now, 90% balance due 7
-                                // days before); exactly 168h or nearer ⇒ full amount now.
+                                // more than 168h out ⇒ installment (10% now, 90% balance due 24
+                                // hours before); exactly 168h or nearer ⇒ full amount now.
                                 const INSTALLMENT_THRESHOLD_HOURS = 168;
+                                const BALANCE_DUE_HOURS_BEFORE = 24;
                                 const MS_PER_HOUR = 3_600_000;
                                 const eventStart = new Date(startDate);
                                 const [startHour, startMin] = String(bookingData.startTime).split(':').map(Number);
@@ -1161,10 +1236,11 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                     // bookingAdvance already models the server's calculateBilling.
                                     const bill = bookingAdvance(totalAmount, feePct);
                                     const balanceDueAt = new Date(
-                                        eventStart.getTime() - INSTALLMENT_THRESHOLD_HOURS * MS_PER_HOUR
+                                        eventStart.getTime() - BALANCE_DUE_HOURS_BEFORE * MS_PER_HOUR
                                     );
-                                    const balanceDueText = balanceDueAt.toLocaleDateString('en-IN', {
+                                    const balanceDueText = balanceDueAt.toLocaleString('en-IN', {
                                         day: 'numeric', month: 'short', year: 'numeric',
+                                        hour: 'numeric', minute: '2-digit',
                                     });
 
                                     return (
@@ -1196,10 +1272,13 @@ export default function VenueDetailClient({ initialVenue = null }: { initialVenu
                                                 <span>Balance due by</span>
                                                 <span className="whitespace-nowrap">{balanceDueText}</span>
                                             </div>
+                                            {/* No "settled with the venue owner directly" note: the
+                                                balance is paid on Fira, which verifies it and settles
+                                                with the venue. Reminders start 7 days before the event. */}
                                             <p className="text-xs text-gray-300 mt-2 block">
-                                                * Only the 10% deposit and its fees are charged today to secure this booking.
-                                                The remaining {formatPrice(bill.remaining)} balance is due by {balanceDueText} (7 days before your event).
-                                                If it is not paid by then, the booking is cancelled and the deposit forfeited.
+                                                Pay the balance on Fira by {balanceDueText} (24 hours before your event)
+                                                to keep this booking. We&apos;ll remind you daily from 7 days before.
+                                                If it isn&apos;t paid by then, the booking is cancelled and the deposit is forfeited.
                                             </p>
                                         </div>
                                     );

@@ -121,7 +121,10 @@ const venueSchema = new mongoose.Schema({
         slots: [{
             startTime: { type: String }, // "09:00"
             endTime: { type: String },   // "12:00"
-            type: { type: String, enum: ['busy', 'booked'], default: 'busy' }
+            type: { type: String, enum: ['busy', 'booked'], default: 'busy' },
+            // The personal booking that took this slot, so releasing it on
+            // cancel/forfeit removes exactly its slots across every day it spans.
+            booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', default: null }
         }]
     }],
     daySlots: [{

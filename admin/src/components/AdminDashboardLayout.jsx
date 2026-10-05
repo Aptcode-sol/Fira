@@ -335,8 +335,12 @@ export default function AdminDashboardLayout({ children, onLogout }) {
 
             {/* Main Content */}
             {/* Margin tracks the COLLAPSED rail only, so hovering or opening the
-                drawer overlays the page rather than shoving it sideways. */}
-            <main className={`flex-1 min-h-screen relative z-10 pt-16 pb-20 lg:pt-4 lg:pb-0 transition-all duration-300 ${!isMobile && isExpanded ? 'ml-64' : 'ml-0 lg:ml-20'}`}>
+                drawer overlays the page rather than shoving it sideways.
+                min-w-0 matters on phones: a flex child's min-width defaults to its
+                content, so a wide table stretched <main> past the screen, where
+                #root's overflow-x: clip cut it off - the table's own
+                overflow-x-auto wrapper never got the chance to scroll. */}
+            <main className={`flex-1 min-w-0 min-h-screen relative z-10 pt-16 pb-20 lg:pt-4 lg:pb-0 transition-all duration-300 ${!isMobile && isExpanded ? 'ml-64' : 'ml-0 lg:ml-20'}`}>
                 <ErrorBoundary fallbackMessage="Something went wrong in the admin panel.">
                     {children}
                 </ErrorBoundary>

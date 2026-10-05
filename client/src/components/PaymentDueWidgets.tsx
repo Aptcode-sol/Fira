@@ -57,6 +57,10 @@ function isBalanceDueHere(booking: Booking, venueId: string): boolean {
         !!s &&
         s.type === 'installment' &&
         s.balanceStatus === 'pending' &&
+        // Only once the deposit is actually paid - an abandoned checkout has
+        // no balance to settle.
+        booking.paymentStatus === 'paid' &&
+        booking.status !== 'cancelled' &&
         venueIdOf(booking.venue) === venueId
     );
 }

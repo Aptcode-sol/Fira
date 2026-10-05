@@ -85,7 +85,7 @@ export default function VenueOwners() {
     };
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <FadeIn>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -146,7 +146,7 @@ export default function VenueOwners() {
                                                         {owner.venues.length} venue{owner.venues.length === 1 ? '' : 's'}
                                                     </span>
                                                 </div>
-                                                <div className="text-gray-400 text-xs mt-1">
+                                                <div className="text-gray-400 text-xs mt-1 break-all">
                                                     {owner.email}
                                                     {owner.phone && ` · ${owner.phone}`}
                                                 </div>

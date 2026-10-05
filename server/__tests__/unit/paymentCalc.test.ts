@@ -9,31 +9,39 @@ describe('paymentService.calculateBilling', () => {
 
     expect(result.subtotal).toBe(1000);
     expect(result.discountAmount).toBe(0);
-    expect(result.discountedSubtotal).toBe(1000);
     expect(result.platformFee).toBe(50); // 1000 * 5 / 100
     expect(result.gstAmount).toBe(9); // 50 * 0.18 = 9.00 exactly
     expect(result.totalAmount).toBe(1059); // 1000 + 50 + 9
     expect(result.platformFeePercentage).toBe(5);
   });
 
-  it('calculates billing with a flat discount', () => {
+  it('takes a discount off the total payable, not the ticket price', () => {
     const result = paymentService.calculateBilling(500, 2, 5, 200);
 
     expect(result.subtotal).toBe(1000);
+    // Fee and GST stay on the full ticket subtotal.
+    expect(result.platformFee).toBe(50);
+    expect(result.gstAmount).toBe(9);
+    expect(result.grossTotal).toBe(1059);
     expect(result.discountAmount).toBe(200);
-    expect(result.discountedSubtotal).toBe(800);
-    expect(result.platformFee).toBe(40); // 800 * 5 / 100
-    expect(result.gstAmount).toBe(7.2); // 40 * 0.18, kept to paise
-    expect(result.totalAmount).toBe(847.2); // 800 + 40 + 7.2
+    expect(result.totalAmount).toBe(859); // 1059 - 200
   });
 
-  it('caps discountedSubtotal at zero when discount exceeds subtotal', () => {
+  it('a ₹99 code on a ₹99 ticket leaves the fee + GST to pay', () => {
+    // The reported case: 99 + 4.95 + 0.89 = 104.84; ₹99 off leaves ₹5.84.
+    const result = paymentService.calculateBilling(99, 1, 5, 99);
+
+    expect(result.grossTotal).toBe(104.84);
+    expect(result.totalAmount).toBe(5.84);
+  });
+
+  it('caps the discount at the total payable', () => {
     const result = paymentService.calculateBilling(100, 1, 5, 500);
 
     expect(result.subtotal).toBe(100);
-    expect(result.discountedSubtotal).toBe(0);
-    expect(result.platformFee).toBe(0);
-    expect(result.gstAmount).toBe(0);
+    expect(result.platformFee).toBe(5);
+    expect(result.gstAmount).toBe(0.9);
+    expect(result.discountAmount).toBe(105.9);
     expect(result.totalAmount).toBe(0);
   });
 
@@ -41,7 +49,6 @@ describe('paymentService.calculateBilling', () => {
     const result = paymentService.calculateBilling(0, 3, 5);
 
     expect(result.subtotal).toBe(0);
-    expect(result.discountedSubtotal).toBe(0);
     expect(result.platformFee).toBe(0);
     expect(result.gstAmount).toBe(0);
     expect(result.totalAmount).toBe(0);

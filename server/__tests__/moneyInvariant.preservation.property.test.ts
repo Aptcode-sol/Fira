@@ -27,6 +27,7 @@ import mongoose from 'mongoose';
 
 // Services + models (CommonJS).
 const paymentService = require('../services/paymentService');
+const { roundMoney } = require('../utils/money');
 const bookingService = require('../services/bookingService');
 const ticketService = require('../services/ticketService');
 const Booking = require('../models/Booking');
@@ -345,8 +346,8 @@ describe('Preservation — calculateBilling zero-discount total is stable', () =
           const b = paymentService.calculateBilling(price, qty, feePct, 0);
           return (
             b.subtotal === price * qty &&
-            b.discountedSubtotal === price * qty &&
-            b.totalAmount === b.discountedSubtotal + b.platformFee + b.gstAmount
+            b.discountAmount === 0 &&
+            b.totalAmount === roundMoney(b.subtotal + b.platformFee + b.gstAmount)
           );
         }
       ),

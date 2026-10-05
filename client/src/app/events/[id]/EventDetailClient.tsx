@@ -15,8 +15,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import PostCard from '@/components/PostCard';
 import { useToast } from '@/components/ui/Toast';
 import TicketDisplay from '@/components/TicketDisplay';
-import BillingCard from '@/components/BillingCard';
+import BillingCard, { calculateBilling } from '@/components/BillingCard';
 import DiscountCodeInput from '@/components/DiscountCodeInput';
+import { computeDiscountAmount, type AppliedDiscount } from '@/lib/discount';
 import InquiryForm from '@/components/InquiryForm';
 import { paymentsApi } from '@/lib/api'; // Add paymentsApi import
 
@@ -71,7 +72,9 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
     const [isUploadingGalleryImage, setIsUploadingGalleryImage] = useState(false);
 
     // Discount code state
-    const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
+    // The code's terms, not a frozen amount: its value is re-priced against the
+    // current total whenever the tier or quantity changes.
+    const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
 
     // Inquiry modal state
     const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
@@ -176,7 +179,10 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
                 userId: user._id,
                 eventId: event._id,
                 quantity: ticketQuantity,
-                ticketType
+                ticketType,
+                // The server re-validates and re-prices the code; without it the
+                // discount the buyer was shown was never actually charged.
+                ...(appliedDiscount ? { discountCode: appliedDiscount.code } : {}),
             });
 
             // 2. Handle Payment Flow (keeping for future when payments are enabled)
@@ -941,6 +947,13 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
                     const atLimit = ticketQuantity >= perPurchaseMax;
                     // Price shown for the active selection.
                     const activePrice = selectedTier ? selectedTier.price : event.ticketPrice;
+                    const feePct = (event as { platformFeePercentage?: number }).platformFeePercentage ?? 5;
+                    // The discount comes off the total payable (ticket + fee + GST)
+                    // and is recomputed from the current tier and quantity.
+                    const grossTotal = calculateBilling(activePrice, ticketQuantity, feePct).totalAmount;
+                    const discountAmount = appliedDiscount
+                        ? computeDiscountAmount(appliedDiscount.type, appliedDiscount.value, grossTotal)
+                        : 0;
                     return (
                 <div className="space-y-6">
                     <div>
@@ -1052,16 +1065,17 @@ export default function EventDetailClient({ initialEvent = null }: { initialEven
                             <>
                                 <DiscountCodeInput
                                     eventId={event._id!}
-                                    subtotal={activePrice * ticketQuantity}
+                                    amount={grossTotal}
                                     onApplied={(discount) => setAppliedDiscount(discount)}
                                     onRemoved={() => setAppliedDiscount(null)}
                                     appliedCode={appliedDiscount?.code ?? null}
+                                    appliedSavings={discountAmount}
                                 />
                                 <BillingCard
                                     ticketPrice={activePrice}
                                     quantity={ticketQuantity}
-                                    platformFeePercentage={(event as any).platformFeePercentage ?? 5}
-                                    discountAmount={appliedDiscount?.amount ?? 0}
+                                    platformFeePercentage={feePct}
+                                    discountAmount={discountAmount}
                                     discountCode={appliedDiscount?.code}
                                 />
                             </>

@@ -116,7 +116,10 @@ router.get('/:id/settlement', requireAuth(), /** @param {AuthenticatedRequest} r
 router.get('/:id', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
         const venue = await venueService.getVenueById(req.params.id);
-        res.json(venue);
+        // Best-effort: the calendar degrades to blockedDates alone if this fails,
+        // and createBooking re-checks every day server-side regardless.
+        const unavailableDates = await venueService.getUnavailableDates(venue._id).catch(() => []);
+        res.json({ ...venue, unavailableDates });
     } catch (error) {
         res.status(404).json({ error: error.message });
     }

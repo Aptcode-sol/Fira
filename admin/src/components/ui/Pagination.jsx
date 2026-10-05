@@ -21,7 +21,7 @@ export function Pagination({ currentPage, totalPages, onChange, className = '' }
             aria-label="Pagination"
             className={`p-4 border-t border-white/[0.05] flex justify-center ${className}`}
         >
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
                 <button
                     type="button"
                     onClick={() => go(currentPage - 1)}

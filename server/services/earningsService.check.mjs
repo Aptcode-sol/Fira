@@ -33,8 +33,8 @@ assert.deepEqual(computePayeeGross({ listedPrice: 100.5, discountAmount: 0, disc
 assert.deepEqual(computePayeeGross({ listedPrice: 29.976, discountAmount: 0, discountBearer: 'platform' }), { gross: 29.98 });
 
 // --- invalid inputs are excluded with an error indication, never negative ---
-// owner discount greater than listedPrice
-assert.deepEqual(computePayeeGross({ listedPrice: 100, discountAmount: 250, discountBearer: 'owner' }), { error: 'discountAmount is missing, negative, or exceeds listedPrice', field: 'discountAmount' });
+// owner discount greater than listedPrice (discount on total payable covers fee + GST too) → floored at 0
+assert.deepEqual(computePayeeGross({ listedPrice: 100, discountAmount: 104.84, discountBearer: 'owner' }), { gross: 0 });
 // owner negative discount
 assert.equal(computePayeeGross({ listedPrice: 100, discountAmount: -5, discountBearer: 'owner' }).field, 'discountAmount');
 // owner missing discount
