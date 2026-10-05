@@ -207,23 +207,18 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                 />
             )}
 
-            {/* Single hamburger / close button — always in DOM on mobile (req 2.3).
-                Shows ✕ when open so pressing it is understood as "close". */}
-            {isMobile && (
+            {/* Mobile hamburger - only while the drawer is closed. When it was
+                also the close button it stayed pinned top-left and sat on top of
+                the drawer's logo; the open drawer has its own ✕ in its header. */}
+            {isMobile && !isExpanded && (
                 <button
-                    onClick={() => setIsExpanded(prev => !prev)}
+                    onClick={() => setIsExpanded(true)}
                     className="fixed top-4 left-4 z-50 p-2.5 bg-black/80 backdrop-blur-md border border-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
-                    aria-label={isExpanded ? 'Close navigation' : 'Open navigation'}
+                    aria-label="Open navigation"
                 >
-                    {isExpanded ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    )}
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
                 </button>
             )}
 
@@ -257,14 +252,14 @@ export default function AdminDashboardLayout({ children, onLogout }) {
                         )}
                     </Link>
 
-                    {/* Desktop-only pin/collapse toggle — only visible when sidebar
-                        is expanded. Shows ✕ to close, matching the mobile button. */}
-                    {!isMobile && isOpen && (
+                    {/* Close / collapse toggle, at the right of the header so it
+                        never covers the logo. On mobile it closes the drawer. */}
+                    {isOpen && (
                         <button
                             onClick={() => setIsExpanded(prev => !prev)}
-                            className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 hover:text-white p-1"
-                            title="Collapse sidebar"
-                            aria-label="Collapse sidebar"
+                            className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 hover:text-white p-2 rounded-full hover:bg-white/10"
+                            title={isMobile ? 'Close navigation' : 'Collapse sidebar'}
+                            aria-label={isMobile ? 'Close navigation' : 'Collapse sidebar'}
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
