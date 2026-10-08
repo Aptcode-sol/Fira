@@ -10,7 +10,8 @@
 
 import type { Booking } from './types';
 import { formatInr } from './formatInr';
-// @ts-expect-error — plain .mjs core (no .d.ts); typed by the signatures below.
+// Plain .mjs core: tsconfig's allowJs types it from its JSDoc, and the wrappers
+// below pin the public signatures.
 import {
     daysUntil as daysUntilCore,
     describeSchedule as describeScheduleCore,
