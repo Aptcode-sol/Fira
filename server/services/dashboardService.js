@@ -98,12 +98,7 @@ const dashboardService = {
                     $group: {
                         _id: null,
                         totalAttendees: { $sum: '$currentAttendees' },
-                        totalCapacity: { $sum: '$maxAttendees' },
-                        totalRevenue: {
-                            $sum: {
-                                $multiply: ['$ticketPrice', '$currentAttendees']
-                            }
-                        }
+                        totalCapacity: { $sum: '$maxAttendees' }
                     }
                 }
             ]),
@@ -172,6 +167,19 @@ const dashboardService = {
             totalCapacity: 0,
             totalRevenue: 0
         };
+
+        // Revenue from the tickets actually sold, summed the same way the event
+        // page and the admin panel do (Ticket.price is the line total). The
+        // aggregate above priced every attendee at the event's base ticketPrice,
+        // which is wrong for tiered events and counts free/comp seats as sales.
+        const organizedEventIds = await Event.find({ organizer: userId, isDeleted: { $ne: true } }).distinct('_id');
+        const ticketRevenue = organizedEventIds.length
+            ? await Ticket.aggregate([
+                { $match: { event: { $in: organizedEventIds } } },
+                { $group: { _id: null, total: { $sum: { $ifNull: ['$price', 0] } } } }
+            ])
+            : [];
+        eventStatistics.totalRevenue = ticketRevenue[0]?.total || 0;
 
         return {
             // Overview stats

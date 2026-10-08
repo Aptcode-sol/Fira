@@ -357,9 +357,11 @@ export default function DashboardEventDetailPage() {
     const venue = event.venue as Venue;
     const spotsLeft = event.maxAttendees - event.currentAttendees;
     const ticketsSold = tickets.reduce((sum, t) => sum + t.quantity, 0);
-    // 11.6: revenue = Σ(ticketsBooked × price). `t.price` is the per-ticket
-    // price, so multiply by quantity or multi-ticket bookings undercount.
-    const totalRevenue = tickets.reduce((sum, t) => sum + t.price * t.quantity, 0);
+    // 11.6: revenue = Σ ticket.price. The server stores `price` as the booking's
+    // line total (unit price × quantity - ticketService.purchaseTicket), the same
+    // figure the admin panel sums. Multiplying by quantity again counted every
+    // multi-ticket booking twice: 2 × 2 tickets at ₹499 showed ₹3,992, not ₹1,996.
+    const totalRevenue = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
     const eventLink = typeof window !== 'undefined' ? `${window.location.origin}/events/${event._id}` : '';
 
     return (
