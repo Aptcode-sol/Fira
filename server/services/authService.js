@@ -7,12 +7,52 @@ const passwordValidator = require('../utils/passwordValidator');
 const bankDetailsValidator = require('../utils/bankDetailsValidator');
 const { withRole } = require('../utils/roleUtils');
 
+// Single source of truth for session token minting. Login, OTP verify, the
+// venue-owner upgrade and the new /refresh endpoint all route through here so
+// the expiry (and the claims) can never drift apart between call sites.
+function issueToken(user) {
+    return jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+}
+
 const authService = {
+    issueToken,
+
     /**
      * Generate random 4-digit OTP
      */
     generateOTP() {
         return Math.floor(1000 + Math.random() * 9000).toString();
+    },
+
+    /**
+     * Mint a fresh 7-day token for an already-authenticated user (sliding
+     * expiry). The caller's token has already been verified by the auth
+     * middleware, so this just restarts the 7-day clock while the user stays
+     * active - without this, every session hits a hard 7-day cliff and the user
+     * gets logged out mid-use with no way to stay signed in.
+     */
+    async refreshSession({ userId }) {
+        const user = await User.findById(userId).select('-password');
+        if (!user) {
+            throw new Error('Account not found. Please sign in again.');
+        }
+        return {
+            token: issueToken(user),
+            user: {
+                _id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                roles: user.roles,
+                emailVerified: user.emailVerified,
+                isVerified: user.isVerified,
+                verificationBadge: user.verificationBadge
+            }
+        };
     },
 
     /**
@@ -179,11 +219,7 @@ const authService = {
         });
 
         // Generate token
-        const token = jwt.sign(
-            { userId: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = issueToken(user);
 
         return {
             user: {
@@ -277,11 +313,7 @@ const authService = {
         }
 
         // Generate token
-        const token = jwt.sign(
-            { userId: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = issueToken(user);
 
         return {
             user: {
@@ -340,11 +372,7 @@ const authService = {
         // resolved from the DB on every request (see middleware/auth.js), so a
         // fresh token is not required for authorization - it just avoids a stale
         // claim for anything that later reads the token directly.
-        const token = jwt.sign(
-            { userId: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = issueToken(user);
 
         return {
             user: {

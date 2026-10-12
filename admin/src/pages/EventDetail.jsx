@@ -211,7 +211,18 @@ export default function EventDetail() {
                             </div>
                             <span className="text-gray-300 font-medium">Ticket Price</span>
                         </div>
-                        <div className="text-2xl font-bold text-white pl-1">{formatCurrency(event.ticketPrice)}</div>
+                        {event.ticketTiers?.length > 0 ? (
+                            <div className="space-y-1.5 pl-1">
+                                {event.ticketTiers.map((tier, i) => (
+                                    <div key={tier._id || i} className="flex items-baseline justify-between gap-3">
+                                        <span className="text-sm text-gray-300 truncate">{tier.name}</span>
+                                        <span className="text-lg font-bold text-white whitespace-nowrap">{formatCurrency(tier.price)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-2xl font-bold text-white pl-1">{formatCurrency(event.ticketPrice)}</div>
+                        )}
                     </div>
 
                     <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">

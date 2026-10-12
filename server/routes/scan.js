@@ -16,7 +16,9 @@ router.get('/:code', async (req, res) => {
         }
         // An unscoped link on a tiered event bypasses every per-tier restriction, so it
         // fails here - when the door opens the page - rather than on the first guest.
-        if (!scanningCode.ticketTier && (scanningCode.event?.ticketTiers || []).length > 0) {
+        // The intentional combined link (allTiers) is exempt: it is meant to admit
+        // every tier, so it reads as '' tier yet must not be treated as a stray link.
+        if (!scanningCode.ticketTier && !scanningCode.allTiers && (scanningCode.event?.ticketTiers || []).length > 0) {
             return res.status(403).json({
                 error: 'This scanner link is out of date. Ask the organiser for the link for this tier.'
             });

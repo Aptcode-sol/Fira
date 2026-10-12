@@ -1179,7 +1179,7 @@ const eventService = {
          * and it bypasses every per-tier restriction. Checked against the event as it
          * is now, so an event that gains its first tier closes the hole immediately.
          */
-        if (!scanningCode.ticketTier) {
+        if (!scanningCode.ticketTier && !scanningCode.allTiers) {
             const event = await Event.findById(scanningCode.event).select('ticketTiers');
             if ((event?.ticketTiers || []).length > 0) {
                 throw new Error('This scanner link is out of date. Ask the organiser for the link for this tier.');

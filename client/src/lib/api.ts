@@ -145,6 +145,15 @@ export const authApi = {
 
     getMe: () => request<{ user: unknown }>('/auth/me'),
 
+    // Slide the session forward: swap a still-valid token for a fresh 7-day one.
+    // Lives under /auth/ so a failure here never triggers the global 401 logout
+    // redirect - a dead session is surfaced by the next real request instead.
+    refresh: (token: string) =>
+        request<{ user: unknown; token: string }>('/auth/refresh', {
+            method: 'POST',
+            token,
+        }),
+
     forgotPassword: (data: { email: string }) =>
         request<{ success: boolean; message: string; email?: string }>('/auth/forgot-password', {
             method: 'POST',

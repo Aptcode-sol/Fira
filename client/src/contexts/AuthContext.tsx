@@ -60,6 +60,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
     }, []);
 
+    // Keep the session alive. The server issues a 7-day token with no refresh
+    // token, so a long-lived or idle-then-active user used to hit a hard cliff
+    // and get logged out mid-use. Here we slide the token forward: once on
+    // mount (as long as the stored token still verifies) and then once a day
+    // while the tab lives. A failed refresh is a no-op - the existing token
+    // keeps working until it genuinely expires, at which point the next real
+    // request handles the logout.
+    useEffect(() => {
+        if (!isMounted) return;
+
+        const slide = async () => {
+            const current = localStorage.getItem('fira_token');
+            if (!current) return;
+            try {
+                const res = await authApi.refresh(current);
+                const userData = normalizeUser(res.user);
+                setUser(userData);
+                setToken(res.token);
+                localStorage.setItem('fira_token', res.token);
+                localStorage.setItem('fira_user', JSON.stringify(userData));
+            } catch {
+                // Token already dead or network blip - leave storage untouched.
+            }
+        };
+
+        slide();
+        const id = setInterval(slide, 24 * 60 * 60 * 1000); // daily, well inside 7d
+        return () => clearInterval(id);
+    }, [isMounted]);
+
     const login = useCallback(async (email: string, password: string) => {
         const response = await authApi.login({ email, password });
         const userData = normalizeUser(response.user);

@@ -589,6 +589,11 @@ const adminService = {
             ...brand.toObject(),
             events,
             stats: {
+                // Spread the document stats first so followers/views (maintained
+                // by the follow flow) survive; this used to overwrite the whole
+                // object, dropping them to undefined → the UI showed 0 for every
+                // creator.
+                ...(brand.stats || {}),
                 eventsHosted: events.length,
                 totalRevenue: ticketRevenue[0]?.total || 0
             }

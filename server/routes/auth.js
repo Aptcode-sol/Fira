@@ -158,11 +158,24 @@ router.post('/logout', auth, /** @param {AuthenticatedRequest} req @param {Respo
     }
 });
 
-// GET /api/auth/me - Get current user
-router.get('/me', /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+// POST /api/auth/refresh - Slide the session forward.
+// `auth` has already verified the current (non-expired, non-blocklisted) token
+// and loaded req.user, so this just mints a fresh 7-day token. An active user
+// hitting this before expiry never gets logged out; a user whose token already
+// expired gets a 401 here (same as any protected route) and signs in again.
+router.post('/refresh', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
-        // TODO: Add auth middleware to get user from token
-        res.json({ message: 'Auth middleware required' });
+        const result = await authService.refreshSession({ userId: req.user._id });
+        res.json(result);
+    } catch (error) {
+        res.status(401).json({ error: error.message });
+    }
+});
+
+// GET /api/auth/me - Get current user
+router.get('/me', auth, /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
+    try {
+        res.json({ user: req.user });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

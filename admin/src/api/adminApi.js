@@ -71,6 +71,24 @@ const adminApi = {
     logout() {
         localStorage.removeItem(ADMIN_TOKEN_KEY);
     },
+
+    // Slide the admin session forward: trade a still-valid token for a fresh
+    // 7-day one so a long-lived tab never hits the hard expiry cliff. Does NOT
+    // go through handle() - a failed refresh must not clear the token or reload
+    // the page; it just leaves the current token in place until it genuinely
+    // expires, at which point the next real request handles the 401.
+    async refresh() {
+        const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+        if (!token) return null;
+        const res = await fetch(`${MAIN_API_BASE}/auth/refresh`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data?.token) localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+        return data;
+    },
     // ================== DASHBOARD ==================
     async getStats() {
         const res = await fetch(`${API_BASE}/stats`, { headers: authHeaders() });

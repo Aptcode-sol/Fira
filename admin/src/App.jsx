@@ -82,6 +82,16 @@ function App() {
     setIsLoading(false);
   }, []);
 
+  // Keep the admin session alive. The server token is 7-day with no refresh
+  // token, so a long-lived tab used to get logged out at the cliff. Slide it
+  // forward once on mount and daily thereafter; a failed refresh is a no-op.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    adminApi.refresh().catch(() => {});
+    const id = setInterval(() => adminApi.refresh().catch(() => {}), 24 * 60 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isAuthenticated]);
+
   const handleLogin = ({ user }) => {
     // adminApi.login already stored the token.
     localStorage.setItem(AUTH_KEY, JSON.stringify({
