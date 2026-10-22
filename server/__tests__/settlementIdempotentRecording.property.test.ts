@@ -106,6 +106,7 @@ async function seedListing(netPayable: number, ownerId: any) {
         totalAmount: netPayable,
         platformFee: 0,
         gstAmount: 0,
+        listedPrice: netPayable,
         status: 'success',
         paidAt: new Date(NOW - DAY),
     });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import adminApi from '../api/adminApi';
 import { getAdminRoleFromToken } from '../lib/adminRole';
 import { formatDateTime } from '../lib/formatDateTime';
@@ -18,9 +18,6 @@ import { Button } from './ui/Button';
 import { FigureCard } from './ui/FigureCard';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
-import { StatusBadge } from './ui/StatusBadge';
-
-const EMPTY_PAYOUT_FORM = { amount: '', notes: '', submitting: false, error: null, notice: null };
 
 const METHOD_OPTIONS = [
     { value: 'manual', label: 'Manual bank transfer' },
@@ -213,73 +210,6 @@ function RecordSettlementForm({ form, dispatch, onSubmit, isSuperAdmin }) {
 }
 
 /**
- * Raise a payout for the amount agreed with the owner. There is no automatic
- * commission: the owner's share is shown as the starting point and the admin
- * types the final amount after any cut they agreed. Whole rupees, matching the
- * settlement entries that will later pay it off.
- *
- * State lives in the panel, not here: a successful raise re-reads the ledger,
- * which unmounts this body while it loads, and the confirmation must survive that.
- *
- * @param {{ kind: 'event' | 'venue', ownerShare: number, form: object,
- *          onChange: Function, onSubmit: Function }} props
- */
-function RaisePayoutForm({ kind, ownerShare, form, onChange, onSubmit }) {
-    const amount = Number(form.amount);
-    const valid = form.amount !== '' && Number.isInteger(amount) && amount > 0;
-    const who = kind === 'venue' ? 'venue owner' : 'organizer';
-
-    return (
-        <section className="border-t border-white/[0.08] pt-6">
-            <h3 className="text-sm font-semibold text-white mb-1">Raise a payout</h3>
-            <p className="text-sm text-gray-400 mb-4">
-                The {who}&apos;s share is <span className="text-white font-medium tabular-nums">{formatInr(ownerShare)}</span>.
-                {' '}No commission is deducted automatically — enter the amount you agreed with the {who}.
-            </p>
-
-            <form onSubmit={onSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                        label="Payout amount (₹)"
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        step="1"
-                        required
-                        placeholder={String(Math.floor(ownerShare || 0) || 10000)}
-                        value={form.amount}
-                        onChange={(e) => onChange({ amount: e.target.value })}
-                    />
-                    <Input
-                        label="Notes (optional)"
-                        type="text"
-                        placeholder="e.g. 5% cut agreed on call"
-                        value={form.notes}
-                        onChange={(e) => onChange({ notes: e.target.value })}
-                    />
-                </div>
-
-                {form.error && (
-                    <p className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm text-red-300">{form.error}</p>
-                )}
-                {form.notice && (
-                    <p className="px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/30 text-sm text-green-300">{form.notice}</p>
-                )}
-
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <Button type="submit" variant="violet" size="sm" isLoading={form.submitting} disabled={form.submitting || !valid}>
-                        {form.submitting ? 'Raising…' : valid ? `Raise payout of ${formatInr(amount)}` : 'Raise payout'}
-                    </Button>
-                    <span className="text-xs text-gray-500">
-                        Creates a pending payout to the {who}&apos;s bank account. Record the transfer below once the money is sent.
-                    </span>
-                </div>
-            </form>
-        </section>
-    );
-}
-
-/**
  * The per-row reversal control (Requirement 7.1). Reason is mandatory: the
  * confirm button stays disabled until one is typed, and the server rejects a
  * blank one regardless.
@@ -332,7 +262,7 @@ function ReverseControl({ entryId, reversal, dispatch, onConfirm }) {
 }
 
 /**
- * The `ready` body: figures, activity, payout summary, ledger, record form.
+ * The `ready` body: figures, activity, ledger, record form.
  *
  * Split out of the panel so the surface-state switch above stays readable, and
  * so this only ever runs with a resolved DTO in hand.
@@ -340,11 +270,10 @@ function ReverseControl({ entryId, reversal, dispatch, onConfirm }) {
  * @param {{ kind: 'event' | 'venue', data: object, form: object, dispatch: Function,
  *          onRecord: Function, onReverse: Function, isSuperAdmin: boolean }} props
  */
-function SettlementBody({ kind, data, form, dispatch, onRecord, onReverse, isSuperAdmin, payoutForm, onPayoutChange, onRaisePayout, canRaisePayout }) {
+function SettlementBody({ kind, data, form, dispatch, onRecord, onReverse, isSuperAdmin }) {
     const money = data?.money ?? {};
     const activity = data?.activity ?? {};
     const entries = data?.entries ?? [];
-    const payout = data?.payout ?? null;
 
     // Requirement 5.6: an over-settled listing shows the excess as its own figure
     // and Outstanding pinned at ₹0. The decisions below live in
@@ -371,8 +300,7 @@ function SettlementBody({ kind, data, form, dispatch, onRecord, onReverse, isSup
 
             {nothingToSettle(money) && (
                 <p className="px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-gray-300 text-sm">
-                    Payout not initiated — nothing to settle yet.
-                    {canRaisePayout && ' Raise one below once the amount is agreed.'}
+                    Nothing owed yet — no paid sales on this {kind === 'venue' ? 'venue' : 'event'}.
                 </p>
             )}
 
@@ -415,31 +343,8 @@ function SettlementBody({ kind, data, form, dispatch, onRecord, onReverse, isSup
                 </p>
             </section>
 
-            {canRaisePayout && (
-                <RaisePayoutForm
-                    kind={kind}
-                    ownerShare={money.ownerShare}
-                    form={payoutForm}
-                    onChange={onPayoutChange}
-                    onSubmit={onRaisePayout}
-                />
-            )}
-
-            {/* Requirement 1.5: the payout's status and recorded netAmount sit
-                alongside the ledger, since that record is what is being settled. */}
             <section>
-                <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
-                    <h3 className="text-sm font-semibold text-white">Settlement ledger</h3>
-                    {payout ? (
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <span>Payout</span>
-                            <StatusBadge status={payout.status} />
-                            <span className="text-white font-medium tabular-nums">{formatInr(payout.netAmount)}</span>
-                        </div>
-                    ) : (
-                        <span className="text-sm text-gray-400">No payout raised yet</span>
-                    )}
-                </div>
+                <h3 className="text-sm font-semibold text-white mb-3">Settlement ledger</h3>
 
                 {/* Requirement 1.6: an empty ledger is named, not implied. */}
                 {ordered.length === 0 ? (
@@ -537,17 +442,12 @@ function SettlementBody({ kind, data, form, dispatch, onRecord, onReverse, isSup
  */
 export default function ListingSettlementPanel({ kind, listingId }) {
     const [view, dispatch] = useReducer(settlementReducer, initialSettlementState);
-    const [payoutForm, setPayoutForm] = useState(EMPTY_PAYOUT_FORM);
 
     // Requirement 11.3: a moderator has no settlement read or write, so the
     // panel is not rendered at all. The server guard is the boundary — this
     // just avoids showing a control that would 403.
     const adminRole = getAdminRoleFromToken();
     const isModerator = isModeratorHidden(adminRole);
-    // Raising a payout uses the strict settlement guard, which refuses an admin
-    // with no sub-role; the shared API helper reads that 403 as an expired
-    // session, so the form is not offered to them at all.
-    const canRaisePayout = adminRole === 'super_admin' || adminRole === 'admin';
 
     const fetchSettlement = useCallback(async () => {
         dispatch({ type: 'fetch' });
@@ -583,28 +483,6 @@ export default function ListingSettlementPanel({ kind, listingId }) {
             dispatch({ type: 'submitRejected', error: err?.message, body: err?.body });
         }
     }, [kind, listingId, view.form, fetchSettlement]);
-
-    const changePayout = useCallback((patch) => {
-        setPayoutForm((f) => ({ ...f, ...patch, error: null, notice: null }));
-    }, []);
-
-    const raisePayout = useCallback(async (e) => {
-        e.preventDefault();
-        const amount = Number(payoutForm.amount);
-        const notes = payoutForm.notes.trim();
-        setPayoutForm((f) => ({ ...f, submitting: true, error: null, notice: null }));
-        try {
-            const result = await adminApi.raisePayout(kind, listingId, { amount, ...(notes ? { notes } : {}) });
-            const owner = kind === 'venue' ? 'venue owner' : 'organizer';
-            setPayoutForm({
-                ...EMPTY_PAYOUT_FORM,
-                notice: `Payout of ${formatInr(amount)} raised.${result?.notified ? ` The ${owner} has been notified.` : ''}`,
-            });
-            await fetchSettlement();
-        } catch (err) {
-            setPayoutForm((f) => ({ ...f, submitting: false, error: err?.message || 'Failed to raise payout' }));
-        }
-    }, [kind, listingId, payoutForm.amount, payoutForm.notes, fetchSettlement]);
 
     const reverseEntry = useCallback(async (entryId, reason) => {
         dispatch({ type: 'reverseSubmit' });
@@ -677,10 +555,6 @@ export default function ListingSettlementPanel({ kind, listingId }) {
                     onRecord={recordSettlement}
                     onReverse={reverseEntry}
                     isSuperAdmin={adminRole === 'super_admin'}
-                    payoutForm={payoutForm}
-                    onPayoutChange={changePayout}
-                    onRaisePayout={raisePayout}
-                    canRaisePayout={canRaisePayout}
                 />
             )}
         </div>

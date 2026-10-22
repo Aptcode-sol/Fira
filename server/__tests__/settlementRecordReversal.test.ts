@@ -53,6 +53,7 @@ async function seedEventMoney(eventId: mongoose.Types.ObjectId) {
     platformFee: 500,
     gstAmount: 1800,
     totalAmount: 11800,
+    listedPrice: 9000,
     status: 'success',
     paidAt: new Date('2024-05-01T10:00:00.000Z'),
   });

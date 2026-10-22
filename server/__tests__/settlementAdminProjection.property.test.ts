@@ -141,6 +141,7 @@ async function seedMoney(eventId: mongoose.Types.ObjectId, netPayable: number) {
         platformFee: 0,
         gstAmount: 0,
         totalAmount: netPayable,
+        listedPrice: netPayable,
         status: 'success',
         paidAt: new Date(NOW - 500 * DAY_MS),
     });

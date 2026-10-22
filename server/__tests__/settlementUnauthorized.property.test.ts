@@ -135,6 +135,7 @@ async function seedListing(ownerId: any) {
         totalAmount: NET_PAYABLE,
         platformFee: 0,
         gstAmount: 0,
+        listedPrice: NET_PAYABLE,
         status: 'success',
         paidAt: new Date('2024-05-01T10:00:00.000Z'),
     });

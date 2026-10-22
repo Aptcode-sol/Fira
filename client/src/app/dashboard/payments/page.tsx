@@ -7,7 +7,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button, DataTable } from '@/components/ui';
 import type { Column } from '@/components/ui';
 import { eventsApi, earningsApi } from '@/lib/api';
-import type { EarningsPayoutStatus, EventEarningsDTO } from '@/lib/api';
+import type { EventEarningsDTO } from '@/lib/api';
 import { FadeIn, SlideUp } from '@/components/animations';
 
 interface OrganizedEvent {
@@ -23,14 +23,6 @@ interface EventEarningsRow extends EventEarningsDTO {
     eventName: string;
     when?: string;
 }
-
-const payoutStyles: Record<EarningsPayoutStatus, string> = {
-    completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    processing: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    failed: 'bg-red-500/10 text-red-400 border-red-500/20',
-    'not yet initiated': 'bg-white/[0.04] text-gray-400 border-white/10',
-};
 
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN')}`;
 
@@ -158,16 +150,6 @@ export default function PaymentsPage() {
             header: 'Your earnings',
             align: 'right',
             cell: (r) => <span className="font-semibold text-emerald-400">{inr(r.netEarnings)}</span>,
-        },
-        {
-            key: 'payout',
-            header: 'Payout',
-            align: 'center',
-            cell: (r) => (
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium border capitalize ${payoutStyles[r.payoutStatus] ?? payoutStyles['not yet initiated']}`}>
-                    {r.payoutStatus}
-                </span>
-            ),
         },
     ];
 

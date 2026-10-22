@@ -149,6 +149,7 @@ async function seedListing(ownerId: any) {
         totalAmount: NET_PAYABLE,
         platformFee: 0,
         gstAmount: 0,
+        listedPrice: NET_PAYABLE,
         status: 'success',
         paidAt: new Date(NOW - DAY),
     });
@@ -365,13 +366,11 @@ describe('Property 9 — the ledger is append-only', () => {
         expect(serviceMethods.filter((name) => MUTATING.test(name))).toEqual([]);
         // And the surface is exactly the reads/appends plus the pure helpers, so
         // a mutating method added under an innocent name still shows up here.
-        // raisePayout creates a Payout row; it never touches a Settlement entry.
         expect(serviceMethods.sort()).toEqual([
             'buildLedger',
             'checkOverSettlement',
             'getListingSettlement',
             'getOwnerSettlement',
-            'raisePayout',
             'recordEntry',
             'recordReversal',
             'toAdminRow',

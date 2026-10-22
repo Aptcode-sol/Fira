@@ -161,6 +161,7 @@ async function seedWorld() {
             totalAmount: 50000,
             platformFee: 0,
             gstAmount: 0,
+            listedPrice: 50000,
             status: 'success',
             paidAt: new Date(NOW - DAY),
         });

@@ -7,7 +7,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import SettlementSummary from '@/components/dashboard/SettlementSummary';
 import { Button } from '@/components/ui';
 import { FadeIn, SlideUp } from '@/components/animations';
-import { earningsApi, type EventEarningsDTO, type EarningsPayoutStatus } from '@/lib/api';
+import { earningsApi, type EventEarningsDTO } from '@/lib/api';
 import { formatInr } from '@/lib/formatInr';
 
 // The three surface states are mutually exclusive at all times (Requirement 12):
@@ -40,14 +40,6 @@ function hasNoRecords(d: EventEarningsDTO): boolean {
         d.payoutStatus === 'not yet initiated'
     );
 }
-
-const PAYOUT_STATUS_STYLES: Record<EarningsPayoutStatus, string> = {
-    completed: 'bg-green-500/20 text-green-400 border-green-500/20',
-    processing: 'bg-blue-500/20 text-blue-400 border-blue-500/20',
-    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20',
-    failed: 'bg-red-500/20 text-red-400 border-red-500/20',
-    'not yet initiated': 'bg-gray-500/20 text-gray-300 border-gray-500/20',
-};
 
 function EarningsContent() {
     const router = useRouter();
@@ -152,7 +144,7 @@ function EarningsContent() {
                         </h3>
                         <p className="text-gray-300 mb-6">
                             {eventId
-                                ? 'This event has no recorded ticket sales or payouts yet.'
+                                ? 'This event has no recorded ticket sales yet.'
                                 : 'Choose an event to view its earnings breakdown.'}
                         </p>
                         <Button variant="secondary" onClick={() => router.push('/dashboard/events')}>
@@ -195,13 +187,8 @@ function EarningsContent() {
 
                             {/* The platform fee and GST are charged to buyers on top
                                 of the ticket price and never touch the organizer's
-                                earnings, so they are not shown here. */}
-                            <div className="mt-6 pt-6 border-t border-white/[0.06] flex items-center justify-between gap-4">
-                                <span className="text-sm text-gray-300">Payout status</span>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${PAYOUT_STATUS_STYLES[earnings.payoutStatus]}`}>
-                                    {earnings.payoutStatus}
-                                </span>
-                            </div>
+                                earnings, so they are not shown here. What has been
+                                transferred is in the settlement panel below. */}
                         </div>
                     </FadeIn>
                 )}

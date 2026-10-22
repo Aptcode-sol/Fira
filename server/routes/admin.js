@@ -417,11 +417,6 @@ const reversalSchema = z.object({
     reason: z.string().trim().min(1),
 });
 
-const payoutSchema = z.object({
-    amount: z.number().int().positive(),
-    notes: z.string().trim().optional(),
-});
-
 // The service throws Errors carrying `status`, and the decision helpers attach
 // `field` / `code` plus, for an over-settlement, the three figures the admin
 // needs to correct the submission. Same shape as the earnings routes above, with
@@ -459,22 +454,6 @@ router.get('/listings/:kind/:id/settlement', roleGuard(['super_admin', 'admin'])
 router.post('/listings/:kind/:id/settlement/entries', settlementRoleGuard, validate(entrySchema), async (req, res) => {
     try {
         const result = await settlementService.recordEntry({
-            kind: req.params.kind,
-            listingId: req.params.id,
-            input: req.body,
-            admin: settlementAdmin(req),
-        });
-        res.json(result);
-    } catch (error) {
-        sendSettlementError(res, error);
-    }
-});
-
-// Raise a payout for the amount agreed with the owner. No commission is taken
-// automatically; the typed amount is the payout.
-router.post('/listings/:kind/:id/payouts', settlementRoleGuard, validate(payoutSchema), async (req, res) => {
-    try {
-        const result = await settlementService.raisePayout({
             kind: req.params.kind,
             listingId: req.params.id,
             input: req.body,

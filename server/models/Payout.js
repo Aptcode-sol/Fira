@@ -16,8 +16,8 @@ const payoutSchema = new mongoose.Schema({
         required: true,
         refPath: 'referenceModel'
     },
-    // 'Venue' is a payout raised for a whole venue from the admin settlement
-    // panel; 'Booking' is a payout for one booking.
+    // 'Booking' is a payout for one booking. 'Venue' rows are whole-venue
+    // payouts from the removed admin raise-payout step, kept so they still load.
     referenceModel: {
         type: String,
         enum: ['Booking', 'Event', 'Venue'],

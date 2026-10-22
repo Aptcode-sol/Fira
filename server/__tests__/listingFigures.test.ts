@@ -2,11 +2,9 @@
  * Task 2.3 — earningsService.getListingFigures boundary checks.
  *
  * Two named boundaries, and nothing else:
- *   1. A listing with successful payments but no Payout record reports
- *      netPayable: 0 and payout: null — the design's stated consequence
- *      (design decision 1, Requirement 1.7). Buyer-side figures still come
- *      through, so this is a real "payout not initiated yet" listing, not an
- *      empty one.
+ *   1. A listing with successful payments is owed the owner's share in whole
+ *      rupees, with or without a Payout record, so a manual transfer can be
+ *      recorded straight away.
  *   2. Fail-closed: a malformed listing id, an unknown kind, and a non-finite
  *      sum all reject rather than returning a zeroed figure set that could
  *      become a settlement basis (Requirement 12.5).
@@ -54,27 +52,44 @@ async function makeSuccessfulPayment(eventId: mongoose.Types.ObjectId, overrides
 }
 
 describe('getListingFigures — payments but no Payout record (Req 1.7)', () => {
-  it('reports netPayable 0 and payout null while still reporting buyer-side money', async () => {
+  it("owes the owner's share, floored to whole rupees, while no payout is raised", async () => {
     const eventId = await makeEvent();
-    await makeSuccessfulPayment(eventId);
-    await makeSuccessfulPayment(eventId, { amount: 2000, platformFee: 100, gstAmount: 360, totalAmount: 2360 });
+    await makeSuccessfulPayment(eventId, { listedPrice: 1000 });
+    // ₹2,000.50 listed, ₹100 off on the organizer's own code → ₹1,900.50 share.
+    await makeSuccessfulPayment(eventId, {
+      amount: 2000, platformFee: 100, gstAmount: 360, totalAmount: 2260.5,
+      listedPrice: 2000.5, discountAmount: 100, discountBearer: 'owner',
+    });
     expect(await Payout.countDocuments({ referenceId: eventId })).toBe(0);
 
     const figures = await earningsService.getListingFigures({ kind: 'event', listingId: String(eventId) });
 
-    // Owner side is empty because no payout has been raised — not invented from
-    // a percentage of the collected gross (Requirement 12.1).
+    expect(figures.money.ownerShare).toBe(2900.5);
+    expect(figures.money.netPayable).toBe(2900);
+    // No commission is invented from a percentage (Requirement 12.1).
     expect(figures.money.ownerGross).toBe(0);
     expect(figures.money.platformCommission).toBe(0);
-    expect(figures.money.netPayable).toBe(0);
     expect(figures.payout).toBeNull();
 
-    // ...but the listing is genuinely earning, so buyer-side figures are present.
-    expect(figures.money.grossCollected).toBe(1180 + 2360);
     expect(figures.money.platformFeeCollected).toBe(150);
     expect(figures.money.gstRetained).toBe(540);
     expect(figures.activity.successfulPayments).toBe(2);
     expect(figures.activity.lastPaymentAt).toBeInstanceOf(Date);
+  });
+
+  it('a payout record does not change the net payable', async () => {
+    const eventId = await makeEvent();
+    await makeSuccessfulPayment(eventId, { listedPrice: 1000 });
+    await mongoose.connection.db!.collection('payouts').insertOne({
+      recipient: new mongoose.Types.ObjectId(), type: 'event_tickets',
+      referenceId: eventId, referenceModel: 'Event',
+      grossAmount: 900, platformCommission: 0, netAmount: 900, status: 'pending', createdAt: new Date(),
+    });
+
+    const figures = await earningsService.getListingFigures({ kind: 'event', listingId: String(eventId) });
+
+    expect(figures.money.ownerShare).toBe(1000);
+    expect(figures.money.netPayable).toBe(1000);
   });
 });
 
@@ -161,7 +176,7 @@ describe('getListingFigures — discount breakdown', () => {
     expect(money.ownerShare).toBeCloseTo(998 + (4990 - 792.66) + 998, 2);
   });
 
-  it('counts a payout raised for a whole venue towards its net payable', async () => {
+  it('lists a legacy whole-venue payout without letting it change net payable', async () => {
     const venueId = new mongoose.Types.ObjectId();
     await mongoose.connection.db!.collection('venues').insertOne({ _id: venueId, name: 'Hall' });
     const bookingId = new mongoose.Types.ObjectId();
@@ -173,7 +188,7 @@ describe('getListingFigures — discount breakdown', () => {
     });
 
     const figures = await earningsService.getListingFigures({ kind: 'venue', listingId: String(venueId) });
-    expect(figures.money.netPayable).toBe(5000);
+    expect(figures.money.netPayable).toBe(0);
     expect(figures.payout).toMatchObject({ netAmount: 5000 });
   });
 });

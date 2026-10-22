@@ -82,7 +82,7 @@ const MASK_CHAR = '*';                         // character shown in place of a 
  *   ownerShare: number,            // Σ computePayeeGross      (success)
  *   ownerGross: number,            // Σ Payout.grossAmount
  *   platformCommission: number,    // Σ Payout.platformCommission
- *   netPayable: number,            // Σ Payout.netAmount
+ *   netPayable: number,            // ⌊ownerShare⌋ (whole rupees)
  *   refundedTotal: number,         // Σ Payment.totalAmount    (refunded)
  * }} ListingMoney */
 
@@ -960,16 +960,16 @@ const earningsService = {
      *   refundedTotal        = Σ Payment.totalAmount       where status = 'refunded'
      *   ownerGross           = Σ Payout.grossAmount        (every referencing payout)
      *   platformCommission   = Σ Payout.platformCommission
-     *   netPayable           = Σ Payout.netAmount
+     *   netPayable           = ⌊ownerShare⌋ (whole rupees, like settlement entries)
      *
      * Scope (mirrors getEventEarnings / getVenueEarnings):
      *   event → Payment/Payout { referenceModel: 'Event', referenceId: eventId }, activity from Ticket { event }
      *   venue → Payment/Payout { referenceModel: 'Booking', referenceId: ∈ that venue's bookings }, activity from Booking { venue }
      *
-     * Consequence stated in the design: a listing with collected payments but no
-     * Payout record has netPayable = 0 and payout = null — money is owed once a
-     * payout has been raised, and inventing a commission here would be the
-     * second computation path Requirement 12.1 forbids.
+     * Net payable is the owner's share whether or not a Payout record exists:
+     * the platform pays owners by manual transfer and records each transfer as
+     * a settlement entry. ownerGross / platformCommission / payout still report
+     * any legacy Payout rows verbatim, for the record only.
      *
      * Fails closed on an unknown kind, a malformed or absent listing id, or a
      * non-finite sum, so a corrupt field never becomes a settlement basis
@@ -1040,8 +1040,8 @@ const earningsService = {
             ownerGross: 0, platformCommission: 0, netPayable: 0, refundedTotal: 0,
         };
 
-        // Payouts raised for the venue as a whole (admin settlement panel) sit
-        // beside per-booking ones; both count towards what the owner is owed.
+        // Includes legacy whole-venue payouts raised from the admin settlement
+        // panel before that step was removed, so they still show in the record.
         const payoutMatch = kind === 'venue'
             ? { $or: [{ referenceModel, referenceId: { $in: referenceIds } }, { referenceModel: 'Venue', referenceId: new mongoose.Types.ObjectId(String(listingId)) }] }
             : { referenceModel, referenceId: { $in: referenceIds } };
@@ -1094,6 +1094,10 @@ const earningsService = {
 
         const p = paymentAgg[0] || {};
         const o = payoutAgg[0] || {};
+        // The owner is owed their share, in whole rupees because settlements are
+        // recorded in whole rupees. Owners are paid by manual transfer and each
+        // transfer is recorded as a settlement, so Payout records play no part.
+        const netPayable = Math.floor(roundMoney(p.ownerShare || 0));
 
         return earningsService.buildListingFigures({
             money: {
@@ -1107,7 +1111,7 @@ const earningsService = {
                 ownerShare: p.ownerShare || 0,
                 ownerGross: o.ownerGross || 0,
                 platformCommission: o.platformCommission || 0,
-                netPayable: o.netPayable || 0,
+                netPayable,
                 refundedTotal: p.refundedTotal || 0,
             },
             activity: {

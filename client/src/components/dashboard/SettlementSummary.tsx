@@ -128,7 +128,7 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
     // a listing that has earned nothing yet. Both are distinct from the error
     // state, and either can hold on its own.
     const noSettlementYet = (data?.entries.length ?? 0) === 0;
-    const noPayoutDue = !((money?.netPayable ?? 0) > 0);
+    const nothingOwed = !((money?.netPayable ?? 0) > 0);
     // Requirement 9.5: newest first, and sorted here rather than trusted from the
     // wire so the displayed order holds whatever the transport does.
     const entries = [...(data?.entries ?? [])].sort(
@@ -187,7 +187,7 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
                     </svg>
                     <h3 className="text-white font-semibold mb-1">No settlement records</h3>
                     <p className="text-sm text-gray-300">
-                        This {kind} has no payments yet, so no payout is yet due and no settlement has been made yet.
+                        This {kind} has no payments yet, so nothing is owed and no settlement has been made yet.
                     </p>
                 </div>
             )}
@@ -202,17 +202,17 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
                     </div>
 
                     {/* Requirement 9.8: no successful payments ⇒ every money figure
-                        is ₹0 and no payout is due. */}
-                    {noPayoutDue && (
+                        is ₹0 and nothing is owed. */}
+                    {nothingOwed && (
                         <p className="px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300">
-                            No payout is yet due for this {kind}.
+                            Nothing is owed yet for this {kind}.
                         </p>
                     )}
 
                     <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4 sm:p-5">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Payout</h3>
-                        {/* No commission row: the payout is the amount agreed with
-                            you and raised by the platform, nothing deducted after. */}
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Owed to you</h3>
+                        {/* No commission row: net payable is your share (full
+                            price less your own discounts), nothing deducted after. */}
                         <dl className="divide-y divide-white/[0.05]">
                             <MoneyRow label="Net payable" value={money.netPayable} />
                             <MoneyRow label="Refunded to buyers" value={money.refundedTotal} />
@@ -295,7 +295,7 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
                         )}
                         {/* Requirement 9.7 alongside a non-empty payout: the ledger is
                             empty but money is owed, which is worth saying plainly. */}
-                        {noSettlementYet && !noPayoutDue && (
+                        {noSettlementYet && !nothingOwed && (
                             <p className="text-sm text-gray-400 mt-3">
                                 Nothing has been transferred to you for this {kind} yet.
                             </p>

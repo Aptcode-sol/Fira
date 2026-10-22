@@ -111,9 +111,9 @@ describe('SettlementSummary — owner view (Requirement 9)', () => {
         render(<SettlementSummary kind="event" listingId="e1" />);
 
         const message = await screen.findByText(/has no payments yet/i);
-        // One text carries both boundary facts: no payout is yet due, and no
+        // One text carries both boundary facts: nothing is owed, and no
         // settlement has been made yet.
-        expect(message).toHaveTextContent(/no payout is yet due/i);
+        expect(message).toHaveTextContent(/nothing is owed/i);
         expect(message).toHaveTextContent(/no settlement has been made yet/i);
     });
 
@@ -131,7 +131,7 @@ describe('SettlementSummary — owner view (Requirement 9)', () => {
         );
         render(<SettlementSummary kind="event" listingId="e1" />);
 
-        expect(await screen.findByText(/no payout is yet due for this event/i)).toBeInTheDocument();
+        expect(await screen.findByText(/nothing is owed yet for this event/i)).toBeInTheDocument();
         expect(screen.getByText(/no settlement has been made yet/i)).toBeInTheDocument();
     });
 

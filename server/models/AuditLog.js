@@ -18,6 +18,7 @@ const auditLogSchema = new mongoose.Schema({
         // goes silently unrecorded, and a distinct word is what lets the audit surface
         // filter money movement apart from ordinary status edits.
         enum: ['approve', 'reject', 'block', 'unblock', 'feature', 'unfeature', 'delete', 'update',
+            // 'payout' is from the removed raise-payout step; kept for old rows.
             'settle', 'reverse', 'payout'],
         required: true
     },

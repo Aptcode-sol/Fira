@@ -75,9 +75,9 @@ export function ownerNoun(kind) {
 }
 
 /**
- * Requirement 1.7 + design decision 1: Net_Payable comes from a `Payout`
- * record, so a listing with none has nothing to settle yet — said in words
- * rather than left as three zeros the reader has to interpret.
+ * Requirement 1.7: a listing with nothing owed (no paid sales yet) has
+ * nothing to settle yet — said in words rather than left as three zeros the
+ * reader has to interpret.
  *
  * @param {object} money
  */
@@ -96,9 +96,9 @@ export function nothingToSettle(money = {}) {
  *   full price + platform fee + GST − discounts = collected
  * with the discount split by who funded it, shown only when non-zero.
  *
- * The owner side has no commission: any cut is agreed with the owner and typed
- * as the payout amount. The owner's share (full price less their own
- * discounts) is shown as the reference that amount is agreed from.
+ * The owner side has no commission. Net payable is the owner's share (full
+ * price less their own discounts) in whole rupees; each manual transfer is
+ * recorded against it as a settlement.
  *
  * `sign` is the operator the row contributes to its group's sum; `indent`
  * marks a row that splits the row above it rather than adding to the sum.
@@ -133,9 +133,14 @@ export function moneyGroups({ kind, money = {}, state }) {
                 {
                     label: `${kind === 'venue' ? 'Venue owner' : 'Organizer'}'s share`,
                     value: money.ownerShare,
-                    hint: `Full price minus the ${ownerNoun(kind)}'s own discounts, before any agreed cut`,
+                    hint: `Full price minus the ${ownerNoun(kind)}'s own discounts`,
                 },
-                { label: 'Payout raised', value: money.netPayable, emphasis: true },
+                {
+                    label: 'Net payable',
+                    value: money.netPayable,
+                    emphasis: true,
+                    hint: 'The share above in whole rupees',
+                },
                 { label: 'Settled to date', value: money.settledToDate },
                 { label: 'Outstanding', value: pinnedOutstanding(money, state), emphasis: true },
                 ...(isOverSettled(state) ? [{ label: 'Excess settled', value: money.excessAmount }] : []),

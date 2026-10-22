@@ -66,7 +66,7 @@ const MONEY = {
     const buyer = groups[0].rows.map((r) => r.label);
     const owner = groups[1].rows.map((r) => r.label);
     assert.deepEqual(buyer, ['Ticket sales (full price)', 'Platform fee', 'GST on platform fee', 'Discounts', 'By organizer', 'Gross collected']);
-    assert.deepEqual(owner, ["Organizer's share", 'Payout raised', 'Settled to date', 'Outstanding']);
+    assert.deepEqual(owner, ["Organizer's share", 'Net payable', 'Settled to date', 'Outstanding']);
     // No automatic commission row anywhere.
     assert.ok(![...buyer, ...owner].some((l) => /commission/i.test(l)), 'no commission row');
 
@@ -93,7 +93,7 @@ const MONEY = {
     // silently mislabel a figure.
     const byLabel = Object.fromEntries(groups.flatMap((g) => g.rows).map((r) => [r.label, r.value]));
     assert.equal(byLabel['Gross collected'], MONEY.grossCollected);
-    assert.equal(byLabel['Payout raised'], MONEY.netPayable);
+    assert.equal(byLabel['Net payable'], MONEY.netPayable);
     assert.equal(byLabel["Organizer's share"], MONEY.ownerShare);
     assert.equal(byLabel['Discounts'], MONEY.discountTotal);
     assert.equal(byLabel['Outstanding'], MONEY.outstandingAmount);
