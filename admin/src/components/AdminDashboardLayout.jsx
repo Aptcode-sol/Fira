@@ -13,24 +13,21 @@ const navItems = [
     { href: '/users', icon: 'users', label: 'Users' },
     { href: '/audit-trail', icon: 'clipboard', label: 'Audit Trail' },
     { href: '/discount-codes', icon: 'tag', label: 'Discount Codes' },
-    { href: '/payouts', icon: 'currency', label: 'Payouts' },
 ];
 
 /**
  * Role-based nav visibility (Requirements 3.3, 3.4):
  * - super_admin: sees everything
  * - admin: hide admin role assignment (no dedicated nav item yet, so full nav)
- * - moderator: hide Users (block/unblock), Payments/Payouts, role management
+ * - moderator: hide Users (block/unblock), role management
  */
 function getVisibleNavItems(adminRole) {
     if (!adminRole || adminRole === 'super_admin') return navItems;
     if (adminRole === 'moderator') {
-        // Hide Users page (contains block/unblock) and Audit Trail — Payments/Payouts and role
+        // Hide Users page (contains block/unblock) and Audit Trail — role
         // management pages don't exist as nav items yet; they'll be filtered here
         // when added.
-        // Payouts holds financial/bank data — moderators are rejected server-side
-        // (Req 11.2), so hide the nav entry too.
-        const hidden = new Set(['/users', '/audit-trail', '/payouts']);
+        const hidden = new Set(['/users', '/audit-trail']);
         return navItems.filter((item) => !hidden.has(item.href));
     }
     // 'admin' — currently sees everything in nav; admin role assignment is
@@ -169,11 +166,6 @@ export default function AdminDashboardLayout({ children, onLogout }) {
             'tag': (
                 <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-            ),
-            'currency': (
-                <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-9a3 3 0 013-3m-6 6a9 9 0 1018 0 9 9 0 00-18 0z" />
                 </svg>
             ),
         };

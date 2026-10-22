@@ -4,8 +4,8 @@
  *
  * This package ships no renderer (vite + eslint only), so the panel's rendering
  * is checked at the seam a renderer would exercise: the pure label/branch
- * decisions in `settlementView.js` that the panel imports, plus `formatInr`
- * (the module the Payouts page also imports). Everything asserted here is the
+ * decisions in `settlementView.js` that the panel imports, plus `formatInr`.
+ * Everything asserted here is the
  * exact code the panel runs — not a copy of it.
  *
  * Covers Requirements 2.3, 2.5, 3.4, 5.6, 11.3, 12.6.
@@ -24,10 +24,6 @@ import {
     stateBadge,
 } from './settlementView.js';
 import { formatInr } from './formatInr.js';
-// The Payouts page renders every amount through this same module (see the
-// import in admin/src/pages/Payouts.jsx). Importing it here proves the panel's
-// numbers read identically to the Payouts page's by construction (12.6).
-import { formatInr as payoutsFormatInr } from './formatInr.js';
 
 const MONEY = {
     fullPriceTotal: 100000,
@@ -132,7 +128,7 @@ const MONEY = {
     assert.ok(!moneyGroups({ kind: 'event', money: MONEY, state: 'partially_settled' })[1].rows.some((r) => r.label === 'Excess settled'));
 }
 
-/* ---- Requirement 1.7: nothing to settle when no payout is raised ---- */
+/* ---- Requirement 1.7: nothing to settle when nothing is owed ---- */
 {
     assert.equal(nothingToSettle({ netPayable: 0 }), true);
     assert.equal(nothingToSettle({}), true);
@@ -165,13 +161,8 @@ const MONEY = {
     assert.equal(isModeratorHidden(null), false, 'an unauthenticated read is left to the server guard');
 }
 
-/* ---- Requirement 12.6: amounts render identically to the Payouts page ---- */
+/* ---- Requirement 12.6: amounts render in one documented shape ---- */
 {
-    // Same module the Payouts page imports ⇒ same string for the same amount.
-    const amounts = [0, 900, 5000, 40000, 90000, 100000, 1234567, null, undefined, NaN];
-    for (const a of amounts) {
-        assert.equal(formatInr(a), payoutsFormatInr(a), `panel and Payouts must agree on ${a}`);
-    }
     // The documented shape: Indian grouping, ₹ symbol, two fraction digits, and
     // a null/absent/non-finite amount as ₹0.00 (never blank).
     assert.equal(formatInr(1234567), '₹12,34,567.00');

@@ -1,6 +1,5 @@
-// One headline figure card. Moved out of `pages/Payouts.jsx` so the settlement
-// panel's headline figures (Requirement 1.4) render exactly like the earnings
-// figures on the Payouts page instead of a near-copy of them.
+// One headline figure card: the settlement panel's headline figures
+// (Requirement 1.4).
 //
 // `value` is pre-formatted by the caller (via `formatInr`), so this stays a
 // presentation component with no money knowledge.
