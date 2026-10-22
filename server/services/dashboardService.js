@@ -4,6 +4,7 @@ const Ticket = require('../models/Ticket');
 const Booking = require('../models/Booking');
 const BrandProfile = require('../models/BrandProfile');
 const Notification = require('../models/Notification');
+const brandService = require('./brandService');
 
 const dashboardService = {
     /**
@@ -181,6 +182,13 @@ const dashboardService = {
             : [];
         eventStatistics.totalRevenue = ticketRevenue[0]?.total || 0;
 
+        // The brand card's Events count comes from the same live count the public
+        // creator pages use. The denormalised stats.events is never incremented
+        // when an event is created, so it read 0 beside "3 total".
+        const [liveBrand] = brandProfile
+            ? await brandService.withLiveEventCounts([{ ...brandProfile, user: { _id: brandProfile.user } }])
+            : [null];
+
         return {
             // Overview stats
             stats: {
@@ -251,7 +259,7 @@ const dashboardService = {
                 profilePhoto: brandProfile.profilePhoto,
                 coverPhoto: brandProfile.coverPhoto,
                 followers: brandProfile.stats?.followers || 0,
-                events: brandProfile.stats?.events || 0
+                events: liveBrand.stats.events
             } : null
         };
     },

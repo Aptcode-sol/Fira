@@ -41,6 +41,8 @@ const notificationSchema = new mongoose.Schema({
             // ValidationError mid-record, so the owner would never learn money moved.
             'settlement_recorded',
             'settlement_reversed',
+            // Emitted by settlementService.raisePayout when an admin raises a payout.
+            'payout_raised',
             'brand_new_event',
             'brand_new_post',
             'event_new_post',

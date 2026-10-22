@@ -293,34 +293,57 @@ console.log('earningsService.buildPayoutRow check: all assertions passed');
 // already-aggregated sums, exercised here without a DB.
 const { buildEventEarnings } = earningsService;
 
-// representative scope: net = gross − commission − gst; payout status passthrough
+// representative scope: net = the owner's share (full price − own discounts);
+// the buyer-paid fee and GST are never deducted; payout status passthrough
 {
+    // ₹1000 of tickets, ₹50 fee + ₹9 GST on top, a ₹105.90 organizer discount:
+    // buyers paid 953.10, the organizer earns 1000 − 105.90 = 894.10.
     const dto = buildEventEarnings(
-        { grossTicketSales: 1000, platformCommissionDeducted: 50, gst: 9 },
+        {
+            grossTicketSales: 953.1, platformCommissionDeducted: 50, gst: 9,
+            fullPriceSales: 1000, ownerShare: 894.1,
+            discountsByCode: [{ code: 'NITHU09', uses: 1, amount: 105.9 }],
+        },
         'processing',
     );
-    assert.equal(dto.netEarnings, 1000 - 50 - 9);
-    assert.equal(dto.grossTicketSales, 1000);        // verbatim
+    assert.equal(dto.fullPriceSales, 1000);
+    assert.equal(dto.netEarnings, 894.1);
+    assert.equal(dto.discountsGiven, 105.9);
+    assert.equal(dto.fullPriceSales - dto.discountsGiven, dto.netEarnings);
+    assert.deepEqual(dto.discountsByCode, [{ code: 'NITHU09', uses: 1, amount: 105.9 }]);
+    assert.equal(dto.grossTicketSales, 953.1);       // verbatim
     assert.equal(dto.platformCommissionDeducted, 50); // verbatim
     assert.equal(dto.gst, 9);                          // verbatim
     assert.equal(dto.payoutStatus, 'processing');      // referencing Payout's status
 }
 
+// a platform-funded discount costs the organizer nothing: ownerShare stays at
+// full price, so discountsGiven is 0 even though buyers paid less
+{
+    const dto = buildEventEarnings(
+        { grossTicketSales: 953.1, platformCommissionDeducted: 50, gst: 9, fullPriceSales: 1000, ownerShare: 1000 },
+        null,
+    );
+    assert.equal(dto.netEarnings, 1000);
+    assert.equal(dto.discountsGiven, 0);
+    assert.deepEqual(dto.discountsByCode, []);
+}
+
 // each valid payout status passes through unchanged (Requirement 5.3)
 for (const s of ['pending', 'processing', 'completed', 'failed']) {
-    const dto = buildEventEarnings({ grossTicketSales: 100, platformCommissionDeducted: 5, gst: 1 }, s);
+    const dto = buildEventEarnings({ grossTicketSales: 100, platformCommissionDeducted: 5, gst: 1, fullPriceSales: 100, ownerShare: 100 }, s);
     assert.equal(dto.payoutStatus, s);
 }
 
 // no referencing payout (null/undefined) → 'not yet initiated' (Requirement 5.4)
 for (const none of [null, undefined]) {
-    const dto = buildEventEarnings({ grossTicketSales: 0, platformCommissionDeducted: 0, gst: 0 }, none);
+    const dto = buildEventEarnings({ grossTicketSales: 0, platformCommissionDeducted: 0, gst: 0, fullPriceSales: 0, ownerShare: 0 }, none);
     assert.equal(dto.payoutStatus, 'not yet initiated');
 }
 
 // empty event (no paid payments) → all-zero figures, not-yet-initiated (Req 5.2)
 {
-    const dto = buildEventEarnings({ grossTicketSales: 0, platformCommissionDeducted: 0, gst: 0 }, null);
+    const dto = buildEventEarnings({ grossTicketSales: 0, platformCommissionDeducted: 0, gst: 0, fullPriceSales: 0, ownerShare: 0 }, null);
     assert.equal(dto.grossTicketSales, 0);
     assert.equal(dto.netEarnings, 0);
     assert.equal(dto.payoutStatus, 'not yet initiated');
@@ -328,9 +351,10 @@ for (const none of [null, undefined]) {
 
 // fail closed: a non-finite aggregate throws rather than returning a partial DTO
 for (const bad of [NaN, undefined, null, 'x', Infinity]) {
-    assert.throws(() => buildEventEarnings(
-        { grossTicketSales: bad, platformCommissionDeducted: 0, gst: 0 }, null,
-    ), /finite/);
+    for (const f of ['grossTicketSales', 'fullPriceSales', 'ownerShare']) {
+        const sums = { grossTicketSales: 0, platformCommissionDeducted: 0, gst: 0, fullPriceSales: 0, ownerShare: 0, [f]: bad };
+        assert.throws(() => buildEventEarnings(sums, null), /finite/);
+    }
 }
 
 console.log('earningsService.buildEventEarnings check: all assertions passed');
@@ -413,8 +437,9 @@ console.log('earningsService.buildVenueEarnings check: all assertions passed');
 const { buildListingFigures } = earningsService;
 
 const listingMoney = {
-    grossCollected: 10000, platformFeeCollected: 500, gstRetained: 900,
-    ownerGross: 10000, platformCommission: 500, netPayable: 9500, refundedTotal: 250,
+    fullPriceTotal: 10000, grossCollected: 9600, platformFeeCollected: 500, gstRetained: 90,
+    discountTotal: 990, discountByOwner: 990, discountByPlatform: 0, ownerShare: 9010,
+    ownerGross: 9000, platformCommission: 0, netPayable: 9000, refundedTotal: 250,
 };
 const listingActivity = {
     successfulPayments: 4, unitsSold: 7, confirmed: 6, cancelled: 1, refundedPayments: 1,
@@ -466,7 +491,8 @@ const listingActivity = {
 {
     const out = buildListingFigures({
         money: {
-            grossCollected: 0, platformFeeCollected: 0, gstRetained: 0,
+            fullPriceTotal: 0, grossCollected: 0, platformFeeCollected: 0, gstRetained: 0,
+            discountTotal: 0, discountByOwner: 0, discountByPlatform: 0, ownerShare: 0,
             ownerGross: 0, platformCommission: 0, netPayable: 0, refundedTotal: 0,
         },
         activity: { successfulPayments: 0, unitsSold: 0, confirmed: 0, cancelled: 0, refundedPayments: 0, lastPaymentAt: null },
@@ -495,6 +521,14 @@ for (const bad of [NaN, undefined, null, 'x', Infinity]) {
         activity: listingActivity,
         payout: null,
     }), /finite/);
+    // the discount and owner-share figures are a settlement reference too
+    for (const f of ['fullPriceTotal', 'discountTotal', 'ownerShare']) {
+        assert.throws(() => buildListingFigures({
+            money: { ...listingMoney, [f]: bad },
+            activity: listingActivity,
+            payout: null,
+        }), /finite/);
+    }
     // ...and so does a non-finite count
     assert.throws(() => buildListingFigures({
         money: listingMoney,

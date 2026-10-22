@@ -16,9 +16,11 @@ const payoutSchema = new mongoose.Schema({
         required: true,
         refPath: 'referenceModel'
     },
+    // 'Venue' is a payout raised for a whole venue from the admin settlement
+    // panel; 'Booking' is a payout for one booking.
     referenceModel: {
         type: String,
-        enum: ['Booking', 'Event'],
+        enum: ['Booking', 'Event', 'Venue'],
         required: true
     },
     grossAmount: {
@@ -29,9 +31,11 @@ const payoutSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    // No automatic commission: the admin agrees any cut with the owner and types
+    // the final amount. Kept so older payout rows still read the same.
     platformCommissionPercentage: {
         type: Number,
-        default: 5
+        default: 0
     },
     netAmount: {
         type: Number,

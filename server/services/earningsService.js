@@ -40,14 +40,46 @@ const TICKET_CANCELLED = ['cancelled'];
 const BOOKING_CONFIRMED = ['accepted', 'completed'];
 const BOOKING_CANCELLED = ['cancelled', 'rejected'];
 
+// Full-price, discount and owner-share sums over successful payments. Shared by
+// the listing figures and the organizer's earnings so both surfaces show the
+// same numbers. For every successful payment:
+//   fullPrice + platformFee + gst − discount = totalAmount (what the buyer paid)
+//   fullPriceTotal     = Σ listedPrice (subtotal on rows older than listedPrice)
+//   discountTotal      = Σ discountAmount
+//   discountByOwner    = Σ discountAmount on codes the owner created
+//   discountByPlatform = Σ discountAmount on codes the platform created
+//   ownerShare         = Σ computePayeeGross — full price, less the owner's own
+//                        discount, floored at 0 per payment. A platform code
+//                        costs the owner nothing.
+const IS_PAID = { $eq: ['$status', PAID] };
+const LISTED = { $ifNull: ['$listedPrice', '$subtotal'] };
+const DISCOUNT = { $ifNull: ['$discountAmount', 0] };
+const OWNER_DISCOUNT = { $eq: ['$discountBearer', 'owner'] };
+const PAID_DISCOUNT_SUMS = {
+    fullPriceTotal: { $sum: { $cond: [IS_PAID, LISTED, 0] } },
+    discountTotal: { $sum: { $cond: [IS_PAID, DISCOUNT, 0] } },
+    discountByOwner: { $sum: { $cond: [{ $and: [IS_PAID, OWNER_DISCOUNT] }, DISCOUNT, 0] } },
+    discountByPlatform: { $sum: { $cond: [{ $and: [IS_PAID, { $eq: ['$discountBearer', 'platform'] }] }, DISCOUNT, 0] } },
+    ownerShare: {
+        $sum: {
+            $cond: [IS_PAID, { $cond: [OWNER_DISCOUNT, { $max: [0, { $subtract: [LISTED, DISCOUNT] }] }, LISTED] }, 0],
+        },
+    },
+};
+
 const MASK_CHAR = '*';                         // character shown in place of a hidden digit
 
 // Per-listing figure shapes (per-listing-settlement-tracking design). Money is
 // verbatim sums of recorded fields; nothing here is derived from a percentage.
 /** @typedef {{
+ *   fullPriceTotal: number,        // Σ Payment.listedPrice    (success)
  *   grossCollected: number,        // Σ Payment.totalAmount   (success)
  *   platformFeeCollected: number,  // Σ Payment.platformFee    (success)
  *   gstRetained: number,           // Σ Payment.gstAmount      (success)
+ *   discountTotal: number,         // Σ Payment.discountAmount (success)
+ *   discountByOwner: number,       //   … on owner-created codes
+ *   discountByPlatform: number,    //   … on platform-created codes
+ *   ownerShare: number,            // Σ computePayeeGross      (success)
  *   ownerGross: number,            // Σ Payout.grossAmount
  *   platformCommission: number,    // Σ Payout.platformCommission
  *   netPayable: number,            // Σ Payout.netAmount
@@ -536,22 +568,30 @@ const earningsService = {
      * (see the ponytail check).
      *
      * DTO (design EventEarningsDTO / Requirements 5.2, 5.3, 5.4, 5.6, Property 10/11):
-     *   grossTicketSales           = Σ Payment.totalAmount  (verbatim, status='success')
-     *   platformCommissionDeducted = Σ Payment.platformFee   (verbatim)
-     *   gst                        = Σ Payment.gstAmount      (verbatim)
-     *   netEarnings                = gross − commission − gst  (Requirement 5.6)
+     *   fullPriceSales             = Σ Payment.listedPrice   (tickets at full price)
+     *   discountsGiven             = fullPriceSales − netEarnings (the organizer's
+     *                                own codes; a platform code costs them nothing)
+     *   discountsByCode            = [{ code, uses, amount }] for the organizer's codes
+     *   netEarnings                = ownerShare (full price − own discounts)
+     *   grossTicketSales           = Σ Payment.totalAmount  (what buyers paid)
+     *   platformCommissionDeducted = Σ Payment.platformFee   (fee buyers paid on top)
+     *   gst                        = Σ Payment.gstAmount      (GST on that fee)
      *   payoutStatus               = referencing Payout's status, or
      *                                'not yet initiated' when none (Req 5.3, 5.4)
+     * The fee and GST are charged to the buyer on top of the ticket price, so
+     * they are never taken out of netEarnings.
      *
      * Fails closed: any non-finite input sum means a source field is
      * missing/corrupt, so no partial DTO is returned (Requirement 10.4).
      *
-     * @param {{ grossTicketSales: number, platformCommissionDeducted: number, gst: number }} sums
+     * @param {{ grossTicketSales: number, platformCommissionDeducted: number, gst: number,
+     *           fullPriceSales: number, ownerShare: number,
+     *           discountsByCode?: Array<{ code: string, uses: number, amount: number }> }} sums
      * @param {string | null | undefined} payoutStatus  raw referencing Payout status, or null when none
      * @returns {object}
      */
     buildEventEarnings(sums, payoutStatus) {
-        for (const f of ['grossTicketSales', 'platformCommissionDeducted', 'gst']) {
+        for (const f of ['grossTicketSales', 'platformCommissionDeducted', 'gst', 'fullPriceSales', 'ownerShare']) {
             const v = sums[f];
             if (typeof v !== 'number' || !Number.isFinite(v)) {
                 throw new Error(`event earnings aggregate "${f}" is missing or not a finite number; refusing to return partial totals`);
@@ -559,12 +599,21 @@ const earningsService = {
         }
 
         const { grossTicketSales, platformCommissionDeducted, gst } = sums;
+        const fullPriceSales = roundMoney(sums.fullPriceSales);
+        const netEarnings = roundMoney(sums.ownerShare);
 
         return {
+            fullPriceSales,
+            discountsGiven: roundMoney(fullPriceSales - netEarnings),
+            discountsByCode: (sums.discountsByCode || []).map((d) => ({
+                code: d.code,
+                uses: d.uses,
+                amount: roundMoney(d.amount),
+            })),
             grossTicketSales,
             platformCommissionDeducted,
             gst,
-            netEarnings: grossTicketSales - platformCommissionDeducted - gst,
+            netEarnings,
             payoutStatus: payoutStatus == null ? 'not yet initiated' : payoutStatus,
         };
     },
@@ -611,28 +660,41 @@ const earningsService = {
         // Verbatim sums over this event's collected ticket payments. $sum ignores
         // non-numeric values, so a missing field contributes 0. event._id is
         // already an ObjectId (aggregate $match does not auto-cast like find).
-        const [agg] = await Payment.aggregate([
-            { $match: { referenceModel: 'Event', referenceId: event._id, status: PAID } },
-            {
-                $group: {
-                    _id: null,
-                    grossTicketSales: { $sum: '$totalAmount' },
-                    platformCommissionDeducted: { $sum: '$platformFee' },
-                    gst: { $sum: '$gstAmount' },
+        const paid = { referenceModel: 'Event', referenceId: event._id, status: PAID };
+        const [[agg], byCode, payout] = await Promise.all([
+            Payment.aggregate([
+                { $match: paid },
+                {
+                    $group: {
+                        _id: null,
+                        grossTicketSales: { $sum: '$totalAmount' },
+                        platformCommissionDeducted: { $sum: '$platformFee' },
+                        gst: { $sum: '$gstAmount' },
+                        fullPriceSales: PAID_DISCOUNT_SUMS.fullPriceTotal,
+                        ownerShare: PAID_DISCOUNT_SUMS.ownerShare,
+                    },
                 },
-            },
+            ]),
+            // The organizer's own codes only: a platform code is the platform's cost.
+            Payment.aggregate([
+                { $match: { ...paid, discountBearer: 'owner', discountAmount: { $gt: 0 } } },
+                { $group: { _id: '$discountCode', uses: { $sum: 1 }, amount: { $sum: '$discountAmount' } } },
+                { $sort: { amount: -1 } },
+            ]),
+            // Representative payout: the most recent Payout referencing this event.
+            Payout.findOne({ referenceModel: 'Event', referenceId: event._id })
+                .sort({ createdAt: -1 })
+                .select('status')
+                .lean(),
         ]);
-
-        // Representative payout: the most recent Payout referencing this event.
-        const payout = await Payout.findOne({ referenceModel: 'Event', referenceId: event._id })
-            .sort({ createdAt: -1 })
-            .select('status')
-            .lean();
 
         return earningsService.buildEventEarnings({
             grossTicketSales: (agg && agg.grossTicketSales) || 0,
             platformCommissionDeducted: (agg && agg.platformCommissionDeducted) || 0,
             gst: (agg && agg.gst) || 0,
+            fullPriceSales: (agg && agg.fullPriceSales) || 0,
+            ownerShare: (agg && agg.ownerShare) || 0,
+            discountsByCode: byCode.map((d) => ({ code: d._id || 'Unknown code', uses: d.uses, amount: d.amount || 0 })),
         }, payout ? payout.status : null);
     },
 
@@ -819,7 +881,8 @@ const earningsService = {
      * @returns {{ money: ListingMoney, activity: ListingActivity, payout: PayoutSummary|null }}
      */
     buildListingFigures({ money, activity, payout }) {
-        const moneyFields = ['grossCollected', 'platformFeeCollected', 'gstRetained',
+        const moneyFields = ['fullPriceTotal', 'grossCollected', 'platformFeeCollected', 'gstRetained',
+            'discountTotal', 'discountByOwner', 'discountByPlatform', 'ownerShare',
             'ownerGross', 'platformCommission', 'netPayable', 'refundedTotal'];
         for (const f of moneyFields) {
             const v = money && money[f];
@@ -850,9 +913,14 @@ const earningsService = {
 
         return {
             money: {
+                fullPriceTotal: money.fullPriceTotal,
                 grossCollected: money.grossCollected,
                 platformFeeCollected: money.platformFeeCollected,
                 gstRetained: money.gstRetained,
+                discountTotal: money.discountTotal,
+                discountByOwner: money.discountByOwner,
+                discountByPlatform: money.discountByPlatform,
+                ownerShare: money.ownerShare,
                 ownerGross: money.ownerGross,
                 platformCommission: money.platformCommission,
                 netPayable: money.netPayable,
@@ -887,6 +955,8 @@ const earningsService = {
      *   grossCollected       = Σ Payment.totalAmount      where status = 'success'
      *   platformFeeCollected = Σ Payment.platformFee       where status = 'success'
      *   gstRetained          = Σ Payment.gstAmount         where status = 'success'
+     *   fullPriceTotal, discountTotal, discountByOwner, discountByPlatform,
+     *   ownerShare           = PAID_DISCOUNT_SUMS (see its comment)
      *   refundedTotal        = Σ Payment.totalAmount       where status = 'refunded'
      *   ownerGross           = Σ Payout.grossAmount        (every referencing payout)
      *   platformCommission   = Σ Payout.platformCommission
@@ -965,11 +1035,18 @@ const earningsService = {
         }
 
         const zeroMoney = {
-            grossCollected: 0, platformFeeCollected: 0, gstRetained: 0,
+            fullPriceTotal: 0, grossCollected: 0, platformFeeCollected: 0, gstRetained: 0,
+            discountTotal: 0, discountByOwner: 0, discountByPlatform: 0, ownerShare: 0,
             ownerGross: 0, platformCommission: 0, netPayable: 0, refundedTotal: 0,
         };
 
-        // A venue with no bookings has no reference to match; nothing to query.
+        // Payouts raised for the venue as a whole (admin settlement panel) sit
+        // beside per-booking ones; both count towards what the owner is owed.
+        const payoutMatch = kind === 'venue'
+            ? { $or: [{ referenceModel, referenceId: { $in: referenceIds } }, { referenceModel: 'Venue', referenceId: new mongoose.Types.ObjectId(String(listingId)) }] }
+            : { referenceModel, referenceId: { $in: referenceIds } };
+
+        // A venue with no bookings has no payment to match; nothing to query.
         if (!referenceIds.length) {
             return earningsService.buildListingFigures({
                 money: zeroMoney,
@@ -989,6 +1066,7 @@ const earningsService = {
                         grossCollected: { $sum: { $cond: [{ $eq: ['$status', PAID] }, '$totalAmount', 0] } },
                         platformFeeCollected: { $sum: { $cond: [{ $eq: ['$status', PAID] }, '$platformFee', 0] } },
                         gstRetained: { $sum: { $cond: [{ $eq: ['$status', PAID] }, '$gstAmount', 0] } },
+                        ...PAID_DISCOUNT_SUMS,
                         refundedTotal: { $sum: { $cond: [{ $eq: ['$status', REFUNDED] }, '$totalAmount', 0] } },
                         successfulPayments: { $sum: { $cond: [{ $eq: ['$status', PAID] }, 1, 0] } },
                         refundedPayments: { $sum: { $cond: [{ $eq: ['$status', REFUNDED] }, 1, 0] } },
@@ -997,7 +1075,7 @@ const earningsService = {
                 },
             ]),
             Payout.aggregate([
-                { $match: { referenceModel, referenceId: { $in: referenceIds } } },
+                { $match: payoutMatch },
                 {
                     $group: {
                         _id: null,
@@ -1008,7 +1086,7 @@ const earningsService = {
                 },
             ]),
             // Representative payout: the most recent one referencing this listing.
-            Payout.findOne({ referenceModel, referenceId: { $in: referenceIds } })
+            Payout.findOne(payoutMatch)
                 .sort({ createdAt: -1 })
                 .select('status netAmount')
                 .lean(),
@@ -1019,9 +1097,14 @@ const earningsService = {
 
         return earningsService.buildListingFigures({
             money: {
+                fullPriceTotal: p.fullPriceTotal || 0,
                 grossCollected: p.grossCollected || 0,
                 platformFeeCollected: p.platformFeeCollected || 0,
                 gstRetained: p.gstRetained || 0,
+                discountTotal: p.discountTotal || 0,
+                discountByOwner: p.discountByOwner || 0,
+                discountByPlatform: p.discountByPlatform || 0,
+                ownerShare: p.ownerShare || 0,
                 ownerGross: o.ownerGross || 0,
                 platformCommission: o.platformCommission || 0,
                 netPayable: o.netPayable || 0,

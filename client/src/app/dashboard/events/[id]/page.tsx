@@ -6,7 +6,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import DiscountCodesSection from '@/components/dashboard/DiscountCodesSection';
 import { Button, Modal } from '@/components/ui';
-import { eventsApi, ticketsApi, uploadApi, clearRequestCache, type ScanningCode } from '@/lib/api';
+import { eventsApi, ticketsApi, uploadApi, earningsApi, clearRequestCache, type ScanningCode, type EventEarningsDTO } from '@/lib/api';
 import { openEditEvent } from '@/components/modals/CreateEventLauncher';
 import { EVENT_SAVED } from '@/components/modals/CreateEventModal';
 import { Event, User, Venue } from '@/lib/types';
@@ -37,6 +37,7 @@ export default function DashboardEventDetailPage() {
     const { showToast } = useToast();
     const [event, setEvent] = useState<Event | null>(null);
     const [tickets, setTickets] = useState<Ticket[]>([]);
+    const [earnings, setEarnings] = useState<EventEarningsDTO | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [copiedCode, setCopiedCode] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
@@ -72,6 +73,7 @@ export default function DashboardEventDetailPage() {
         if (params.id && isAuthenticated) {
             fetchEvent(params.id as string);
             fetchTickets(params.id as string);
+            fetchEarnings(params.id as string);
             fetchScanningCodes(params.id as string);
         }
         // The event form opens as a modal over this page, so nothing remounts on save.
@@ -99,6 +101,16 @@ export default function DashboardEventDetailPage() {
             setTickets(data as Ticket[]);
         } catch (error) {
             console.error('Failed to fetch tickets:', error);
+        }
+    };
+
+    // Revenue and discounts come from the same figures as the Earnings page, so
+    // the two never disagree.
+    const fetchEarnings = async (eventId: string) => {
+        try {
+            setEarnings(await earningsApi.getEventEarnings(eventId));
+        } catch (error) {
+            console.error('Failed to fetch earnings:', error);
         }
     };
 
@@ -357,11 +369,6 @@ export default function DashboardEventDetailPage() {
     const venue = event.venue as Venue;
     const spotsLeft = event.maxAttendees - event.currentAttendees;
     const ticketsSold = tickets.reduce((sum, t) => sum + t.quantity, 0);
-    // 11.6: revenue = Σ ticket.price. The server stores `price` as the booking's
-    // line total (unit price × quantity - ticketService.purchaseTicket), the same
-    // figure the admin panel sums. Multiplying by quantity again counted every
-    // multi-ticket booking twice: 2 × 2 tickets at ₹499 showed ₹3,992, not ₹1,996.
-    const totalRevenue = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
     const eventLink = typeof window !== 'undefined' ? `${window.location.origin}/events/${event._id}` : '';
 
     return (
@@ -486,9 +493,15 @@ export default function DashboardEventDetailPage() {
                                 <div className="text-2xl font-bold text-white">{spotsLeft}</div>
                                 <div className="text-gray-300 text-sm">Spots Left</div>
                             </div>
+                            {/* The organizer's revenue: full ticket price less the
+                                discounts on their own codes. Σ ticket.price was the
+                                full price, so it ignored discounts entirely. */}
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
-                                <div className="text-2xl font-bold text-green-400">{formatINR(totalRevenue)}</div>
-                                <div className="text-gray-300 text-sm">Total Revenue</div>
+                                <div className="text-2xl font-bold text-green-400">{earnings ? formatINR(earnings.netEarnings) : '—'}</div>
+                                <div className="text-gray-300 text-sm">Your Revenue</div>
+                                {earnings && earnings.discountsGiven > 0 && (
+                                    <div className="text-xs text-orange-300 mt-1">after − {formatINR(earnings.discountsGiven)} discounts</div>
+                                )}
                             </div>
                             <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4">
                                 <div className="text-2xl font-bold text-white">{event.maxAttendees}</div>

@@ -94,4 +94,16 @@ describe('getBrands — live events count', () => {
         const result = await brandService.getBrandById(String(brand._id));
         expect(result.stats.events).toBe(1);
     });
+
+    it('the dashboard brand card shows the live count, not the stale stored 0', async () => {
+        const dashboardService = require('../services/dashboardService');
+        const owner = await makeUser('Dashboard Owner');
+        await makeBrand(owner, { name: 'Dashboard Brand' });
+        await makeEvent(owner);
+        await makeEvent(owner, { status: 'approved' });
+        await makeEvent(owner, { status: 'rejected' });
+
+        const overview = await dashboardService.getOverviewStats(String(owner));
+        expect(overview.brandProfile.events).toBe(2);
+    });
 });

@@ -108,17 +108,15 @@ export default function PaymentsPage() {
 
     const sum = (pick: (r: EventEarningsRow) => number) => rows.reduce((total, r) => total + (pick(r) || 0), 0);
     const totals = {
-        gross: sum((r) => r.grossTicketSales),
-        commission: sum((r) => r.platformCommissionDeducted),
-        gst: sum((r) => r.gst),
+        fullPrice: sum((r) => r.fullPriceSales),
+        discounts: sum((r) => r.discountsGiven),
         net: sum((r) => r.netEarnings),
     };
 
     const summary = [
-        { label: 'Gross ticket sales', value: inr(totals.gross), tone: 'text-white' },
-        { label: 'Platform commission', value: `- ${inr(totals.commission)}`, tone: 'text-gray-300' },
-        { label: 'GST', value: `- ${inr(totals.gst)}`, tone: 'text-gray-300' },
-        { label: 'Net earnings', value: inr(totals.net), tone: 'text-emerald-400', highlight: true },
+        { label: 'Ticket sales (full price)', value: inr(totals.fullPrice), tone: 'text-white' },
+        { label: 'Discounts you gave', value: totals.discounts > 0 ? `− ${inr(totals.discounts)}` : inr(0), tone: 'text-orange-300' },
+        { label: 'Your earnings', value: inr(totals.net), tone: 'text-emerald-400', highlight: true },
     ];
 
     const columns: Column<EventEarningsRow>[] = [
@@ -140,26 +138,24 @@ export default function PaymentsPage() {
             ),
         },
         {
-            key: 'gross',
-            header: 'Gross sales',
+            key: 'fullPrice',
+            header: 'Full price',
             align: 'right',
-            cell: (r) => <span className="text-white">{inr(r.grossTicketSales)}</span>,
+            cell: (r) => <span className="text-white">{inr(r.fullPriceSales)}</span>,
         },
         {
-            key: 'commission',
-            header: 'Commission',
+            key: 'discounts',
+            header: 'Discounts',
             align: 'right',
-            cell: (r) => <span className="text-gray-300">{inr(r.platformCommissionDeducted)}</span>,
-        },
-        {
-            key: 'gst',
-            header: 'GST',
-            align: 'right',
-            cell: (r) => <span className="text-gray-300">{inr(r.gst)}</span>,
+            cell: (r) => (
+                <span className={r.discountsGiven > 0 ? 'text-orange-300' : 'text-gray-400'}>
+                    {r.discountsGiven > 0 ? `− ${inr(r.discountsGiven)}` : inr(0)}
+                </span>
+            ),
         },
         {
             key: 'net',
-            header: 'Net earnings',
+            header: 'Your earnings',
             align: 'right',
             cell: (r) => <span className="font-semibold text-emerald-400">{inr(r.netEarnings)}</span>,
         },
@@ -177,18 +173,20 @@ export default function PaymentsPage() {
 
     return (
         <DashboardLayout>
-            <div className="p-6 lg:p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
                 <SlideUp>
                     <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-white mb-2">Event Earnings</h1>
-                        <p className="text-gray-300">What each event you organise has earned, after commission and GST</p>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Event Earnings</h1>
+                        <p className="text-gray-300">What each event you organise has earned: full ticket price, less the discounts you gave</p>
                     </div>
                 </SlideUp>
 
                 {/* Totals across every event, in the same order the per-event row
-                    reads: gross, minus commission, minus GST, equals net. */}
+                    reads: full price, minus your discounts, equals your earnings.
+                    The platform fee and GST are paid by buyers on top, so they
+                    are not deductions here. */}
                 <FadeIn delay={0.1}>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
                         {summary.map((card) => (
                             <div
                                 key={card.label}
@@ -198,7 +196,7 @@ export default function PaymentsPage() {
                                     }`}
                             >
                                 <div className="text-xs sm:text-sm text-gray-300 mb-1">{card.label}</div>
-                                <div className={`text-xl sm:text-2xl font-bold ${card.tone}`}>
+                                <div className={`text-xl sm:text-2xl font-bold tabular-nums break-words ${card.tone}`}>
                                     {loading ? <span className="inline-block w-20 h-7 bg-white/10 rounded animate-pulse" /> : card.value}
                                 </div>
                             </div>

@@ -57,6 +57,24 @@ export function grossLabel(kind) {
 }
 
 /**
+ * The full-price line that the buyer-side breakdown starts from.
+ *
+ * @param {'event' | 'venue'} kind
+ */
+export function fullPriceLabel(kind) {
+    return kind === 'venue' ? 'Booking amount (full price)' : 'Ticket sales (full price)';
+}
+
+/**
+ * Who a listing's owner is, in words, for the owner-side rows.
+ *
+ * @param {'event' | 'venue'} kind
+ */
+export function ownerNoun(kind) {
+    return kind === 'venue' ? 'venue owner' : 'organizer';
+}
+
+/**
  * Requirement 1.7 + design decision 1: Net_Payable comes from a `Payout`
  * record, so a listing with none has nothing to settle yet — said in words
  * rather than left as three zeros the reader has to interpret.
@@ -74,25 +92,50 @@ export function nothingToSettle(money = {}) {
  * is checkable without a renderer. Refunded_Total is deliberately in neither
  * group (Requirement 2.1/2.2) — it is rendered on its own.
  *
+ * The buyer-side group reads as a sum, top to bottom:
+ *   full price + platform fee + GST − discounts = collected
+ * with the discount split by who funded it, shown only when non-zero.
+ *
+ * The owner side has no commission: any cut is agreed with the owner and typed
+ * as the payout amount. The owner's share (full price less their own
+ * discounts) is shown as the reference that amount is agreed from.
+ *
+ * `sign` is the operator the row contributes to its group's sum; `indent`
+ * marks a row that splits the row above it rather than adding to the sum.
+ *
  * @param {{ kind: 'event' | 'venue', money: object, state: string }} args
- * @returns {Array<{ title: string, rows: Array<{ label: string, value: number, emphasis?: boolean }> }>}
+ * @returns {Array<{ title: string, rows: Array<{ label: string, value: number, emphasis?: boolean,
+ *                    sign?: '+' | '−' | '=', indent?: boolean, hint?: string }> }>}
  */
 export function moneyGroups({ kind, money = {}, state }) {
+    const discountSplit = [
+        { label: `By ${ownerNoun(kind)}`, value: money.discountByOwner },
+        { label: 'By platform', value: money.discountByPlatform },
+    ]
+        .filter((row) => (row.value ?? 0) > 0)
+        .map((row) => ({ ...row, indent: true }));
+
     return [
         {
             title: 'Collected from buyers',
             rows: [
-                { label: grossLabel(kind), value: money.grossCollected, emphasis: true },
-                { label: 'Platform fee collected', value: money.platformFeeCollected },
-                { label: 'GST retained', value: money.gstRetained },
+                { label: fullPriceLabel(kind), value: money.fullPriceTotal },
+                { label: 'Platform fee', value: money.platformFeeCollected, sign: '+' },
+                { label: 'GST on platform fee', value: money.gstRetained, sign: '+' },
+                { label: 'Discounts', value: money.discountTotal, sign: '−' },
+                ...discountSplit,
+                { label: grossLabel(kind), value: money.grossCollected, sign: '=', emphasis: true },
             ],
         },
         {
             title: 'Owed to owner',
             rows: [
-                { label: 'Owner gross', value: money.ownerGross },
-                { label: 'Platform commission', value: money.platformCommission },
-                { label: 'Net payable', value: money.netPayable, emphasis: true },
+                {
+                    label: `${kind === 'venue' ? 'Venue owner' : 'Organizer'}'s share`,
+                    value: money.ownerShare,
+                    hint: `Full price minus the ${ownerNoun(kind)}'s own discounts, before any agreed cut`,
+                },
+                { label: 'Payout raised', value: money.netPayable, emphasis: true },
                 { label: 'Settled to date', value: money.settledToDate },
                 { label: 'Outstanding', value: pinnedOutstanding(money, state), emphasis: true },
                 ...(isOverSettled(state) ? [{ label: 'Excess settled', value: money.excessAmount }] : []),

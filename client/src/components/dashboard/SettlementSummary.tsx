@@ -137,7 +137,7 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
 
     return (
         <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl overflow-hidden">
-            <div className="p-6 border-b border-white/[0.05] flex justify-between items-center gap-4">
+            <div className="p-4 sm:p-6 border-b border-white/[0.05] flex justify-between items-center gap-4">
                 <div>
                     <h2 className="text-lg font-semibold text-white">Settlement</h2>
                     <p className="text-sm text-gray-400">What you earned, what has been paid to you, and what is still owed</p>
@@ -193,7 +193,7 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
             )}
 
             {view.status === 'ready' && data && money && (
-                <div className="p-6 space-y-8">
+                <div className="p-4 sm:p-6 space-y-8">
                     {/* Requirement 9.4: the three headline figures, labeled, in INR. */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <Figure label="Net payable" value={money.netPayable} accent="border-violet-500/30 bg-violet-500/5" />
@@ -209,11 +209,11 @@ export default function SettlementSummary({ kind, listingId }: { kind: 'event' |
                         </p>
                     )}
 
-                    <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-5">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Your earnings</h3>
+                    <div className="bg-white/[0.02] border border-white/[0.08] rounded-xl p-4 sm:p-5">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Payout</h3>
+                        {/* No commission row: the payout is the amount agreed with
+                            you and raised by the platform, nothing deducted after. */}
                         <dl className="divide-y divide-white/[0.05]">
-                            <MoneyRow label="Owner gross" value={money.ownerGross} />
-                            <MoneyRow label="Platform commission" value={money.platformCommission} />
                             <MoneyRow label="Net payable" value={money.netPayable} />
                             <MoneyRow label="Refunded to buyers" value={money.refundedTotal} />
                         </dl>

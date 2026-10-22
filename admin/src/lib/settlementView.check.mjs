@@ -30,11 +30,16 @@ import { formatInr } from './formatInr.js';
 import { formatInr as payoutsFormatInr } from './formatInr.js';
 
 const MONEY = {
-    grossCollected: 100000,
+    fullPriceTotal: 100000,
+    grossCollected: 95900,
     platformFeeCollected: 5000,
     gstRetained: 900,
-    ownerGross: 95000,
-    platformCommission: 5000,
+    discountTotal: 10000,
+    discountByOwner: 10000,
+    discountByPlatform: 0,
+    ownerShare: 90000,
+    ownerGross: 90000,
+    platformCommission: 0,
     netPayable: 90000,
     settledToDate: 40000,
     outstandingAmount: 50000,
@@ -45,9 +50,11 @@ const MONEY = {
 {
     assert.equal(grossLabel('venue'), 'Advance collected', 'a venue collects a booking advance');
     assert.equal(grossLabel('event'), 'Gross collected', 'an event collects ticket gross');
-    // The two groups carry the kind-specific label on the first buyer-side row.
-    assert.equal(moneyGroups({ kind: 'venue', money: MONEY, state: 'partially_settled' })[0].rows[0].label, 'Advance collected');
-    assert.equal(moneyGroups({ kind: 'event', money: MONEY, state: 'partially_settled' })[0].rows[0].label, 'Gross collected');
+    // The buyer-side group ends on the kind-specific collected total.
+    const last = (kind) => moneyGroups({ kind, money: MONEY, state: 'partially_settled' })[0].rows.at(-1);
+    assert.equal(last('venue').label, 'Advance collected');
+    assert.equal(last('event').label, 'Gross collected');
+    assert.equal(last('event').sign, '=', 'the collected figure is the total of the rows above it');
 }
 
 /* ---- Requirement 2.3: two labeled groups, each figure in exactly one ---- */
@@ -58,8 +65,23 @@ const MONEY = {
 
     const buyer = groups[0].rows.map((r) => r.label);
     const owner = groups[1].rows.map((r) => r.label);
-    assert.deepEqual(buyer, ['Gross collected', 'Platform fee collected', 'GST retained']);
-    assert.deepEqual(owner, ['Owner gross', 'Platform commission', 'Net payable', 'Settled to date', 'Outstanding']);
+    assert.deepEqual(buyer, ['Ticket sales (full price)', 'Platform fee', 'GST on platform fee', 'Discounts', 'By organizer', 'Gross collected']);
+    assert.deepEqual(owner, ["Organizer's share", 'Payout raised', 'Settled to date', 'Outstanding']);
+    // No automatic commission row anywhere.
+    assert.ok(![...buyer, ...owner].some((l) => /commission/i.test(l)), 'no commission row');
+
+    // The buyer-side rows add up: full price + fee + GST − discounts = collected.
+    const total = groups[0].rows
+        .filter((r) => !r.indent && r.sign !== '=')
+        .reduce((t, r) => t + (r.sign === '−' ? -r.value : r.value), 0);
+    assert.equal(total, MONEY.grossCollected, 'the breakdown sums to the collected figure');
+
+    // The discount split shows only funders with a non-zero amount.
+    const split = moneyGroups({ kind: 'event', money: { ...MONEY, discountByOwner: 6000, discountByPlatform: 4000 }, state: 'not_settled' })[0].rows
+        .filter((r) => r.indent).map((r) => r.label);
+    assert.deepEqual(split, ['By organizer', 'By platform']);
+    assert.ok(!moneyGroups({ kind: 'event', money: { ...MONEY, discountTotal: 0, discountByOwner: 0 }, state: 'not_settled' })[0].rows.some((r) => r.indent));
+    assert.equal(moneyGroups({ kind: 'venue', money: MONEY, state: 'not_settled' })[1].rows[0].label, "Venue owner's share");
 
     // Membership is disjoint — no figure appears in both groups.
     for (const label of buyer) assert.ok(!owner.includes(label), `${label} must sit in one group only`);
@@ -71,7 +93,9 @@ const MONEY = {
     // silently mislabel a figure.
     const byLabel = Object.fromEntries(groups.flatMap((g) => g.rows).map((r) => [r.label, r.value]));
     assert.equal(byLabel['Gross collected'], MONEY.grossCollected);
-    assert.equal(byLabel['Net payable'], MONEY.netPayable);
+    assert.equal(byLabel['Payout raised'], MONEY.netPayable);
+    assert.equal(byLabel["Organizer's share"], MONEY.ownerShare);
+    assert.equal(byLabel['Discounts'], MONEY.discountTotal);
     assert.equal(byLabel['Outstanding'], MONEY.outstandingAmount);
 }
 

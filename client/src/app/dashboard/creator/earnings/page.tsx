@@ -33,6 +33,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 function hasNoRecords(d: EventEarningsDTO): boolean {
     return (
         d.grossTicketSales === 0 &&
+        d.fullPriceSales === 0 &&
         d.platformCommissionDeducted === 0 &&
         d.gst === 0 &&
         d.netEarnings === 0 &&
@@ -104,11 +105,11 @@ function EarningsContent() {
 
     return (
         <DashboardLayout>
-            <div className="p-6 lg:p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
                 <SlideUp>
                     <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-white mb-1">Event Earnings</h1>
-                        <p className="text-gray-300">Gross sales, platform commission, GST, and net earnings for your event</p>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Event Earnings</h1>
+                        <p className="text-gray-300">Ticket sales, the discounts you gave, and what you earn from your event</p>
                     </div>
                 </SlideUp>
 
@@ -160,18 +161,42 @@ function EarningsContent() {
                     </div>
                 )}
 
-                {/* Ready: per-event breakdown card */}
+                {/* Ready: per-event breakdown card. Reads top to bottom as a
+                    sum: full price − your discounts = your earnings. */}
                 {state === 'ready' && earnings && (
                     <FadeIn>
-                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-6 max-w-2xl">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Figure label="Gross ticket sales" value={earnings.grossTicketSales} />
-                                <Figure label="Platform commission" value={earnings.platformCommissionDeducted} />
-                                <Figure label="GST" value={earnings.gst} />
-                                <Figure label="Net earnings" value={earnings.netEarnings} emphasize />
+                        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-4 sm:p-6 max-w-2xl">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                <Figure label="Ticket sales (full price)" value={earnings.fullPriceSales} />
+                                <Figure label="Discounts you gave" value={earnings.discountsGiven} negative />
+                                <Figure label="Your earnings" value={earnings.netEarnings} emphasize />
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-white/[0.06] flex items-center justify-between">
+                            {earnings.discountsByCode.length > 0 && (
+                                <div className="mt-6">
+                                    <h2 className="text-sm font-semibold text-white mb-2">Discounts by code</h2>
+                                    <ul className="divide-y divide-white/[0.06] rounded-xl border border-white/[0.06]">
+                                        {earnings.discountsByCode.map((d) => (
+                                            <li key={d.code} className="flex items-center justify-between gap-4 px-4 py-3">
+                                                <div className="min-w-0">
+                                                    <p className="font-mono text-sm text-white truncate">{d.code}</p>
+                                                    <p className="text-xs text-gray-400">
+                                                        Used on {d.uses} order{d.uses === 1 ? '' : 's'}
+                                                    </p>
+                                                </div>
+                                                <span className="shrink-0 text-sm font-medium text-orange-300 tabular-nums">
+                                                    − {formatInr(d.amount)}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* The platform fee and GST are charged to buyers on top
+                                of the ticket price and never touch the organizer's
+                                earnings, so they are not shown here. */}
+                            <div className="mt-6 pt-6 border-t border-white/[0.06] flex items-center justify-between gap-4">
                                 <span className="text-sm text-gray-300">Payout status</span>
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${PAYOUT_STATUS_STYLES[earnings.payoutStatus]}`}>
                                     {earnings.payoutStatus}
@@ -194,12 +219,14 @@ function EarningsContent() {
     );
 }
 
-function Figure({ label, value, emphasize }: { label: string; value: number | null | undefined; emphasize?: boolean }) {
+function Figure({ label, value, emphasize, negative }: { label: string; value: number | null | undefined; emphasize?: boolean; negative?: boolean }) {
     return (
-        <div className={`rounded-xl border p-4 ${emphasize ? 'border-violet-500/30 bg-violet-500/5' : 'border-white/[0.06]'}`}>
+        <div className={`rounded-xl border p-4 min-w-0 ${emphasize ? 'border-violet-500/30 bg-violet-500/5' : 'border-white/[0.06]'}`}>
             <p className="text-sm text-gray-300 mb-1">{label}</p>
             {/* Absent/null → ₹0 (Requirement 9.5) is handled inside formatInr. */}
-            <p className={`text-2xl font-bold ${emphasize ? 'text-violet-300' : 'text-white'}`}>{formatInr(value)}</p>
+            <p className={`text-xl sm:text-2xl font-bold tabular-nums break-words ${emphasize ? 'text-violet-300' : negative ? 'text-orange-300' : 'text-white'}`}>
+                {negative && (value ?? 0) > 0 ? '− ' : ''}{formatInr(value)}
+            </p>
         </div>
     );
 }

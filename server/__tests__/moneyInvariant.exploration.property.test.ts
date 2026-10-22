@@ -214,10 +214,11 @@ describe('Case C — paid tier: payment required before entitlement', () => {
 });
 
 // --------------------------------------------------------------------------
-// Case D — Flow 3: payout commission derived from config (8%), not hardcoded 5
+// Case D — a payout is exactly the typed amount: no commission is deducted
+// automatically (any cut is agreed with the owner and already in the amount)
 // --------------------------------------------------------------------------
-describe('Case D — payout commission from config', () => {
-  it('uses the event-configured 8% commission', async () => {
+describe('Case D — payout is the typed amount, no commission', () => {
+  it('records the typed amount as both gross and net with zero commission', async () => {
     const owner = await makeUser({
       role: 'venue_owner',
       bankDetails: {
@@ -233,12 +234,25 @@ describe('Case D — payout commission from config', () => {
       type: 'event_tickets',
       referenceId: new mongoose.Types.ObjectId(),
       referenceModel: 'Event',
-      grossAmount: 10000,
-      platformFeePercentage: 8,
-      bankDetails: owner.bankDetails,
+      amount: 10000,
     });
 
-    expect(payout.platformCommissionPercentage).toBe(8);
+    expect(payout.grossAmount).toBe(10000);
+    expect(payout.netAmount).toBe(10000);
+    expect(payout.platformCommission).toBe(0);
+    expect(payout.platformCommissionPercentage).toBe(0);
+  });
+
+  it('refuses a missing or non-positive amount', async () => {
+    for (const amount of [undefined, 0, -100, NaN]) {
+      await expect(paymentService.processPayout({
+        recipientId: new mongoose.Types.ObjectId(),
+        type: 'event_tickets',
+        referenceId: new mongoose.Types.ObjectId(),
+        referenceModel: 'Event',
+        amount,
+      })).rejects.toThrow(/positive/);
+    }
   });
 });
 

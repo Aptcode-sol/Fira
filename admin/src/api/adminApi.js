@@ -303,6 +303,15 @@ const adminApi = {
         return handle(res, 'Failed to record settlement');
     },
 
+    async raisePayout(kind, listingId, body) {
+        const res = await fetch(`${API_BASE}/listings/${kind}/${listingId}/payouts`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(body)
+        });
+        return handle(res, 'Failed to raise payout');
+    },
+
     async reverseSettlement(kind, listingId, entryId, reason) {
         const res = await fetch(`${API_BASE}/listings/${kind}/${listingId}/settlement/entries/${entryId}/reversal`, {
             method: 'POST',

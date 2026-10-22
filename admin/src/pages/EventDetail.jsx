@@ -196,9 +196,12 @@ export default function EventDetail() {
                                     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
                                 </svg>
                             </div>
-                            <span className="text-gray-300 font-medium">Total Revenue</span>
+                            <span className="text-gray-300 font-medium">Ticket Sales</span>
                         </div>
                         <div className="text-2xl font-bold text-white pl-1">{formatCurrency(stats.totalRevenue)}</div>
+                        {/* Σ ticket prices, so before discounts, fee and GST - the
+                            Settlement panel below breaks down what buyers paid. */}
+                        <p className="text-xs text-gray-400 mt-2 pl-1">Full price, before discounts. Breakdown in Settlement below.</p>
                     </div>
 
                     <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">

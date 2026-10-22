@@ -121,28 +121,16 @@ router.get('/payouts/all', requireAuth('admin'), /** @param {AuthenticatedReques
     }
 });
 
-// POST /api/payments/payouts - Process payout (admin)
+// POST /api/payments/payouts - Raise a payout (admin)
 //
-// Commission must come from the settled entity's configured platformFeePercentage,
-// not from a caller-supplied number alone. Resolve it from the referenced
-// Event/Venue when the request references one; fall back to any body-supplied
-// value, then the service's own default (5).
+// The payout is exactly the typed amount; no commission is taken from it.
 router.post('/payouts', requireAuth('admin'), /** @param {AuthenticatedRequest} req @param {Response} res */ async (req, res) => {
     try {
-        const { referenceModel, referenceId } = req.body;
-        let platformFeePercentage = req.body.platformFeePercentage;
-
-        if (referenceId && (referenceModel === 'Event' || referenceModel === 'Venue')) {
-            const Model = referenceModel === 'Event'
-                ? require('../models/Event')
-                : require('../models/Venue');
-            const entity = await Model.findById(referenceId).select('platformFeePercentage');
-            if (entity && entity.platformFeePercentage != null) {
-                platformFeePercentage = entity.platformFeePercentage;
-            }
-        }
-
-        const result = await paymentService.processPayout({ ...req.body, platformFeePercentage });
+        const { recipientId, type, referenceId, referenceModel, amount, grossAmount, notes } = req.body;
+        const result = await paymentService.processPayout({
+            recipientId, type, referenceId, referenceModel, amount, grossAmount, notes,
+            initiatedBy: req.user._id,
+        });
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

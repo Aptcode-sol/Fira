@@ -20,6 +20,7 @@ const Venue = require('../models/Venue');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const earningsService = require('./earningsService');
+const paymentService = require('./paymentService');
 const notificationService = require('./notificationService');
 const { roundMoney } = require('../utils/money');
 const { formatInr } = require('../utils/formatInr');
@@ -615,6 +616,88 @@ const settlementService = {
     },
 
     /**
+     * Raise a payout for a listing at the amount the admin typed.
+     *
+     * There is no automatic commission: the admin agrees any cut with the owner
+     * and enters the final amount. The owner's share before any such cut
+     * (figures.money.ownerShare) is shown beside the form as a reference only.
+     * The payout is what Net payable — and so the over-settlement guard —
+     * is measured against.
+     *
+     * Bank details are resolved by paymentService.processPayout, which refuses
+     * an owner without valid ones (400). The audit write comes after the payout
+     * row: a payout is a pending record, not money moved, so a failed audit is
+     * logged rather than allowed to orphan a half-raised payout.
+     *
+     * @param {{ kind: 'event'|'venue', listingId: string,
+     *           input: { amount?: any, notes?: any },
+     *           admin: { _id?: any, id?: any, name?: string } }} params
+     * @returns {Promise<{ payout: { payoutId: string, status: string, netAmount: number }, notified: boolean, recipientMissing?: true }>}
+     */
+    async raisePayout({ kind, listingId, input, admin } = /** @type {any} */ ({})) {
+        const { spec, doc, listing } = await resolveListing(kind, listingId, () => fail(404, 'Listing not found'));
+
+        const adminId = admin && (admin._id != null ? admin._id : admin.id);
+        if (adminId == null) throw fail(401, 'Payout not raised: no acting administrator');
+
+        const amount = input && input.amount;
+        if (typeof amount !== 'number' || !Number.isInteger(amount) || amount <= 0) {
+            const err = /** @type {any} */ (fail(400, 'Enter the payout amount in whole rupees, greater than 0'));
+            err.field = 'amount';
+            throw err;
+        }
+        const notes = input && isFilled(input.notes) ? String(input.notes).trim() : null;
+
+        const recipient = await resolveRecipient(doc[spec.ownerField]);
+        if (recipient == null) throw fail(400, `This ${kind} has no owner to pay`);
+
+        let payout;
+        try {
+            payout = await paymentService.processPayout({
+                recipientId: recipient,
+                type: kind === 'event' ? 'event_tickets' : 'venue_booking',
+                referenceId: listingId,
+                referenceModel: spec.modelName,
+                amount,
+                initiatedBy: adminId,
+                notes,
+            });
+        } catch (cause) {
+            const err = fail(400, cause instanceof Error ? cause.message : 'Payout not raised');
+            /** @type {any} */ (err).cause = cause;
+            throw err;
+        }
+
+        try {
+            await writeSettlementAudit({
+                adminUser: adminId,
+                action: 'payout',
+                kind,
+                listingId,
+                metadata: { listingKind: kind, listingName: listing.name, payoutId: String(payout._id), amount, notes },
+            });
+        } catch (cause) {
+            console.error('Payout audit write failed:', cause instanceof Error ? cause.message : cause);
+        }
+
+        const delivery = await notifyRecipient(recipient, {
+            type: 'payout_raised',
+            title: `Payout raised for ${listing.name}`,
+            message: `A payout of ${formatInr(amount)} has been raised for ${listing.name}. You'll be notified when it is transferred.`,
+            data: {
+                referenceId: listingId,
+                referenceModel: spec.modelName,
+                actionUrl: spec.ownerUrl(listing.id),
+            },
+        });
+
+        return {
+            payout: { payoutId: String(payout._id), status: payout.status, netAmount: payout.netAmount },
+            ...delivery,
+        };
+    },
+
+    /**
      * Reverse one recorded settlement entry (Requirements 7, 8.2, 8.4, 10.2, 10.3).
      *
      * A correction is a second row, never a mutation: the target is left exactly
@@ -959,7 +1042,7 @@ async function resolveRecipient(ownerId) {
  * already been committed and wrong here, where the change has not happened yet
  * and must not.
  *
- * @param {{ adminUser: any, action: 'settle'|'reverse', kind: string, listingId: any, metadata: object }} params
+ * @param {{ adminUser: any, action: 'settle'|'reverse'|'payout', kind: string, listingId: any, metadata: object }} params
  * @returns {Promise<void>}
  */
 async function writeSettlementAudit({ adminUser, action, kind, listingId, metadata }) {

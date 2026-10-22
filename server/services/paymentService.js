@@ -292,25 +292,20 @@ const paymentService = {
         };
     },
 
-    // Process payout (manual, not yet disbursed)
+    // Raise a payout (manual, not yet disbursed).
     //
-    // Owner-gross contract (Flow 4): the CALLER derives `grossAmount` from the
-    // settled Payment(s) and passes it in — processPayout does not read Payments.
-    // The owner's gross is based on the FULL LISTED PRICE the owner set
-    // (Payment.listedPrice), NOT the discounted amount the buyer was charged:
-    //   discountBearer === 'platform' → gross = listedPrice
-    //       (the platform absorbs the discount; owner keeps the full listed price)
-    //   discountBearer === 'owner'    → gross = listedPrice - discountAmount
-    //       (the owner absorbs the discount; their settlement is reduced)
-    //   no discount (discountBearer null) → gross = listedPrice
-    // Platform-side records always reflect the full listed price. When the
-    // settlement caller is wired (task 11), it computes grossAmount per this
-    // contract and passes it here; commission below then applies to that gross.
-    async processPayout({ recipientId, type, referenceId, referenceModel, grossAmount, platformFeePercentage }) {
-        // Commission from config; fall back to 5 only if genuinely absent.
-        const commissionPercentage = platformFeePercentage ?? 5;
-        const platformCommission = roundMoney(grossAmount * (commissionPercentage / 100));
-        const netAmount = roundMoney(grossAmount - platformCommission);
+    // The amount is exactly what the admin typed. There is no automatic
+    // commission: any cut is agreed with the owner directly and is already
+    // reflected in the typed amount. The owner's share before any such cut is
+    // shown to the admin as a reference (earningsService.getListingFigures
+    // ownerShare: full price minus the owner's own discounts).
+    // `grossAmount` is accepted as the older name for `amount`.
+    async processPayout({ recipientId, type, referenceId, referenceModel, amount, grossAmount, initiatedBy = null, notes = null }) {
+        const typed = Number(amount ?? grossAmount);
+        if (!Number.isFinite(typed) || typed <= 0) {
+            throw new Error('Payout amount must be a positive number');
+        }
+        const netAmount = roundMoney(typed);
 
         // Bank details are authoritative from the owner, not the caller. Fail
         // closed if the owner has no valid stored details — a payout must be
@@ -333,10 +328,12 @@ const paymentService = {
             type,
             referenceId,
             referenceModel,
-            grossAmount,
-            platformCommission,
-            platformCommissionPercentage: commissionPercentage,
+            grossAmount: netAmount,
+            platformCommission: 0,
+            platformCommissionPercentage: 0,
             netAmount,
+            initiatedBy,
+            notes,
             // Snapshot, not a reference: a payout records where the money actually
             // went, so deleting the account later must not rewrite history.
             bankDetails: {

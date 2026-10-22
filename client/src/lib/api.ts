@@ -1235,11 +1235,26 @@ export type EarningsPayoutStatus =
     | 'failed'
     | 'not yet initiated';
 
+export interface EventDiscountUsage {
+    code: string;
+    uses: number;
+    amount: number;
+}
+
 export interface EventEarningsDTO {
-    grossTicketSales: number;
-    platformCommissionDeducted: number;
-    gst: number;
+    /** Tickets sold at full price. */
+    fullPriceSales: number;
+    /** Discounts on the organizer's own codes (platform codes cost them nothing). */
+    discountsGiven: number;
+    discountsByCode: EventDiscountUsage[];
+    /** Full price minus the organizer's own discounts. */
     netEarnings: number;
+    /** What buyers paid in total, including the fee and GST below. */
+    grossTicketSales: number;
+    /** Platform fee charged to buyers on top of the ticket price - not taken from earnings. */
+    platformCommissionDeducted: number;
+    /** GST on that fee, also charged to buyers. */
+    gst: number;
     payoutStatus: EarningsPayoutStatus;
 }
 
